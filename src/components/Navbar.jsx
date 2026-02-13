@@ -17,7 +17,7 @@ const Navbar = ({ categories, activeCategory, onCategoryClick }) => {
       }
     }
   }, [activeCategory]);
-
+// hola)
   // 2. SCROLL SPY (Detector): Detectar qué sección se está viendo
   useEffect(() => {
     const handleScroll = () => {

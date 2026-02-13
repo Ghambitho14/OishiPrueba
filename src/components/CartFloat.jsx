@@ -43,6 +43,7 @@ const CartFloat = () => {
   }, [totalItems]);
 
   // Si no hay items, lo ocultamos o mostramos simple (opcional, aquí lo dejo visible siempre)
+  // hola)
   // if (!hasItems) return null; 
 
   return (

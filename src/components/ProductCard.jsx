@@ -16,7 +16,7 @@ const ProductCard = React.memo(({ product }) => {
 
   // Solo habilitar expansión si el texto es largo (> 60 caracteres)
   const isLongDesc = product.description?.length > 60;
-
+// hola)
   useEffect(() => {
     let timer;
     if (isExpanded) {

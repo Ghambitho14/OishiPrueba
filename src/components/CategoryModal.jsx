@@ -11,7 +11,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, saving = 
     order: 0,
     is_active: true
   });
-
+// hola)
   useEffect(() => {
     if (isOpen) {
       if (category) {

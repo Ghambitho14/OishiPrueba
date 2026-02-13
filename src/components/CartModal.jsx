@@ -14,7 +14,7 @@ const CartModal = React.memo(() => {
     addToCart, decreaseQuantity, removeFromCart, clearCart,
     cartTotal, getPrice, orderNote, setOrderNote 
   } = useCart();
-
+// hola)
   const navigate = useNavigate();
   const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&q=80&w=400';
 

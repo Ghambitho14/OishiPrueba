@@ -21,7 +21,7 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
   const [localFile, setLocalFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [errors, setErrors] = useState({});
-
+// hola)
   // Resetear formulario al abrir
   useEffect(() => {
     if (isOpen) {

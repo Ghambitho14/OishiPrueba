@@ -13,3 +13,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </CartProvider>
   </React.StrictMode>,
 )
+// 1. hola
