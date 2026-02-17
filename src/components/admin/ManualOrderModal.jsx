@@ -4,9 +4,9 @@ import {
     CreditCard, CheckCircle2, Store, Receipt, MessageCircle,
     Upload, FileText
 } from 'lucide-react';
-import { formatCurrency } from '../../shared/utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 import logo from '../../assets/logo.png';
-import { useManualOrder } from '../../features/admin/hooks/useManualOrder';
+import { useManualOrder } from '../../hooks/useManualOrder';
 import '../../styles/ManualOrderModal.css';
 
 const ManualOrderModal = ({ isOpen, onClose, products = [], onOrderSaved, showNotify }) => {

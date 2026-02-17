@@ -2,31 +2,37 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
   Package, DollarSign, Star, Trophy, PieChart,
-  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw
+  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, ArrowDownCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ProductModal from '../../products/components/ProductModal';
-import CategoryModal from '../../products/components/CategoryModal';
-import AdminSidebar from '../components/AdminSidebar';
-import AdminKanban from '../components/AdminKanban';
-import ManualOrderModal from '../components/ManualOrderModal';
-import InventoryCard from '../components/InventoryCard';
-import AdminHistoryTable from '../components/AdminHistoryTable';
-import AdminClientsTable from '../components/AdminClientsTable';
-import ClientDetailsPanel from '../components/ClientDetailsPanel';
-import { supabase } from '../../../services/supabase/client';
-import { uploadImage } from '../../../shared/utils/cloudinary';
-import CashManager from '../components/CashManager';
-import { useCashSystem } from '../hooks/useCashSystem';
-import '../../../styles/AdminLayout.css';
-import '../../../styles/AdminAnalytics.css';
-import '../../../styles/AdminShared.css';
-import '../../../styles/AdminCategories.css';
+import ProductModal from '../components/ProductModal';
+import CategoryModal from '../components/CategoryModal';
+import AdminSidebar from '../components/admin/AdminSidebar';
+import AdminKanban from '../components/admin/AdminKanban';
+import ManualOrderModal from '../components/admin/ManualOrderModal';
+import InventoryCard from '../components/admin/InventoryCard';
+import AdminHistoryTable from '../components/admin/AdminHistoryTable';
+import AdminClientsTable from '../components/admin/AdminClientsTable';
+import ClientDetailsPanel from '../components/admin/ClientDetailsPanel';
+import { supabase } from '../lib/supabase';
+import { uploadImage } from '../lib/cloudinary';
+import CashManager from '../components/admin/caja/CashManager';
+import { useCashSystem } from '../hooks/caja/useCashSystem';
+import '../styles/AdminLayout.css';
+import '../styles/AdminAnalytics.css';
+import '../styles/AdminShared.css';
+import '../styles/AdminCategories.css';
 
+// --- CONFIGURACIÓN ---
+const PAGE_SIZE = 50;
+const MAX_FILE_SIZE_MB = 5;
 
-// --- CAPA DE SANEAMIENTO (EL PORTERO) ---
+// --- CAPA DE SANEAMIENTO MEJORADA (DEFENSIVE CODING) ---
 const sanitizeOrder = (rawOrder) => {
+  if (!rawOrder) return null;
+  
   let cleanItems = [];
+  // Manejo robusto de JSON parse
   if (rawOrder.items) {
     if (Array.isArray(rawOrder.items)) {
       cleanItems = rawOrder.items;
@@ -34,11 +40,13 @@ const sanitizeOrder = (rawOrder) => {
       try {
         const parsed = JSON.parse(rawOrder.items);
         cleanItems = Array.isArray(parsed) ? parsed : [];
-      } catch {
+      } catch (e) {
+        console.warn(`Error parseando items orden ${rawOrder.id}`, e);
         cleanItems = [];
       }
     }
   }
+
   return {
     ...rawOrder,
     items: cleanItems,
@@ -47,8 +55,29 @@ const sanitizeOrder = (rawOrder) => {
     client_rut: rawOrder.client_rut || 'Sin RUT',
     client_phone: rawOrder.client_phone || '',
     status: rawOrder.status || 'pending',
-    created_at: rawOrder.created_at || new Date().toISOString()
+    created_at: rawOrder.created_at || new Date().toISOString(),
+    // Asegurar que payment_type exista para evitar undefined en filtros
+    payment_type: rawOrder.payment_type || 'unknown'
   };
+};
+
+// Validar imagen antes de subir (QA Requirement)
+const validateFile = (file) => {
+  if (!file) return { valid: false, msg: "No hay archivo" };
+  if (!file.type.startsWith('image/')) return { valid: false, msg: "Solo se permiten imágenes" };
+  if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) return { valid: false, msg: `Imagen muy pesada (Máx ${MAX_FILE_SIZE_MB}MB)` };
+  return { valid: true };
+};
+
+// Escapar CSV correctamente (RFC 4180)
+const escapeCsvCell = (cell) => {
+  if (cell == null) return '';
+  const str = String(cell);
+  // Si contiene comillas, comas o saltos de línea, envolver en comillas y duplicar comillas internas
+  if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
 };
 
 const Admin = () => {
@@ -61,21 +90,26 @@ const Admin = () => {
   const [orders, setOrders] = useState([]);
   const [clients, setClients] = useState([]);
 
+  // --- PAGINACIÓN Y CARGA ---
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
+  const [hasMoreOrders, setHasMoreOrders] = useState(true);
+  const [ordersPage, setOrdersPage] = useState(0);
+
   // --- ESTADOS DE INTERFAZ ---
   const [isHistoryView, setIsHistoryView] = useState(false);
   const [mobileTab, setMobileTab] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [notification, setNotification] = useState(null);
 
   // --- MODALES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [notification, setNotification] = useState(null);
 
   // --- MODALES COMPROBANTE Y PEDIDO MANUAL ---
   const [receiptModalOrder, setReceiptModalOrder] = useState(null);
@@ -98,7 +132,9 @@ const Admin = () => {
   const [dangerUserName, setDangerUserName] = useState('');
   const [dangerPassword, setDangerPassword] = useState('');
   const [dangerError, setDangerError] = useState(null);
+  const [isSubmittingDanger, setIsSubmittingDanger] = useState(false);
 
+  // Resize listener
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
     window.addEventListener('resize', handleResize);
@@ -110,43 +146,166 @@ const Admin = () => {
     setTimeout(() => setNotification(null), 3000);
   }, []);
 
-  // --- SISTEMA DE CAJA ---
+  // --- SISTEMA DE CAJA (HOOK) ---
   useCashSystem(showNotify);
 
-  // --- 1. CARGA DE DATOS ---
-  const loadData = useCallback(async (isRefresh = false) => {
+  // --- 1. CARGA DE DATOS OPTIMIZADA (Adiós select *) ---
+  
+  // Carga inicial: Categorías, Productos y Órdenes Recientes (Página 0)
+  const loadInitialData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const [catsRes, prodsRes, ordsRes, cltsRes] = await Promise.all([
+      // 1. Cargar configuración estática (Categorías y Productos)
+      const [catsRes, prodsRes] = await Promise.all([
         supabase.from('categories').select('*').order('order'),
-        supabase.from('products').select('*').order('name'),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('clients').select('*').order('last_order_at', { ascending: false })
+        supabase.from('products').select('*').order('name')
       ]);
 
       if (catsRes.error) throw catsRes.error;
       if (prodsRes.error) throw prodsRes.error;
-      if (ordsRes.error) throw ordsRes.error;
-      if (cltsRes.error) throw cltsRes.error;
-
-      const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
 
       setCategories(catsRes.data || []);
       setProducts(prodsRes.data || []);
+
+      // 2. Cargar Órdenes (Solo la primera página para inicio rápido)
+      // Range: 0 a 49 (50 items)
+      const { data: ordsData, error: ordsError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(0, PAGE_SIZE - 1);
+
+      if (ordsError) throw ordsError;
+
+      const cleanOrders = (ordsData || []).map(sanitizeOrder);
       setOrders(cleanOrders);
-      setClients(cltsRes.data || []);
+      setOrdersPage(1); // Lista para cargar la siguiente página
+      setHasMoreOrders(cleanOrders.length === PAGE_SIZE);
+
+      // 3. Cargar Clientes (Limitado para no explotar, usar búsqueda para el resto)
+      const { data: cltsData, error: cltsError } = await supabase
+        .from('clients')
+        .select('*')
+        .order('last_order_at', { ascending: false })
+        .limit(100); // Límite inicial de clientes
+
+      if (cltsError) throw cltsError;
+      setClients(cltsData || []);
 
     } catch (error) {
       console.error("Error cargando datos:", error);
-      showNotify("Error de conexión", 'error');
+      showNotify("Error de conexión al cargar datos", 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [showNotify]);
 
+  // Función para cargar más historial (Paginación)
+  const loadMoreOrders = async () => {
+    if (loadingMoreOrders || !hasMoreOrders) return;
+    setLoadingMoreOrders(true);
+
+    try {
+      const from = ordersPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      if (data.length > 0) {
+        const newOrders = data.map(sanitizeOrder);
+        // Evitar duplicados por si acaso
+        setOrders(prev => {
+          const existingIds = new Set(prev.map(o => o.id));
+          const filteredNew = newOrders.filter(o => !existingIds.has(o.id));
+          return [...prev, ...filteredNew];
+        });
+        setOrdersPage(prev => prev + 1);
+        if (data.length < PAGE_SIZE) setHasMoreOrders(false);
+      } else {
+        setHasMoreOrders(false);
+      }
+    } catch {
+      showNotify('Error cargando historial antiguo', 'error');
+    } finally {
+      setLoadingMoreOrders(false);
+    }
+  };
+
+  // --- 2. REALTIME OPTIMIZADO (Surgical Updates) ---
+  useEffect(() => {
+    loadInitialData();
+    
+    let channel = null;
+    let isMounted = true;
+    
+    const setupRealtime = async () => {
+      // Verificar sesión (Seguridad)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return; // No conectar si no hay sesión
+      
+      channel = supabase.channel('admin-realtime-v2')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders' 
+        }, (payload) => {
+          if (!isMounted) return;
+
+          // LOGICA QUIRÚRGICA: No recargar todo con loadInitialData()
+          if (payload.eventType === 'INSERT') {
+            const newOrder = sanitizeOrder(payload.new);
+            setOrders(prev => [newOrder, ...prev]);
+            showNotify(`Nuevo pedido de ${newOrder.client_name}`, 'success');
+          } 
+          else if (payload.eventType === 'UPDATE') {
+            const updatedOrder = sanitizeOrder(payload.new);
+            setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+          } 
+          else if (payload.eventType === 'DELETE') {
+             setOrders(prev => prev.filter(o => o.id !== payload.old.id));
+          }
+        })
+        .subscribe();
+    };
+    
+    setupRealtime();
+    
+    return () => { 
+      isMounted = false;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [loadInitialData, showNotify]);
+
+  // --- 3. GESTIÓN DE PEDIDOS (Optimistic UI) ---
+  const moveOrder = async (orderId, nextStatus) => {
+    // 1. Guardar estado anterior por si falla
+    const previousOrders = [...orders];
+    
+    // 2. Actualización optimista inmediata
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
+
+    try {
+      const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
+      if (error) throw error;
+      showNotify('Pedido actualizado');
+    } catch (error) {
+      // 3. Rollback si falla
+      setOrders(previousOrders);
+      showNotify("Error al sincronizar cambio", "error");
+      console.error(error);
+    }
+  };
+
+  // Carga de historial cliente (Bajo demanda)
   const loadClientHistory = async (client) => {
     if (!client) return;
     setClientHistoryLoading(true);
@@ -155,12 +314,12 @@ const Admin = () => {
         .from('orders')
         .select('*')
         .eq('client_id', client.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20); // Limitar historial en modal
 
       if (error) throw error;
       const cleanHistory = (data || []).map(sanitizeOrder);
       setSelectedClientOrders(cleanHistory);
-
     } catch {
       showNotify('Error al cargar historial', 'error');
     } finally {
@@ -173,98 +332,22 @@ const Admin = () => {
     loadClientHistory(client);
   };
 
-  useEffect(() => {
-    loadData();
-    
-    let channel = null;
-    let isMounted = true;
-    
-    const setupRealtime = async () => {
-      try {
-        // Verificar sesión antes de suscribirse
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          console.warn('No hay sesión activa, Realtime no se conectará');
-          return;
-        }
-        
-        channel = supabase.channel('admin-realtime', {
-          config: {
-            broadcast: { self: false },
-            presence: { key: '' }
-          }
-        })
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'orders' 
-          }, (payload) => {
-            if (isMounted) {
-              console.log('Cambio detectado en orders:', payload.eventType);
-              loadData(true);
-            }
-          })
-          .subscribe((status, err) => {
-            if (!isMounted) return;
-            
-            if (status === 'SUBSCRIBED') {
-              console.log('✅ Realtime conectado exitosamente');
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('❌ Error en canal Realtime:', err);
-            } else if (status === 'TIMED_OUT') {
-              console.warn('⏱️ Realtime timeout');
-            } else if (status === 'CLOSED') {
-              console.warn('🔌 Realtime cerrado');
-            }
-          });
-      } catch (error) {
-        console.error('Error configurando Realtime:', error);
-      }
-    };
-    
-    // Pequeño delay para asegurar que la sesión esté lista
-    const timeoutId = setTimeout(() => {
-      setupRealtime();
-    }, 500);
-    
-    return () => { 
-      clearTimeout(timeoutId);
-      isMounted = false;
-      if (channel) {
-        channel.unsubscribe().catch(() => {});
-        supabase.removeChannel(channel).catch(() => {});
-      }
-    };
-  }, [loadData]);
-
-  // --- 2. GESTIÓN DE PEDIDOS ---
-  const moveOrder = async (orderId, nextStatus) => {
-    const previousOrders = [...orders];
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
-
-    try {
-      const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
-      if (error) throw error;
-      
-      // Nota: No registramos venta aquí porque ya se registró en CartModal al crear la orden
-      // Admin solo cambia estado/kanban, la caja se actualiza desde CartModal
-
-      showNotify('Pedido actualizado');
-    } catch {
-      setOrders(previousOrders);
-      showNotify("Error al actualizar", "error");
-    }
-  };
-
+  // --- 4. SUBIDA DE COMPROBANTES ---
   const uploadReceiptToOrder = async (orderId, file) => {
-    if (!file) return;
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      showNotify(validation.msg, 'error');
+      return;
+    }
+
     setUploadingReceipt(true);
     try {
       const receiptUrl = await uploadImage(file, 'receipts');
-
+      
       const { error } = await supabase.from('orders').update({ payment_ref: receiptUrl }).eq('id', orderId);
       if (error) throw error;
 
+      // Actualizar estado local
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
       if (selectedClient) {
         setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
@@ -274,7 +357,7 @@ const Admin = () => {
       setReceiptModalOrder(null);
       setReceiptPreview(null);
     } catch (error) {
-      showNotify('Error al subir comprobante: ' + error.message, 'error');
+      showNotify('Error al subir: ' + error.message, 'error');
     } finally {
       setUploadingReceipt(false);
     }
@@ -283,13 +366,28 @@ const Admin = () => {
   const handleReceiptFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setReceiptPreview(URL.createObjectURL(file));
+      const validation = validateFile(file);
+      if (validation.valid) {
+        setReceiptPreview(URL.createObjectURL(file));
+      } else {
+        showNotify(validation.msg, 'error');
+        e.target.value = ''; // Reset input
+      }
     }
   };
 
-  // --- 3. GESTIÓN DE PRODUCTOS ---
+  // --- 5. GESTIÓN DE PRODUCTOS & CATEGORÍAS ---
   const handleSaveProduct = async (formData, localFile) => {
-    setRefreshing(true);
+    // Validar archivo si existe
+    if (localFile) {
+      const val = validateFile(localFile);
+      if (!val.valid) {
+        showNotify(val.msg, 'error');
+        return;
+      }
+    }
+
+    setRefreshing(true); // Loading ligero
     try {
       let finalImageUrl = formData.image_url;
       if (localFile) {
@@ -310,12 +408,16 @@ const Admin = () => {
       if (editingProduct) {
         await supabase.from('products').update(payload).eq('id', editingProduct.id);
         showNotify("Producto actualizado");
+        // Actualizar estado local sin recargar todo
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...payload, id: p.id } : p));
       } else {
-        await supabase.from('products').insert(payload);
+        const { data } = await supabase.from('products').insert(payload).select();
+        if (data && data[0]) {
+          setProducts(prev => [...prev, data[0]]);
+        }
         showNotify("Producto creado");
       }
       setIsModalOpen(false);
-      loadData(true);
     } catch (error) {
       showNotify("Error: " + error.message, 'error');
     } finally {
@@ -326,9 +428,10 @@ const Admin = () => {
   const deleteProduct = async (id) => {
     if (!window.confirm('¿Eliminar producto?')) return;
     try {
-      await supabase.from('products').delete().eq('id', id);
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      setProducts(prev => prev.filter(p => p.id !== id));
       showNotify("Producto eliminado");
-      loadData(true);
     } catch {
       showNotify("No se puede eliminar (tiene ventas asociadas)", 'error');
     }
@@ -337,12 +440,15 @@ const Admin = () => {
   const toggleProductActive = async (product, e) => {
     e.stopPropagation();
     const newActive = !product.is_active;
+    // UI Optimista
     setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_active: newActive } : p));
+    
     try {
       await supabase.from('products').update({ is_active: newActive }).eq('id', product.id);
       showNotify(newActive ? 'Producto activado' : 'Producto pausado');
     } catch {
-      loadData(true);
+      // Revertir
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_active: !newActive } : p));
       showNotify('Error al cambiar estado', 'error');
     }
   };
@@ -352,37 +458,50 @@ const Admin = () => {
       const payload = { name: formData.name, order: parseInt(formData.order), is_active: formData.is_active };
       if (editingCategory) {
         await supabase.from('categories').update(payload).eq('id', editingCategory.id);
+        // Actualizar local
+        setCategories(prev => prev.map(c => c.id === editingCategory.id ? { ...c, ...payload } : c));
       } else {
         const id = formData.name.toLowerCase().replace(/\s+/g, '-').slice(0, 20);
-        await supabase.from('categories').insert({ ...payload, id });
+        const { data } = await supabase.from('categories').insert({ ...payload, id }).select();
+        if (data) setCategories(prev => [...prev, data[0]]);
       }
       setIsCategoryModalOpen(false);
-      loadData(true);
       showNotify('Categoría guardada');
     } catch {
       showNotify('Error al guardar', 'error');
     }
   };
 
-  // --- 4. EXPORTACIÓN CSV ---
+  // --- 6. EXPORTACIÓN CSV ROBUSTA ---
   const handleExportMonthlyCsv = async () => {
     const [year, month] = analyticsDate.split('-');
-    const filteredOrders = orders.filter(o => {
-      const d = new Date(o.created_at);
-      return d.getFullYear() === parseInt(year) && d.getMonth() + 1 === parseInt(month);
-    });
+    
+    // Fetch específico para el reporte (no usar estado local incompleto)
+    showNotify("Generando reporte...", "info");
+    
+    const start = new Date(year, month - 1, 1).toISOString();
+    const end = new Date(year, month, 0, 23, 59, 59).toISOString();
+    
+    const { data: reportOrders, error } = await supabase
+      .from('orders')
+      .select('*')
+      .gte('created_at', start)
+      .lte('created_at', end)
+      .order('created_at');
 
-    if (filteredOrders.length === 0) {
-      showNotify("No hay datos para exportar", 'info');
+    if (error || !reportOrders || reportOrders.length === 0) {
+      showNotify("No hay datos o error al descargar", 'error');
       return;
     }
 
     const headers = ['Fecha', 'Hora', 'Cliente', 'RUT', 'Teléfono', 'Items', 'Total', 'Método Pago', 'Ref. Pago'];
     const lines = [headers.join(',')];
 
-    filteredOrders.forEach(order => {
+    reportOrders.forEach(raw => {
+      const order = sanitizeOrder(raw);
       const d = new Date(order.created_at);
       const itemsText = order.items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
+      
       const row = [
         d.toLocaleDateString('es-CL'),
         d.toLocaleTimeString('es-CL'),
@@ -394,8 +513,10 @@ const Admin = () => {
         order.payment_type || '',
         order.payment_ref || ''
       ];
-      const escaped = row.map(v => `"${String(v).replace(/"/g, '""')}"`);
-      lines.push(escaped.join(','));
+      
+      // Usar la función de escape robusta
+      const escapedRow = row.map(escapeCsvCell);
+      lines.push(escapedRow.join(','));
     });
 
     const csvContent = "\uFEFF" + lines.join('\r\n');
@@ -403,13 +524,14 @@ const Admin = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Cierre_${year}_${month}.csv`);
+    link.setAttribute('download', `Cierre_Oishi_${year}_${month}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showNotify('Reporte Excel generado', 'success');
+    showNotify('Reporte descargado', 'success');
   };
 
+  // --- 7. ZONA DE PELIGRO ---
   const executeDangerAction = async () => {
     const trimmedEmail = dangerUserName.trim();
     if (!trimmedEmail || !dangerPassword) {
@@ -418,18 +540,18 @@ const Admin = () => {
     }
 
     setDangerError(null);
-    setLoading(true);
+    setIsSubmittingDanger(true);
 
     try {
-      // Validar con Supabase Auth (re-autenticación)
+      // 1. Re-autenticación (Seguridad Crítica)
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: dangerPassword
       });
 
       if (authError) {
-        setDangerError('Credenciales de administrador inválidas');
-        setLoading(false);
+        setDangerError('Credenciales inválidas o sin permisos');
+        setIsSubmittingDanger(false);
         return;
       }
 
@@ -440,39 +562,37 @@ const Admin = () => {
         const start = new Date(year, month - 1, 1).toISOString();
         const end = new Date(year, month, 0, 23, 59, 59).toISOString();
 
-        // 1. Borrar movimientos de caja del mes para evitar error de FK
-        await supabase.from('cash_movements').delete()
-          .gte('created_at', start).lte('created_at', end);
-
-        // 2. Borrar las órdenes
-        const { error } = await supabase.from('orders').delete()
-          .gte('created_at', start).lte('created_at', end).select();
+        // Borrar movimientos caja primero (FK)
+        await supabase.from('cash_movements').delete().gte('created_at', start).lte('created_at', end);
+        // Borrar órdenes
+        const { error } = await supabase.from('orders').delete().gte('created_at', start).lte('created_at', end);
 
         if (error) throw error;
-        showNotify(`Registros del mes eliminados con éxito`, 'success');
+        // Limpiar estado local
+        setOrders(prev => prev.filter(o => {
+          const d = new Date(o.created_at);
+          return !(d.getFullYear() === parseInt(year) && d.getMonth() + 1 === parseInt(month));
+        }));
+        showNotify(`Registros del mes eliminados`, 'success');
 
       } else if (dangerAction === 'allClients') {
         const { count, error } = await supabase.from('clients').delete().neq('phone', '0000').select('*', { count: 'exact' });
         if (error) throw error;
-        showNotify(`Base de clientes purgada (${count} registros)`, 'success');
+        setClients([]); // Limpiar local
+        showNotify(`Clientes eliminados (${count})`, 'success');
       }
 
-      // Registro de auditoría (opcional, no bloquea)
-      try {
-        await supabase.from('audit_logs').insert({
-          actor_name: trimmedEmail,
-          action: dangerAction,
-          created_at: new Date().toISOString()
-        });
-      } catch {
-        console.warn('No se pudo guardar el log de auditoría');
-      }
+      // Audit Log
+      await supabase.from('audit_logs').insert({
+        actor_name: trimmedEmail,
+        action: dangerAction,
+        created_at: new Date().toISOString()
+      }).catch(err => console.warn('Audit fail', err));
 
-      loadData(true);
     } catch (e) {
-      showNotify(`Error: ${e.message}`, 'error');
+      showNotify(`Error crítico: ${e.message}`, 'error');
     } finally {
-      setLoading(false);
+      setIsSubmittingDanger(false);
     }
   };
 
@@ -484,9 +604,14 @@ const Admin = () => {
     setIsDangerModalOpen(true);
   };
 
-  // --- 6. ESTADÍSTICAS AVANZADAS ---
+  // --- 8. ESTADÍSTICAS (MEMOIZADAS) ---
   const analyticsData = useMemo(() => {
+    // Calculamos solo sobre las órdenes cargadas en memoria. 
+    // Nota: Para analíticas perfectas históricas, se debería hacer query al backend, 
+    // pero para MVP esto funciona con las órdenes recientes cargadas.
     if (!orders.length) return null;
+    
+    // Filtramos solo completadas para dinero real
     const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'picked_up');
     const totalIncome = validOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
 
@@ -507,7 +632,7 @@ const Admin = () => {
 
     const payments = { online: 0, tienda: 0 };
     validOrders.forEach(o => {
-      if (o.payment_type === 'online') payments.online++;
+      if (o.payment_type === 'online' || o.payment_type === 'transfer') payments.online++;
       else payments.tienda++;
     });
 
@@ -521,10 +646,12 @@ const Admin = () => {
     history: orders.filter(o => o.status === 'picked_up' || o.status === 'canceled')
   }), [orders]);
 
+
+  // --- RENDERIZADO ---
   if (loading && !refreshing && products.length === 0 && orders.length === 0) return (
     <div className="admin-layout flex-center" style={{ height: '100vh', background: '#0a0a0a', flexDirection: 'column', gap: 20 }}>
       <Loader2 className="animate-spin" size={60} color="#e63946" />
-      <h3 style={{ color: 'white' }}>Cargando Sistema...</h3>
+      <h3 style={{ color: 'white' }}>Cargando Sistema Oishi...</h3>
     </div>
   );
 
@@ -552,15 +679,15 @@ const Admin = () => {
         <header className="content-header">
           <h1>
             {activeTab === 'orders' ? (isHistoryView ? 'Historial' : 'Cocina en Vivo') :
-              activeTab === 'products' ? 'Inventario' :
-                activeTab === 'analytics' ? 'Rendimiento' :
-                  activeTab === 'clients' ? 'Clientes' :
-                    activeTab === 'caja' ? 'Caja y Turnos' :
-                      activeTab === 'settings' ? 'Herramientas' : 'Categorías'}
+             activeTab === 'products' ? 'Inventario' :
+             activeTab === 'analytics' ? 'Rendimiento' :
+             activeTab === 'clients' ? 'Clientes' :
+             activeTab === 'caja' ? 'Caja y Turnos' :
+             activeTab === 'settings' ? 'Herramientas' : 'Categorías'}
           </h1>
 
           <div className="header-actions">
-            <button onClick={() => loadData(true)} className="btn-icon-refresh" disabled={refreshing}>
+            <button onClick={() => loadInitialData(true)} className="btn-icon-refresh" disabled={refreshing} title="Recargar datos">
               <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
             </button>
             {activeTab === 'orders' && (
@@ -594,7 +721,22 @@ const Admin = () => {
               setReceiptModalOrder={setReceiptModalOrder}
             />
           ) : (
-            <AdminHistoryTable orders={kanbanColumns.history} />
+            <div className="history-view-container">
+              <AdminHistoryTable orders={kanbanColumns.history} />
+              {/* BOTÓN CARGAR MÁS (Paginación) */}
+              {hasMoreOrders && (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <button 
+                    onClick={loadMoreOrders} 
+                    className="btn btn-secondary glass" 
+                    disabled={loadingMoreOrders}
+                    style={{ minWidth: 200 }}
+                  >
+                    {loadingMoreOrders ? <Loader2 className="animate-spin" size={20} /> : <><ArrowDownCircle size={20} style={{marginRight:8}}/> Cargar más antiguos</>}
+                  </button>
+                </div>
+              )}
+            </div>
           )
         )}
 
@@ -640,14 +782,14 @@ const Admin = () => {
               <div className="kpi-card glass">
                 <div className="kpi-icon money"><DollarSign size={24} /></div>
                 <div>
-                  <h4>Ingresos Totales</h4>
+                  <h4>Ingresos (Visible)</h4>
                   <span className="kpi-value">${analyticsData.totalIncome.toLocaleString('es-CL')}</span>
                 </div>
               </div>
               <div className="kpi-card glass">
                 <div className="kpi-icon orders"><Package size={24} /></div>
                 <div>
-                  <h4>Pedidos Completados</h4>
+                  <h4>Pedidos (Visible)</h4>
                   <span className="kpi-value">{analyticsData.totalOrders}</span>
                 </div>
               </div>
@@ -692,7 +834,7 @@ const Admin = () => {
                 </div>
                 <div className="payment-stats">
                   <div className="pay-stat-row">
-                    <span>Transferencia</span>
+                    <span>Online/Transfer</span>
                     <div className="pay-bar">
                       <div className="pay-fill online" style={{ width: `${(analyticsData.payments.online / (analyticsData.totalOrders || 1)) * 100}%` }}></div>
                     </div>
@@ -746,7 +888,7 @@ const Admin = () => {
                 <h3 style={{ margin: 0 }}>Cierre Mensual</h3>
               </div>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20 }}>
-                Exporta tus ventas a Excel.
+                Descargar Excel completo del mes seleccionado.
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <input type="month" className="form-input" style={{ width: 'auto' }} value={analyticsDate} onChange={e => setAnalyticsDate(e.target.value)} />
@@ -762,7 +904,7 @@ const Admin = () => {
                 <h3 style={{ margin: 0 }}>Zona de Peligro</h3>
               </div>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20 }}>
-                Acciones irreversibles. Requiere clave.
+                Acciones irreversibles. Requiere re-autenticación.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button onClick={() => openDangerModal('monthlyOrders')} className="btn btn-secondary" style={{ borderColor: '#ff4444', color: '#ff4444', justifyContent: 'flex-start' }}>
@@ -786,7 +928,7 @@ const Admin = () => {
         setReceiptModalOrder={setReceiptModalOrder}
       />
 
-      {/* MODAL CLAVE */}
+      {/* MODAL CLAVE (DANGER ZONE) */}
       {isDangerModalOpen && (
         <div className="modal-overlay" onClick={() => setIsDangerModalOpen(false)}>
           <div className="admin-side-panel glass animate-slide-in" style={{ maxWidth: 350, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
@@ -822,17 +964,17 @@ const Admin = () => {
               <button 
                 className="btn btn-primary btn-block" 
                 onClick={executeDangerAction}
-                disabled={loading}
+                disabled={isSubmittingDanger}
                 style={{ background: '#ff4444', color: 'white', border: 'none' }}
               >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar y Borrar'}
+                {isSubmittingDanger ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar y Borrar'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL COMPROBANTE (EXISTENTE) */}
+      {/* MODAL COMPROBANTE */}
       {receiptModalOrder && (
         <div className="modal-overlay" onClick={() => { setReceiptModalOrder(null); setReceiptPreview(null); }}>
           <div className="admin-side-panel glass animate-slide-in" style={{ maxWidth: 450 }} onClick={e => e.stopPropagation()}>
@@ -851,14 +993,14 @@ const Admin = () => {
               )}
 
               <div className="form-group">
-                <label>Subir nuevo comprobante</label>
+                <label>Subir nuevo comprobante (Máx 5MB)</label>
                 <div className="upload-box" onClick={() => document.getElementById('receipt-upload-modal').click()} style={{ borderColor: receiptPreview ? '#25d366' : 'var(--card-border)' }}>
                   <input type="file" id="receipt-upload-modal" accept="image/*" hidden onChange={handleReceiptFileChange} />
                   {receiptPreview ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 15, justifyContent: 'center', position: 'relative' }}>
                       <img src={receiptPreview} alt="Preview" style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', border: '1px solid white' }} />
                       <div style={{ textAlign: 'left' }}>
-                        <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>Imagen Seleccionada</span>
+                        <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>Imagen Lista</span>
                         <span style={{ fontSize: '0.75rem', color: '#25d366' }}>Click para cambiar</span>
                         <button 
                           type="button" 
@@ -907,7 +1049,7 @@ const Admin = () => {
         isOpen={isManualOrderModalOpen}
         onClose={() => setIsManualOrderModalOpen(false)}
         products={products}
-        onOrderSaved={() => loadData(true)}
+        onOrderSaved={() => loadInitialData(true)}
         isMobile={isMobile}
         showNotify={showNotify}
       />

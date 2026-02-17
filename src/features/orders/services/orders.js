@@ -21,19 +21,7 @@ export const ordersService = {
             // 2. Lógica de Cliente (Upsert)
             const clientId = await this._ensureClient(orderData);
 
-            // 3. Obtener branch_id por defecto (si no se proporciona)
-            let branchId = orderData.branch_id;
-            if (!branchId) {
-                const { data: defaultBranch } = await supabase
-                    .from('branches')
-                    .select('id')
-                    .eq('is_active', true)
-                    .limit(1)
-                    .maybeSingle();
-                branchId = defaultBranch?.id || null;
-            }
-
-            // 4. Inserción del Pedido
+            // 3. Inserción del Pedido
             const { data: newOrder, error: orderError } = await supabase
                 .from('orders')
                 .insert({
@@ -47,7 +35,6 @@ export const ordersService = {
                     payment_ref: receiptUrl || orderData.payment_ref || (orderData.payment_type === 'online' ? '' : 'Pago Presencial'),
                     note: orderData.note,
                     status: orderData.status || 'pending',
-                    branch_id: branchId,
                     created_at: new Date().toISOString()
                 })
                 .select()

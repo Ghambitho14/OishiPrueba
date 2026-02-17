@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChefHat, ShoppingBag, BarChart3, Users, List, Settings, LogOut, DollarSign } from 'lucide-react';
-import logo from '../../../assets/logo.png';
-import '../../../styles/AdminSidebar.css';
+import logo from '../../assets/logo.png';
+import '../../styles/AdminSidebar.css';
 
 const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogout }) => {
     const pendingCount = kanbanColumns?.pending?.length || 0;
