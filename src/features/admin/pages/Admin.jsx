@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
   Package, DollarSign, Star, Trophy, PieChart,
-  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw
+  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ProductModal from '../../products/components/ProductModal';
@@ -12,7 +12,10 @@ import AdminKanban from '../components/AdminKanban';
 import ManualOrderModal from '../components/ManualOrderModal';
 import InventoryCard from '../components/InventoryCard';
 import AdminHistoryTable from '../components/AdminHistoryTable';
-import AdminClientsTable from '../components/AdminClientsTable';
+import AdminClients from '../components/AdminClients';
+import AdminInventory from '../components/AdminInventory';
+import AdminSettings from '../components/AdminSettings';
+import AdminAnalytics from '../components/AdminAnalytics';
 import ClientDetailsPanel from '../components/ClientDetailsPanel';
 import { supabase } from '../../../lib/supabase';
 import { uploadImage } from '../../../shared/utils/cloudinary';
@@ -485,34 +488,7 @@ const Admin = () => {
   };
 
   // --- 6. ESTADÍSTICAS AVANZADAS ---
-  const analyticsData = useMemo(() => {
-    if (!orders.length) return null;
-    const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'picked_up');
-    const totalIncome = validOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
 
-    const productCounts = {};
-    validOrders.forEach(order => {
-      if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-          if (!productCounts[item.name]) productCounts[item.name] = 0;
-          productCounts[item.name] += (item.quantity || 0);
-        });
-      }
-    });
-
-    const sortedProducts = Object.entries(productCounts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([name, count]) => ({ name, count }));
-
-    const payments = { online: 0, tienda: 0 };
-    validOrders.forEach(o => {
-      if (o.payment_type === 'online') payments.online++;
-      else payments.tienda++;
-    });
-
-    return { totalIncome, sortedProducts, payments, totalOrders: validOrders.length };
-  }, [orders]);
 
   const kanbanColumns = useMemo(() => ({
     pending: orders.filter(o => o.status === 'pending'),
@@ -633,90 +609,28 @@ const Admin = () => {
           </div>
         )}
 
+        {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
+        {activeTab === 'inventory' && (
+            <AdminInventory showNotify={showNotify} />
+        )}
+
         {/* 3. REPORTES */}
-        {activeTab === 'analytics' && analyticsData && (
-          <div className="analytics-view animate-fade">
-            <div className="kpi-grid">
-              <div className="kpi-card glass">
-                <div className="kpi-icon money"><DollarSign size={24} /></div>
-                <div>
-                  <h4>Ingresos Totales</h4>
-                  <span className="kpi-value">${analyticsData.totalIncome.toLocaleString('es-CL')}</span>
-                </div>
-              </div>
-              <div className="kpi-card glass">
-                <div className="kpi-icon orders"><Package size={24} /></div>
-                <div>
-                  <h4>Pedidos Completados</h4>
-                  <span className="kpi-value">{analyticsData.totalOrders}</span>
-                </div>
-              </div>
-              <div className="kpi-card glass">
-                <div className="kpi-icon star"><Star size={24} /></div>
-                <div>
-                  <h4>Ticket Promedio</h4>
-                  <span className="kpi-value">
-                    ${analyticsData.totalOrders ? Math.round(analyticsData.totalIncome / analyticsData.totalOrders).toLocaleString('es-CL') : 0}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="charts-grid">
-              <div className="chart-card glass">
-                <div className="chart-header">
-                  <Trophy size={20} color="#f4a261" />
-                  <h3>Platos Más Vendidos</h3>
-                </div>
-                <div className="top-products-list">
-                  {analyticsData.sortedProducts.map((p, idx) => (
-                    <div key={idx} className="top-product-item">
-                      <div className="rank-num">#{idx + 1}</div>
-                      <div className="rank-info">
-                        <div className="rank-name">{p.name}</div>
-                        <div className="rank-bar-bg">
-                          <div className="rank-bar-fill" style={{ width: `${analyticsData.sortedProducts[0]?.count ? (p.count / analyticsData.sortedProducts[0].count) * 100 : 0}%` }}></div>
-                        </div>
-                      </div>
-                      <div className="rank-count">{p.count}</div>
-                    </div>
-                  ))}
-                  {analyticsData.sortedProducts.length === 0 && <div className="empty-chart">Aún no hay ventas suficientes</div>}
-                </div>
-              </div>
-
-              <div className="chart-card glass">
-                <div className="chart-header">
-                  <PieChart size={20} color="#38bdf8" />
-                  <h3>Métodos de Pago</h3>
-                </div>
-                <div className="payment-stats">
-                  <div className="pay-stat-row">
-                    <span>Transferencia</span>
-                    <div className="pay-bar">
-                      <div className="pay-fill online" style={{ width: `${(analyticsData.payments.online / (analyticsData.totalOrders || 1)) * 100}%` }}></div>
-                    </div>
-                    <span>{analyticsData.payments.online}</span>
-                  </div>
-                  <div className="pay-stat-row">
-                    <span>Local (Efec/Tarj)</span>
-                    <div className="pay-bar">
-                      <div className="pay-fill store" style={{ width: `${(analyticsData.payments.tienda / (analyticsData.totalOrders || 1)) * 100}%` }}></div>
-                    </div>
-                    <span>{analyticsData.payments.tienda}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {activeTab === 'analytics' && (
+          <AdminAnalytics 
+            orders={orders} 
+            products={products} 
+            clients={clients} 
+          />
         )}
 
         {/* 4. CLIENTES */}
         {activeTab === 'clients' && (
-          <AdminClientsTable
-            clients={clients.filter(c => c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || c.rut?.includes(searchQuery))}
-            searchQuery={searchQuery}
-            handleSelectClient={handleSelectClient}
+          <AdminClients 
+            clients={clients}
+            orders={orders}
+            onSelectClient={handleSelectClient}
+            onClientCreated={() => loadData(true)}
+            showNotify={showNotify}
           />
         )}
 
@@ -739,40 +653,68 @@ const Admin = () => {
 
         {/* 6. HERRAMIENTAS */}
         {activeTab === 'settings' && (
-          <div className="settings-view animate-fade" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
-            <div className="glass" style={{ padding: 25, borderRadius: 16, border: '1px solid var(--accent-success)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 15 }}>
-                <FileText size={28} color="#25d366" />
-                <h3 style={{ margin: 0 }}>Cierre Mensual</h3>
-              </div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20 }}>
-                Exporta tus ventas a Excel.
-              </p>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <input type="month" className="form-input" style={{ width: 'auto' }} value={analyticsDate} onChange={e => setAnalyticsDate(e.target.value)} />
-                <button onClick={handleExportMonthlyCsv} className="btn btn-primary" style={{ background: '#25d366', color: 'black', flex: 1 }}>
-                  Descargar
-                </button>
-              </div>
-            </div>
+          <div className="settings-view animate-fade">
+             <AdminSettings showNotify={showNotify} />
 
-            <div className="glass" style={{ padding: 25, borderRadius: 16, border: '1px solid #ff4444' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 15 }}>
-                <Trash2 size={28} color="#ff4444" />
-                <h3 style={{ margin: 0 }}>Zona de Peligro</h3>
-              </div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20 }}>
-                Acciones irreversibles. Requiere clave.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button onClick={() => openDangerModal('monthlyOrders')} className="btn btn-secondary" style={{ borderColor: '#ff4444', color: '#ff4444', justifyContent: 'flex-start' }}>
-                  Borrar Ventas del Mes
-                </button>
-                <button onClick={() => openDangerModal('allClients')} className="btn btn-secondary" style={{ borderColor: '#ff4444', color: '#ff4444', justifyContent: 'flex-start' }}>
-                  Borrar Clientes
-                </button>
-              </div>
-            </div>
+             {/* ZONA DE PELIGRO (FUNCIONES AVANZADAS) */}
+             <div style={{ maxWidth: 900, margin: '40px auto', padding: 20 }}>
+                <h3 style={{ color: '#ef4444', marginBottom: 20, borderBottom: '1px solid #ef4444', paddingBottom: 10 }}>Zona de Peligro Administrativa</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
+                    
+                    {/* Cierre Mensual */}
+                    <div className="glass" style={{ padding: 25, borderRadius: 16, border: '1px solid var(--accent-success)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 15 }}>
+                        <FileText size={28} color="#25d366" />
+                        <h3 style={{ margin: 0 }}>Reporte Cierre Mensual</h3>
+                      </div>
+                      <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: 20 }}>
+                        Genera y descarga un Excel con todas las ventas del mes seleccionado.
+                      </p>
+                      <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
+                        <input 
+                            type="month" 
+                            className="form-input" 
+                            style={{ width: 'auto', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} 
+                            value={analyticsDate} 
+                            onChange={e => setAnalyticsDate(e.target.value)} 
+                        />
+                      </div>
+                      <button onClick={handleExportMonthlyCsv} className="btn-table-action" style={{ width: '100%', padding: 12, background: 'rgba(37, 211, 102, 0.2)', color: '#25d366', border: '1px solid #25d366' }}>
+                        Descargar Reporte Mes
+                      </button>
+                    </div>
+
+                    {/* Eliminar Mes */}
+                    <div className="glass" style={{ padding: 25, borderRadius: 16, border: '1px solid #ef4444' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 15 }}>
+                        <Trash2 size={28} color="#ef4444" />
+                        <h3 style={{ margin: 0 }}>Eliminar Ventas Mes</h3>
+                      </div>
+                      <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: 20 }}>
+                        Borra todas las órdenes y movimientos de caja del mes seleccionado ({analyticsDate}). 
+                        <br/><b style={{color: '#ef4444'}}>Acción irreversible.</b>
+                      </p>
+                      <button onClick={() => openDangerModal('monthlyOrders')} className="btn-table-action" style={{ width: '100%', padding: 12, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444' }}>
+                        Eliminar Datos Mes
+                      </button>
+                    </div>
+
+                     {/* Eliminar Clientes */}
+                     <div className="glass" style={{ padding: 25, borderRadius: 16, border: '1px solid #ef4444' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 15 }}>
+                        <Users size={28} color="#ef4444" />
+                        <h3 style={{ margin: 0 }}>Purgar Clientes</h3>
+                      </div>
+                      <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: 20 }}>
+                        Elimina todos los clientes de la base de datos excepto el genérico.
+                        <br/><b style={{color: '#ef4444'}}>Solo usar en desarrollo.</b>
+                      </p>
+                      <button onClick={() => openDangerModal('allClients')} className="btn-table-action" style={{ width: '100%', padding: 12, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444' }}>
+                        Borrar Todos los Clientes
+                      </button>
+                    </div>
+                </div>
+             </div>
           </div>
         )}
       </main>

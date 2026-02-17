@@ -6,9 +6,11 @@ import '../../styles/Home.css';
 import logo from '../../assets/logo.png';
 import BranchSelectorModal from './BranchSelectorModal'; // Asegurar ruta correcta
 import { branches } from '../data/branches';
+import { useBusiness } from '../../context/BusinessContext';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { businessInfo } = useBusiness();
   const [showModal, setShowModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // 'menu', 'whatsapp', 'instagram', 'location'
 
@@ -16,6 +18,23 @@ const Home = () => {
   const menuUrl = `${window.location.origin}/menu`;
 
   const handleActionClick = (action) => {
+    // Si hay datos en la configuración global, usar esos prioritariamente
+    if (action === 'whatsapp' && businessInfo.phone) {
+        const phone = businessInfo.phone.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}`, '_blank');
+        return;
+    }
+    if (action === 'instagram' && businessInfo.instagram) {
+        const user = businessInfo.instagram.replace('@', '');
+        window.open(`https://instagram.com/${user}`, '_blank');
+        return;
+    }
+    if (action === 'location' && businessInfo.address) {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(businessInfo.address)}`, '_blank');
+        return;
+    }
+
+    // Fallback: Si no hay info global configurada, usar el selector de sucursales
     setPendingAction(action);
     setShowModal(true);
   };
@@ -75,13 +94,19 @@ const Home = () => {
           <div className="ticket-main">
             <header className="home-header-centered">
               <div className="brand-container-centered">
-                <img src={logo} alt="Oishi Sushi Logo" className="home-logo-centered" />
+                <img src={logo} alt="Logo" className="home-logo-centered" />
                 <div className="brand-text-centered">
-                  <h1 className="text-gradient">OISHI</h1>
-                  <span className="brand-subtitle">SUSHI</span>
+                  <h1 className="text-gradient">
+                    {businessInfo.name ? businessInfo.name.toUpperCase() : 'OISHI'}
+                  </h1>
+                  <span className="brand-subtitle">
+                    {businessInfo.address ? 'MEJOR SABOR' : 'SUSHI'}
+                  </span>
                 </div>
               </div>
-              <p className="home-tagline">Sabor auténtico en cada pieza</p>
+              <p className="home-tagline">
+                  {businessInfo.schedule ? businessInfo.schedule.split('\n')[0] : 'Sabor auténtico en cada pieza'}
+              </p>
             </header>
 
             <nav className="home-nav-grid">

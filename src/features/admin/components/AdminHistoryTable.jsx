@@ -16,14 +16,14 @@ const AdminHistoryTable = ({ orders }) => {
                 <tbody>
                     {orders.map(o => (
                         <tr key={o.id}>
-                            <td>{new Date(o.created_at).toLocaleDateString()}</td>
-                            <td>{o.client_name}</td>
-                            <td>
+                            <td data-label="Fecha">{new Date(o.created_at).toLocaleDateString()}</td>
+                            <td data-label="Cliente">{o.client_name}</td>
+                            <td data-label="Estado">
                                 <span className={`status-pill ${o.status}`}>
                                     {o.status === 'picked_up' ? 'Entregado' : (o.status === 'cancelled' ? 'Cancelado' : 'Cancelado')}
                                 </span>
                             </td>
-                            <td>${o.total.toLocaleString('es-CL')}</td>
+                            <td data-label="Total">${o.total.toLocaleString('es-CL')}</td>
                         </tr>
                     ))}
                 </tbody>

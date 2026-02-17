@@ -484,7 +484,10 @@ const PaymentFlow = ({
   );
 };
 
+import { useBusiness } from '../../../context/BusinessContext';
+
 const BankInfo = ({ cartTotal }) => {
+  const { businessInfo } = useBusiness();
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     // Podrías añadir un toast aquí si quisieras
@@ -493,18 +496,33 @@ const BankInfo = ({ cartTotal }) => {
   return (
     <div className="bank-info glass">
       <h4>Datos para Transferir</h4>
-      <ul className="bank-details-list">
-        <li><span>Banco:</span> <b>Tenpo (Prepago)</b></li>
-        <li className="copy-row" onClick={() => copyToClipboard('111126281473')}>
-          <span>Cuenta:</span> <b>****281473</b> <Copy size={14} />
-        </li>
-        <li className="copy-row" onClick={() => copyToClipboard('26.281.473-4')}>
-          <span>RUT:</span> <b>26.281.***-*</b> <Copy size={14} />
-        </li>
-        <li className="copy-row" onClick={() => copyToClipboard('doranteegrimar@gmail.com')}>
-          <span>Email:</span> <b>doran...gmail.com</b> <Copy size={14} />
-        </li>
-      </ul>
+      {businessInfo.bank_details ? (
+          <div className="bank-details-text" style={{ whiteSpace: 'pre-wrap', marginBottom: 15, fontSize: '0.9rem', lineHeight: 1.6, color: '#e5e7eb', background: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 8 }}>
+            {businessInfo.bank_details}
+            <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                    onClick={() => copyToClipboard(businessInfo.bank_details)}
+                    className="btn-text"
+                    style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                    <Copy size={14} /> Copiar Todo
+                </button>
+            </div>
+          </div>
+      ) : (
+          <ul className="bank-details-list">
+            <li><span>Banco:</span> <b>Tenpo (Prepago)</b></li>
+            <li className="copy-row" onClick={() => copyToClipboard('111126281473')}>
+            <span>Cuenta:</span> <b>****281473</b> <Copy size={14} />
+            </li>
+            <li className="copy-row" onClick={() => copyToClipboard('26.281.473-4')}>
+            <span>RUT:</span> <b>26.281.***-*</b> <Copy size={14} />
+            </li>
+            <li className="copy-row" onClick={() => copyToClipboard('doranteegrimar@gmail.com')}>
+            <span>Email:</span> <b>doran...gmail.com</b> <Copy size={14} />
+            </li>
+        </ul>
+      )}
       <div className="pay-total">Total: ${cartTotal.toLocaleString('es-CL')}</div>
     </div>
   );

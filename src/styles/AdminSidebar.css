@@ -125,6 +125,62 @@
     box-shadow: 0 2px 5px rgba(230, 57, 70, 0.4);
 }
 
+/* --- GRUPOS DESPLEGABLES --- */
+.nav-group-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-group-header {
+    justify-content: space-between;
+    padding-right: 12px;
+}
+
+.nav-chevron {
+    transition: transform 0.3s ease;
+    opacity: 0.6;
+}
+
+.nav-chevron.expanded {
+    transform: rotate(180deg);
+}
+
+.nav-sub-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 14px; /* Indentación */
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.nav-sub-menu.expanded {
+    max-height: 300px; /* Suficiente para los items */
+    opacity: 1;
+    margin-bottom: 8px;
+}
+
+/* Ajuste items dentro de submenú */
+.nav-sub-menu .nav-item {
+    font-size: 0.9rem;
+    padding: 10px 14px;
+    border-left: 2px solid transparent; 
+    border-radius: 8px;
+}
+
+.nav-sub-menu .nav-item:hover {
+    background: rgba(255,255,255,0.03);
+    border-left-color: rgba(255,255,255,0.2);
+}
+
+.nav-sub-menu .nav-item.active {
+    background: rgba(230, 57, 70, 0.08);
+    border-left-color: var(--accent-primary);
+}
+
 /* --- LOGOUT --- */
 .logout {
     margin-top: 20px;
@@ -176,56 +232,95 @@
         display: none !important;
     }
 
-    /* Ajuste del menú horizontal */
+    /* Ajuste del menú horizontal con scroll (Slider) */
     .sidebar-menu {
         flex-direction: row;
-        justify-content: space-around; /* Iconos distribuidos */
+        justify-content: flex-start; /* Inicio izquierda */
         align-items: center;
-        gap: 0;
+        gap: 12px; /* Espacio fijo entre items */
         width: 100%;
-        overflow: visible;
+        overflow-x: auto; /* Scroll horizontal */
+        padding-right: 20px; /* Margen final para scroll */
+        -webkit-overflow-scrolling: touch; /* Suavidad iOS */
+        
+        /* Ocultar Scrollbar */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none;  /* IE */
+    }
+    
+    .sidebar-menu::-webkit-scrollbar { 
+        display: none; /* Chrome/Safari */
     }
 
-    /* Iconos táctiles más grandes */
+    /* Iconos táctiles más grandes y sin colapsar */
     .nav-item {
         width: auto;
-        padding: 10px;
+        padding: 10px 14px;
         border-radius: 12px;
         justify-content: center;
-        flex-direction: column; /* Preparado si quisieras poner texto pequeño abajo */
+        flex-direction: column; /* Icono arriba, texto abajo si hubiese */
+        flex-shrink: 0; /* Evitar que se aplasten */
+        min-width: 50px; /* Ancho mínimo táctil */
     }
 
-    .nav-item:hover {
-        transform: none;
-        background: transparent; /* Quitar hover en táctil para evitar "pegado" */
+    /* Ajuste para grupos desplegables en móvil: Mostrarlos inline? 
+       Si son grupos, el botón header está aquí.
+       Al hacer click, debería abrir un menú... Flotante?
+       En la implementación actual, los hijos se renderizan debajo.
+       En flex-row, "debajo" rompe el layout o expande la barra hacia arriba.
+    */
+    
+    .nav-group-wrapper {
+        display: flex;
+        flex-direction: row; /* Inline para slider */
+        align-items: center;
+        gap: 8px;
+        position: static; /* Quitar relative */
+        flex-shrink: 0;
     }
 
-    .nav-item.active {
-        background: transparent;
-        color: var(--accent-primary);
-        position: relative;
+    /* Cabecera del grupo (Botón) */
+    .nav-group-header {
+        padding-right: 14px; /* Espacio para chevron */
+    }
+
+    .nav-sub-menu {
+        position: static; /* Flujo normal */
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        padding-left: 0;
+        margin-bottom: 0;
+        
+        background: transparent; /* Fondo transparente para alinear */
+        border-radius: 0;
+        padding: 0;
+        
+        /* Animación de apertura horizontal */
+        overflow: hidden;
+        max-width: 0; 
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
     }
     
-    /* Punto indicador activo abajo en móvil */
-    .nav-item.active::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        width: 4px;
-        height: 4px;
-        background: var(--accent-primary);
-        border-radius: 50%;
-        box-shadow: 0 0 5px var(--accent-primary);
+    .nav-sub-menu.expanded {
+        max-width: 400px; /* Suficiente para mostrar items */
+        opacity: 1;
+        margin-right: 8px;
+        padding: 0 4px; /* Padding horizontal mínimo */
     }
-
-    /* Logout: En móvil lo convertimos en un ícono más o lo ocultamos si no cabe */
+    
+    /* Logout button alignment fix */
     .logout {
-        display: flex; /* Mostrar si quieres que salga el icono de salir */
-        margin: 0;
+        display: flex;
+        align-items: center;
+        margin-left: auto; 
         padding: 10px;
-        justify-content: center;
-        width: auto;
+        flex-shrink: 0;
     }
-    
+
     .logout span { display: none; } /* Ocultar texto "Salir" */
 }

@@ -192,13 +192,17 @@ function InnerApp() {
   );
 }
 
+import { BusinessProvider } from "./context/BusinessContext";
+
 function App() {
   return (
-    <CartProvider>
-      <Router>
-        <InnerApp />
-      </Router>
-    </CartProvider>
+    <BusinessProvider>
+      <CartProvider>
+        <Router>
+          <InnerApp />
+        </Router>
+      </CartProvider>
+    </BusinessProvider>
   );
 }
 
