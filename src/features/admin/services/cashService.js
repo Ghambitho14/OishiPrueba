@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 /**
  * Servicio para la gestión de Caja (Shifts y Movements)

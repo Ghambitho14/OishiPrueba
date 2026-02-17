@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../styles/AdminClientsTable.css';
+import '../../../styles/AdminClientsTable.css';
 
 const AdminClientsTable = ({ clients, handleSelectClient }) => {
     return (

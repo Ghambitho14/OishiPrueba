@@ -4,18 +4,18 @@ import {
     CreditCard, CheckCircle2, Store, Receipt, MessageCircle,
     Upload, FileText
 } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
-import logo from '../../assets/logo.png';
-import { useManualOrder } from '../../hooks/useManualOrder';
-import '../../styles/ManualOrderModal.css';
+import { formatCurrency } from '../../../shared/utils/formatters';
+import logo from '../../../assets/logo.png';
+import { useManualOrder } from '../hooks/useManualOrder';
+import '../../../styles/ManualOrderModal.css';
 
-const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify, isMobile }) => {
+const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify }) => {
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
         updateClientName, updateNote, updatePaymentType, handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
-        submitOrder, isValid, getInputStyle
+        submitOrder, getInputStyle
     } = useManualOrder(showNotify, onOrderSaved, onClose);
 
     const [searchQuery, setSearchQuery] = useState('');

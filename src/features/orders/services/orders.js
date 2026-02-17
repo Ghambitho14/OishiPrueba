@@ -1,4 +1,4 @@
-import { supabase } from '../../../services/supabase/client';
+import { supabase } from '../../../lib/supabase';
 import { uploadImage } from '../../../shared/utils/cloudinary';
 
 /**

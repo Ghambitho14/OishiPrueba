@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Loader2, Image as ImageIcon, Upload } from 'lucide-react';
-import '../../styles/AdminClientsTable.css';
+import '../../../styles/AdminClientsTable.css';
 
 const ClientDetailsPanel = ({
     selectedClient,
