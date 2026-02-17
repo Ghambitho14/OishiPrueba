@@ -1,56 +1,86 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import OrderCard from './OrderCard';
 import '../../../styles/AdminKanban.css';
 
 const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, setReceiptModalOrder }) => {
+
+    // 1. CONFIGURACIÓN CENTRALIZADA
+    // Aquí defines tus columnas. Si quieres agregar una, solo la pones aquí y listo.
+    const columnConfig = useMemo(() => [
+        { 
+            id: 'pending', 
+            title: 'ENTRANTES', 
+            shortTitle: 'Entrantes', // Para el botón móvil
+            dotClass: 'dot-orange', 
+            emptyMsg: 'Sin pedidos' 
+        },
+        { 
+            id: 'active', 
+            title: 'COCINANDO', 
+            shortTitle: 'Cocina', 
+            dotClass: 'dot-red', 
+            emptyMsg: 'Cocina libre' 
+        },
+        { 
+            id: 'completed', 
+            title: 'LISTOS', 
+            shortTitle: 'Listos', 
+            dotClass: 'dot-green', 
+            emptyMsg: 'Nada listo' 
+        }
+    ], []);
+
     return (
         <>
+            {/* 2. TABS MÓVILES GENERADOS DINÁMICAMENTE */}
             <div className="mobile-tabs">
-                <button onClick={() => setMobileTab('pending')} className={mobileTab === 'pending' ? 'active' : ''}>Entrantes ({columns.pending.length})</button>
-                <button onClick={() => setMobileTab('active')} className={mobileTab === 'active' ? 'active' : ''}>Cocina ({columns.active.length})</button>
-                <button onClick={() => setMobileTab('completed')} className={mobileTab === 'completed' ? 'active' : ''}>Listos ({columns.completed.length})</button>
+                {columnConfig.map(col => (
+                    <button
+                        key={col.id}
+                        onClick={() => setMobileTab(col.id)}
+                        className={mobileTab === col.id ? 'active' : ''}
+                    >
+                        {col.shortTitle} ({columns[col.id]?.length || 0})
+                    </button>
+                ))}
             </div>
 
+            {/* 3. TABLERO KANBAN GENERADO DINÁMICAMENTE */}
             <div className="kanban-board">
-                <div className={`kanban-column col-pending ${isMobile && mobileTab !== 'pending' ? 'hidden' : ''}`}>
-                    <div className="column-header"><span className="dot dot-orange"></span><h3>ENTRANTES</h3><span className="count">{columns.pending.length}</span></div>
-                    <div className="column-body">
-                        {columns.pending.length === 0 ? <div className="empty-zone">Sin pedidos</div> : columns.pending.map(o => (
-                            <OrderCard
-                                key={o.id}
-                                order={o}
-                                moveOrder={moveOrder}
-                                setReceiptModalOrder={setReceiptModalOrder}
-                            />
-                        ))}
-                    </div>
-                </div>
-                <div className={`kanban-column col-active ${isMobile && mobileTab !== 'active' ? 'hidden' : ''}`}>
-                    <div className="column-header"><span className="dot dot-red"></span><h3>COCINANDO</h3><span className="count">{columns.active.length}</span></div>
-                    <div className="column-body">
-                        {columns.active.length === 0 ? <div className="empty-zone">Cocina libre</div> : columns.active.map(o => (
-                            <OrderCard
-                                key={o.id}
-                                order={o}
-                                moveOrder={moveOrder}
-                                setReceiptModalOrder={setReceiptModalOrder}
-                            />
-                        ))}
-                    </div>
-                </div>
-                <div className={`kanban-column col-completed ${isMobile && mobileTab !== 'completed' ? 'hidden' : ''}`}>
-                    <div className="column-header"><span className="dot dot-green"></span><h3>LISTOS</h3><span className="count">{columns.completed.length}</span></div>
-                    <div className="column-body">
-                        {columns.completed.length === 0 ? <div className="empty-zone">Nada listo</div> : columns.completed.map(o => (
-                            <OrderCard
-                                key={o.id}
-                                order={o}
-                                moveOrder={moveOrder}
-                                setReceiptModalOrder={setReceiptModalOrder}
-                            />
-                        ))}
-                    </div>
-                </div>
+                {columnConfig.map((col) => {
+                    const ordersInColumn = columns[col.id] || [];
+                    const isHiddenOnMobile = isMobile && mobileTab !== col.id;
+
+                    return (
+                        <div 
+                            key={col.id} 
+                            className={`kanban-column col-${col.id} ${isHiddenOnMobile ? 'hidden' : ''}`}
+                        >
+                            {/* Header */}
+                            <div className="column-header">
+                                <span className={`dot ${col.dotClass}`}></span>
+                                <h3>{col.title}</h3>
+                                <span className="count">{ordersInColumn.length}</span>
+                            </div>
+
+                            {/* Body */}
+                            <div className="column-body">
+                                {ordersInColumn.length === 0 ? (
+                                    <div className="empty-zone">{col.emptyMsg}</div>
+                                ) : (
+                                    ordersInColumn.map(order => (
+                                        <OrderCard
+                                            key={order.id}
+                                            order={order}
+                                            moveOrder={moveOrder}
+                                            setReceiptModalOrder={setReceiptModalOrder}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </>
     );

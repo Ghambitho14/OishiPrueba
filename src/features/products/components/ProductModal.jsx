@@ -1,101 +1,100 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Upload, Image as ImageIcon, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Save, Upload, Image as ImageIcon, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import '../../../styles/Modals.css';
 import '../../../styles/ProductModal.css';
+
+const INITIAL_STATE = {
+  name: '',
+  price: '',
+  description: '',
+  category_id: '',
+  is_special: false,
+  has_discount: false,
+  discount_price: '',
+  image_url: ''
+};
 
 const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories, saving = false }) => {
   const fileInputRef = useRef();
   const nameInputRef = useRef();
 
-  const [isDirty, setIsDirty] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    price: '',
-    description: '',
-    category_id: '',
-    is_special: false,
-    has_discount: false,
-    discount_price: '',
-    image_url: ''
-  });
+  const [formData, setFormData] = useState(INITIAL_STATE);
   const [localFile, setLocalFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  
+  const [isDirty, setIsDirty] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // --- 1. GESTIÓN DE APERTURA / CIERRE ---
   useEffect(() => {
     if (isOpen) {
-      queueMicrotask(() => {
-        if (product) {
-          setFormData({
-            name: product.name || '',
-            price: product.price || '',
-            description: product.description || '',
-            category_id: product.category_id || categories[0]?.id || '',
-            is_special: product.is_special || false,
-            has_discount: product.has_discount || false,
-            discount_price: product.discount_price || '',
-            image_url: product.image_url || ''
-          });
-          setPreviewUrl(product.image_url || '');
-        } else {
-          setFormData({
-            name: '',
-            price: '',
-            description: '',
-            category_id: categories[0]?.id || '',
-            is_special: false,
-            has_discount: false,
-            discount_price: '',
-            image_url: ''
-          });
-          setPreviewUrl('');
-        }
-        setLocalFile(null);
-        setErrors({});
-        setIsDirty(false);
+      if (product) {
+        setFormData({
+          name: product.name || '',
+          price: product.price || '',
+          description: product.description || '',
+          category_id: product.category_id || (categories[0]?.id || ''),
+          is_special: product.is_special || false,
+          has_discount: product.has_discount || false,
+          discount_price: product.discount_price || '',
+          image_url: product.image_url || ''
+        });
+        setPreviewUrl(product.image_url || '');
+      } else {
+        setFormData({ ...INITIAL_STATE, category_id: categories[0]?.id || '' });
+        setPreviewUrl('');
+      }
+      setLocalFile(null);
+      setErrors({});
+      setIsDirty(false);
 
-        setTimeout(() => {
-          if (nameInputRef.current) nameInputRef.current.focus();
-        }, 100);
-      });
+      // Auto-foco accesible
+      setTimeout(() => nameInputRef.current?.focus(), 100);
     }
   }, [isOpen, product, categories]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleSafeClose = () => {
-      if (isDirty && !saving) {
-        if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
-          onClose();
-        }
-      } else {
+  // Lógica centralizada de cierre seguro
+  const handleSafeClose = useCallback(() => {
+    if (isDirty && !saving) {
+      if (window.confirm('Tienes cambios sin guardar. ¿Descartar y cerrar?')) {
         onClose();
       }
-    };
+    } else {
+      onClose();
+    }
+  }, [isDirty, saving, onClose]);
 
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') handleSafeClose();
-    };
-    window.addEventListener('keydown', handleEsc);
+  // Cerrar con ESC
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') handleSafeClose(); };
+    if (isOpen) window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [isOpen, isDirty, saving, onClose]);
+  }, [isOpen, handleSafeClose]);
 
   if (!isOpen) return null;
 
+  // --- 2. MANEJADORES DE FORMULARIO ---
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Limpiar error específico si el usuario escribe
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
     setIsDirty(true);
   };
 
+  // --- 3. GESTIÓN DE ARCHIVOS ---
   const processFile = (file) => {
     if (file && file.type.startsWith('image/')) {
+      // Validar tamaño (opcional, ej: 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("La imagen es muy pesada (Máx 5MB)");
+        return;
+      }
       setLocalFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setIsDirty(true);
@@ -103,17 +102,46 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
   };
 
   const handleFileChange = (e) => processFile(e.target.files[0]);
-  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
-  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
-  const handleDrop = (e) => { e.preventDefault(); setIsDragging(false); processFile(e.dataTransfer.files[0]); };
-  const handleUploadClick = () => fileInputRef.current.click();
+  
+  const handleDragEvents = (e, dragging) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(dragging);
+  };
 
+  const handleDrop = (e) => {
+    handleDragEvents(e, false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const clearImage = (e) => {
+    e.stopPropagation();
+    if (window.confirm('¿Eliminar la imagen actual?')) {
+      setLocalFile(null);
+      setPreviewUrl('');
+      setFormData(prev => ({ ...prev, image_url: '' }));
+      setIsDirty(true);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // --- 4. VALIDACIÓN Y ENVÍO ---
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'El nombre es obligatorio';
-    if (!formData.price || isNaN(formData.price) || formData.price <= 0) newErrors.price = 'Precio inválido';
-    if (!formData.category_id) newErrors.category_id = 'Selecciona una categoría';
-    if (!formData.description.trim()) newErrors.description = 'La descripción es obligatoria';
+    if (!formData.name.trim()) newErrors.name = 'Nombre requerido';
+    if (!formData.price || Number(formData.price) <= 0) newErrors.price = 'Precio inválido';
+    if (!formData.category_id) newErrors.category_id = 'Categoría requerida';
+    
+    if (formData.has_discount) {
+      if (!formData.discount_price || Number(formData.discount_price) <= 0) {
+        newErrors.discount_price = 'Precio oferta inválido';
+      } else if (Number(formData.discount_price) >= Number(formData.price)) {
+        newErrors.discount_price = 'Debe ser menor al precio normal';
+      }
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -125,234 +153,182 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
   };
 
   return (
-    <div className="modal-overlay" onClick={() => {
-      if (isDirty && !saving) {
-        if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
-          onClose();
-        }
-      } else {
-        onClose();
-      }
-    }} role="dialog" aria-modal="true">
+    <div className="modal-overlay" onClick={handleSafeClose} role="dialog" aria-modal="true">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
+        
+        {/* HEADER */}
         <header className="modal-header">
-          <h3 className="fw-700">{product ? 'Editar Producto' : 'Nuevo Producto'}</h3>
-          <button onClick={() => {
-            if (isDirty && !saving) {
-              if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
-                onClose();
-              }
-            } else {
-              onClose();
-            }
-          }} className="btn-close" aria-label="Cerrar modal">
+          <div>
+            <h3 className="fw-700">{product ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+            <p className="modal-subtitle">{product ? 'Modifica los detalles del plato' : 'Agrega un nuevo plato al menú'}</p>
+          </div>
+          <button onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
             <X size={24} />
           </button>
         </header>
 
         <form onSubmit={handleSubmit} autoComplete="off">
-          <div className="modal-form">
-
-            {/* ZONA DE DRAG & DROP PARA IMAGEN */}
-            <div
-              className="product-image-section"
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
+          <div className="modal-form-scroll">
+            
+            {/* SECCIÓN IMAGEN (DRAG & DROP MEJORADO) */}
+            <div 
+              className={`product-image-section ${isDragging ? 'dragging' : ''} ${errors.image ? 'error-border' : ''}`}
+              onDragOver={e => handleDragEvents(e, true)}
+              onDragLeave={e => handleDragEvents(e, false)}
               onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
             >
-              <div
-                className={`upload-dropzone ${isDragging ? 'dragging' : ''}`}
-                onClick={handleUploadClick}
-              >
-                {previewUrl ? (
-                  <img src={previewUrl} alt="preview" />
-                ) : (
-                  <div className="dropzone-hint">
-                    <ImageIcon size={32} />
-                    <span>Arrastra aquí</span>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-xs"
-                  onClick={handleUploadClick}
-                >
-                  <Upload size={14} style={{ marginRight: 4 }} /> Seleccionar foto
-                </button>
-
-                {previewUrl && (
-                  <button
-                    type="button"
-                    className="btn btn-danger-xs"
-                    style={{ padding: '0 12px', height: '32px' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm('¿Eliminar la imagen actual?')) {
-                        setLocalFile(null);
-                        setPreviewUrl('');
-                        setFormData(prev => ({ ...prev, image_url: '' }));
-                        setIsDirty(true);
-                      }
-                    }}
-                  >
-                    Borrar Imagen
-                  </button>
-                )}
-              </div>
-
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*" 
+                className="hidden" 
+                style={{display:'none'}} 
               />
-
-              {localFile && (
-                <div className="file-info">
-                  <span>Listo para subir: {localFile.name}</span>
-                  <button
-                    type="button"
-                    className="btn-danger-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLocalFile(null);
-                      setPreviewUrl(formData.image_url);
-                      setIsDirty(true);
-                    }}
-                  >
-                    Quitar
-                  </button>
+              
+              {previewUrl ? (
+                <div className="image-preview-container">
+                  <img src={previewUrl} alt="Preview" className="image-preview" />
+                  <div className="image-overlay">
+                    <button type="button" className="btn-icon-overlay" onClick={clearImage} title="Eliminar imagen">
+                      <Trash2 size={18} />
+                    </button>
+                    <span className="overlay-text">Click para cambiar</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="dropzone-placeholder">
+                  <div className="icon-circle">
+                    <ImageIcon size={28} />
+                  </div>
+                  <p className="drop-text">Arrastra una imagen o <span>haz click aquí</span></p>
+                  <p className="drop-hint">JPG, PNG, WEBP (Máx 5MB)</p>
                 </div>
               )}
             </div>
 
-            {/* Nombre */}
+            {/* CAMPOS PRINCIPALES */}
             <div className="form-group">
-              <label>Nombre del Plato</label>
+              <label>Nombre del Plato <span className="req">*</span></label>
               <input
                 ref={nameInputRef}
                 className={`form-input ${errors.name ? 'error' : ''}`}
-                type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="Ej: Roll Acevichado"
-                required
+                placeholder="Ej: Roll Acevichado Premium"
               />
               {errors.name && <span className="error-text">{errors.name}</span>}
             </div>
 
-            {/* Precio y Categoría */}
-            <div className="form-row">
+            <div className="form-row two-col">
               <div className="form-group">
-                <label>Precio ($)</label>
+                <label>Precio Normal ($) <span className="req">*</span></label>
                 <input
-                  className={`form-input ${errors.price ? 'error' : ''}`}
                   type="number"
+                  className={`form-input ${errors.price ? 'error' : ''}`}
                   name="price"
                   value={formData.price}
                   onChange={handleChange}
-                  placeholder="6000"
-                  required
+                  placeholder="0"
+                  min="0"
                 />
+                {errors.price && <span className="error-text">{errors.price}</span>}
               </div>
+
               <div className="form-group">
-                <label>Categoría</label>
+                <label>Categoría <span className="req">*</span></label>
                 <select
                   className={`form-input ${errors.category_id ? 'error' : ''}`}
                   name="category_id"
                   value={formData.category_id}
                   onChange={handleChange}
-                  required
                 >
-                  <option value="">Selecciona...</option>
+                  <option value="" disabled>Selecciona...</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+                {errors.category_id && <span className="error-text">{errors.category_id}</span>}
               </div>
             </div>
 
-            {/* Descripción */}
             <div className="form-group">
               <label>Descripción</label>
               <textarea
-                className={`form-input ${errors.description ? 'error' : ''}`}
+                className="form-input"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows="3"
-                placeholder="Ingredientes, detalles..."
-                required
-              ></textarea>
+                placeholder="Ingredientes, alérgenos, detalles..."
+              />
             </div>
 
-            {/* Switch especial y Descuento */}
-            <div className="special-switches-grid">
-              <label className="special-switch" htmlFor="is_special_switch">
-                <input
-                  id="is_special_switch"
-                  type="checkbox"
-                  name="is_special"
-                  checked={formData.is_special}
-                  onChange={handleChange}
-                  className="hidden"
-                  style={{ display: 'none' }}
+            {/* SWITCHES MODERNOS */}
+            <div className="switches-container">
+              
+              {/* Switch Especial */}
+              <label className={`custom-switch ${formData.is_special ? 'active' : ''}`}>
+                <input 
+                  type="checkbox" 
+                  name="is_special" 
+                  checked={formData.is_special} 
+                  onChange={handleChange} 
                 />
-                <div className="switch-toggle"></div>
-                <span className="switch-label">Destacar Especial</span>
+                <span className="slider"></span>
+                <div className="switch-content">
+                  <span className="switch-title">Destacar como Especial</span>
+                  <span className="switch-desc">Aparecerá con una estrella en el menú</span>
+                </div>
               </label>
 
-              <label className="special-switch" htmlFor="has_discount_switch">
-                <input
-                  id="has_discount_switch"
-                  type="checkbox"
-                  name="has_discount"
-                  checked={formData.has_discount}
-                  onChange={handleChange}
-                  className="hidden"
-                  style={{ display: 'none' }}
+              {/* Switch Descuento */}
+              <label className={`custom-switch ${formData.has_discount ? 'active-green' : ''}`}>
+                <input 
+                  type="checkbox" 
+                  name="has_discount" 
+                  checked={formData.has_discount} 
+                  onChange={handleChange} 
                 />
-                <div className="switch-toggle toggle-discount"></div>
-                <span className="switch-label">Activar Descuento</span>
+                <span className="slider"></span>
+                <div className="switch-content">
+                  <span className="switch-title">Activar Oferta</span>
+                  <span className="switch-desc">Mostrará un precio rebajado</span>
+                </div>
               </label>
             </div>
 
+            {/* INPUT CONDICIONAL DE DESCUENTO CON ANIMACIÓN */}
             {formData.has_discount && (
-              <div className="form-group animate-fade-in" style={{ marginTop: '10px' }}>
-                <label>Precio con Descuento ($)</label>
-                <input
-                  className={`form-input ${errors.discount_price ? 'error' : ''}`}
-                  type="number"
-                  name="discount_price"
-                  value={formData.discount_price}
-                  onChange={handleChange}
-                  placeholder="Ej: 5000"
-                  required
-                />
+              <div className="form-group animate-slide-down">
+                <label className="text-success">Precio Oferta ($) <span className="req">*</span></label>
+                <div className="input-with-icon">
+                  <DollarSign size={16} className="input-icon" />
+                  <input
+                    type="number"
+                    className={`form-input ${errors.discount_price ? 'error' : ''}`}
+                    name="discount_price"
+                    value={formData.discount_price}
+                    onChange={handleChange}
+                    placeholder="Debe ser menor al precio normal"
+                  />
+                </div>
                 {errors.discount_price && <span className="error-text">{errors.discount_price}</span>}
               </div>
             )}
+
           </div>
 
+          {/* FOOTER */}
           <footer className="modal-footer">
-            <button type="button" onClick={() => {
-              if (isDirty && !saving) {
-                if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
-                  onClose();
-                }
-              } else {
-                onClose();
-              }
-            }} className="btn btn-secondary" disabled={saving}>Cancelar</button>
+            <button type="button" onClick={handleSafeClose} className="btn btn-secondary" disabled={saving}>
+              Cancelar
+            </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-              <span>{saving ? 'Guardando...' : 'Guardar'}</span>
+              <span>{saving ? 'Guardando...' : 'Guardar Producto'}</span>
             </button>
           </footer>
         </form>
@@ -360,5 +336,10 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
     </div>
   );
 });
+
+// Icono auxiliar para input descuento (si no lo tienes importado arriba)
+const DollarSign = ({ size, className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+);
 
 export default ProductModal;
