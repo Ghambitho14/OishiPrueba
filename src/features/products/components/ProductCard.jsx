@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, ChevronDown, X } from 'lucide-react';
-import { useCart } from '../features/cart/hooks/useCart';
-import '../styles/ProductCard.css';
+import { useCart } from '../../cart/hooks/useCart';
+import '../../../styles/ProductCard.css';
 
 const ProductCard = React.memo(({ product }) => {
   const { cart, addToCart, decreaseQuantity } = useCart();
@@ -77,28 +77,28 @@ const ProductCard = React.memo(({ product }) => {
 
       <div className="product-info">
         <div className="info-content-wrapper">
+          {!isExpanded ? (
             <>
               <h3 className="product-name">{product.name}</h3>
               <p className="product-desc-clamped">{product.description}</p>
-              
-              {isExpanded && (
-                <div className="product-desc-scrollable animate-in-fade">
-                  <div className="desc-header">
-                    <span>Detalles</span>
-                    <button onClick={(e) => { e.stopPropagation(); setIsExpanded(false) }} className="btn-icon-sm">
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <div className="scroll-area">
-                    <p>{product.description}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="info-hint" style={{ display: (isLongDesc && !isExpanded) ? 'flex' : 'none' }}>
-                <ChevronDown size={14} /> Ver detalles
-              </div>
             </>
+          ) : (
+            <div className="product-desc-scrollable animate-in-fade">
+              <div className="desc-header">
+                <span>Detalles</span>
+                <button onClick={(e) => { e.stopPropagation(); setIsExpanded(false) }} className="btn-icon-sm">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="scroll-area">
+                <p>{product.description}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="info-hint" style={{ display: (isLongDesc && !isExpanded) ? 'flex' : 'none' }}>
+          <ChevronDown size={14} /> Ver detalles
         </div>
 
         <div className="product-footer">

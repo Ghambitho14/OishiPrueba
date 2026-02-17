@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { CartProvider } from "./context/CartContext";
-
-// Páginas
-import Home from "./pages/Home";
-import Menu from "./pages/Menu";
-import Admin from "./pages/Admin";
-import Login from "./pages/Login";
+import { BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
+import { routes } from "../router";
 
 // Assets
-import menuPattern from "./assets/menu-pattern.webp";
+import menuPattern from "../../assets/menu-pattern.webp";
 
-// Componentes Globales
-import ProtectedRoute from "./components/ProtectedRoute";
-import CartFloat from "./components/CartFloat";
-import CartModal from "./components/CartModal";
+// Cart Components
+import CartFloat from "../../features/cart/components/CartFloat";
+import CartModal from "../../features/cart/components/CartModal";
 
 // Componente Interno que maneja la lógica Anti-Zoom y UI Global con contexto de Router
 function InnerApp() {
@@ -44,7 +37,6 @@ function InnerApp() {
 
       // RESTAURAMOS LA GUARDIA: No aplicar zoom forzado en Móviles ni iPads
       // Estos dispositivos ya manejan su propio escalado de forma óptima
-      // [FIX] Simplificado: Si NO es móvil (touch), aplicamos el bloqueo FUERTE
       if (!isIPad && !isTouchDevice) { 
         const dpr = window.devicePixelRatio || 1;
         const inverseScale = 1 / dpr;
@@ -111,44 +103,29 @@ function InnerApp() {
 
     window.addEventListener('resize', handleVisualLock);
     handleVisualLock();
-    // Re-aplicar al cambiar de ruta para asegurar consistencia
+
     return () => window.removeEventListener('resize', handleVisualLock);
-  }, [location.pathname]); // [FIX] Seguir cambios de ruta
+  }, []);
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: '100%', background: '#0a0a0a' }}>
-      {/* CAPA DE FONDO MAESTRA (Dinámica según ruta) */}
+    <div style={{ position: 'relative', width: '100%', minHeight: '100vh', background: '#0a0a0a' }}>
+      {/* CAPA DE FONDO MAESTRA CON PARALLAX */}
       <div 
         className="app-bg-layer" 
-        style={
-          location.pathname === '/' 
-            ? {
-                position: 'fixed',
-                inset: 0,
-                zIndex: 0,
-                backgroundImage: 'url("https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&q=80&w=1000")',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                opacity: 1,
-                filter: 'none', // Sin blur en Home para nitidez
-                transform: 'none', // Sin parallax en Home para estabilidad
-                pointerEvents: 'none'
-              }
-            : { 
-                position: 'fixed',
-                inset: '-50% -20%', 
-                zIndex: 0,
-                backgroundImage: `url(${menuPattern})`,
-                backgroundRepeat: 'repeat',
-                backgroundSize: '1200px', 
-                opacity: 0.5,
-                filter: 'brightness(0.18) blur(3px)',
-                transform: `translateY(${-scrollY * 0.1}px)`,
-                transition: 'transform 0.1s ease-out',
-                pointerEvents: 'none',
-                willChange: 'transform'
-              }
-        }
+        style={{ 
+          position: 'fixed',
+          inset: '-50% -20%', 
+          zIndex: 0,
+          backgroundImage: `url(${menuPattern})`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '1200px', 
+          opacity: 0.5,
+          filter: 'brightness(0.18) blur(3px)',
+          transform: `translateY(${-scrollY * 0.1}px)`,
+          transition: 'transform 0.1s ease-out',
+          pointerEvents: 'none',
+          willChange: 'transform'
+        }}
       ></div>
 
       {/* Capa de Contenido Principal (Scrollable) */}
@@ -161,21 +138,7 @@ function InnerApp() {
           background: 'transparent' 
         }}
       >
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/menu" element={<Menu />} />
-          <Route path="/login" element={<Login />} />
-
-          {/* Ruta Protegida para Admin */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <Admin />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+        <Routes>{routes}</Routes>
       </div>
 
       {/* Capa de UI Flotante */}
@@ -194,11 +157,9 @@ function InnerApp() {
 
 function App() {
   return (
-    <CartProvider>
-      <Router>
-        <InnerApp />
-      </Router>
-    </CartProvider>
+    <Router>
+      <InnerApp />
+    </Router>
   );
 }
 
