@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Navbar from '../../../shared/components/Navbar';
 import ProductCard from '../components/ProductCard';
-import { Search, ChevronLeft, Loader2 } from 'lucide-react';
+import { Search, ChevronLeft, Loader2, X } from 'lucide-react';
 import '../../../styles/Menu.css';
+import '../../../styles/Navbar.css';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../services/supabase/client';
 import logo from '../../../assets/logo.png';
@@ -16,9 +17,10 @@ const Menu = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
-  
-  // Branch selection state - Muestra modal cada vez que entras al menú
-  const [showBranchModal, setShowBranchModal] = useState(true); // Siempre mostrar al entrar
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const searchInputRef = useRef(null);
+  const [showBranchModal, setShowBranchModal] = useState(true);
 
   const handleBranchSelect = (branch) => {
       localStorage.setItem('selectedBranch', JSON.stringify(branch));
@@ -197,6 +199,10 @@ const Menu = () => {
   }
 
   const specialProducts = products.filter(p => p.is_special);
+  const query = (searchQuery || '').trim().toLowerCase();
+  const filteredBySearch = query
+    ? products.filter(p => p.name?.toLowerCase().includes(query))
+    : [];
 
   return (
     <div className="page-wrapper">
@@ -218,8 +224,39 @@ const Menu = () => {
                 <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
               </div>
             </div>
-            {/* Espaciador para mantener layout donde estaba el buscador */}
-            <div style={{ width: 24, height: 24 }}></div>
+            <div className="nav-search-section">
+              <div
+                className={`search-pill-wrapper ${searchExpanded ? 'expanded' : ''}`}
+                onClick={() => {
+                  if (!searchExpanded) {
+                    setSearchExpanded(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 150);
+                  }
+                }}
+              >
+                <Search size={20} className="search-icon-pill" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  className="search-input-pill"
+                  placeholder="Buscar plato..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onBlur={() => { if (!searchQuery?.trim()) setSearchExpanded(false); }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {searchExpanded && (
+                  <button
+                    type="button"
+                    className="btn-close-pill"
+                    onClick={(e) => { e.stopPropagation(); setSearchExpanded(false); setSearchQuery(''); }}
+                    aria-label="Cerrar búsqueda"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <Navbar
@@ -246,8 +283,26 @@ const Menu = () => {
       <div style={{ height: 'var(--menu-header-height)', width: '100%' }}></div>
 
       <main className="container">
-        {/* SECCIÓN ESPECIAL (PREMIUM CON FUEGO) */}
-        {specialProducts.length > 0 && (
+        {/* BÚSQUEDA: resultados filtrados */}
+        {query && (
+          <section id="section-search" className="category-section">
+            <h2 className="category-title">
+              Resultados para &quot;{searchQuery.trim()}&quot;
+            </h2>
+            {filteredBySearch.length > 0 ? (
+              <div className="product-grid">
+                {filteredBySearch.map(product => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', marginTop: 12 }}>No hay platos con ese nombre.</p>
+            )}
+          </section>
+        )}
+
+        {/* SECCIÓN ESPECIAL (sin búsqueda activa) */}
+        {!query && specialProducts.length > 0 && (
           <section id="section-special" className="category-section">
             <h2 className="category-title">
               <img src={FIRE_ICON} className="category-icon" alt="🔥" />
@@ -261,8 +316,8 @@ const Menu = () => {
           </section>
         )}
 
-        {/* CATEGORÍAS NORMALES (DISEÑO LIMPIO) */}
-        {categories.map((cat) => {
+        {/* CATEGORÍAS NORMALES (sin búsqueda activa) */}
+        {!query && categories.map((cat) => {
           const catProducts = products.filter(p => p.category_id === cat.id);
           if (catProducts.length === 0) return null;
 

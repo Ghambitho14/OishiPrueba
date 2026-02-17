@@ -48,34 +48,31 @@ const Navbar = ({ categories, activeCategory, onCategoryClick }) => {
   }, [categories, activeCategory, isManualClick, onCategoryClick]);
 
   const handleClick = (id) => {
-    setIsManualClick(true); // Bloqueamos el detector temporalmente
-    onCategoryClick(id, true); // True = Es un clic manual (para hacer scroll)
-
-    // Desbloqueamos el detector después de la animación de scroll (aprox 1s)
+    setIsManualClick(true);
+    onCategoryClick(id, true);
     setTimeout(() => setIsManualClick(false), 1000);
   };
 
   return (
     <div className="navbar-wrapper">
-      {/* Máscaras de degradado para indicar scroll */}
-      <div className="nav-fade-left"></div>
-
-      <nav className="navbar-container" ref={scrollRef}>
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            data-id={cat.id}
-            onClick={() => handleClick(cat.id)}
-            className={`tab-item ${activeCategory === cat.id ? 'active' : ''}`}
-          >
-            {/* Si tienes iconos en la base de datos, podrías usarlos aquí */}
-            {/* <img src={cat.icon} alt="" /> */}
-            {cat.name}
-          </button>
-        ))}
-      </nav>
-
-      <div className="nav-fade-right"></div>
+      <div className="navbar-main-row">
+        <div className="navbar-tabs-area">
+          <div className="nav-fade-left" />
+          <nav className="navbar-container" ref={scrollRef}>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                data-id={cat.id}
+                onClick={() => handleClick(cat.id)}
+                className={`tab-item ${activeCategory === cat.id ? 'active' : ''}`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </nav>
+          <div className="nav-fade-right" />
+        </div>
+      </div>
     </div>
   );
 };
