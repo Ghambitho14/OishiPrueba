@@ -79,7 +79,7 @@ const ClientDetailsPanel = ({
             'picked_up': { label: 'Entregado', class: 'success' },
             'completed': { label: 'Completado', class: 'success' },
             'active': { label: 'En Cocina', class: 'warning' },
-            'canceled': { label: 'Cancelado', class: 'danger' },
+            'cancelled': { label: 'Cancelado', class: 'danger' },
             'pending': { label: 'Pendiente', class: 'neutral' }
         };
         const config = statusMap[status] || statusMap['pending'];

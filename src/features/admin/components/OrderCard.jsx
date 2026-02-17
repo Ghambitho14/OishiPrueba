@@ -48,7 +48,7 @@ const OrderCard = ({ order, moveOrder, setReceiptModalOrder }) => {
             <div className="card-actions">
                 {order.status === 'pending' && (
                     <>
-                        <button onClick={() => moveOrder(order.id, 'canceled')} className="btn-icon-action cancel"><XCircle size={20} /></button>
+                        <button onClick={() => moveOrder(order.id, 'cancelled')} className="btn-icon-action cancel"><XCircle size={20} /></button>
                         <button onClick={() => moveOrder(order.id, 'active')} className="btn-action primary">A Cocina</button>
                     </>
                 )}

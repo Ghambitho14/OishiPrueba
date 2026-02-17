@@ -20,7 +20,7 @@ const AdminHistoryTable = ({ orders }) => {
                             <td>{o.client_name}</td>
                             <td>
                                 <span className={`status-pill ${o.status}`}>
-                                    {o.status === 'picked_up' ? 'Entregado' : 'Cancelado'}
+                                    {o.status === 'picked_up' ? 'Entregado' : (o.status === 'cancelled' ? 'Cancelado' : 'Cancelado')}
                                 </span>
                             </td>
                             <td>${o.total.toLocaleString('es-CL')}</td>
