@@ -33,9 +33,11 @@ export const uploadImage = async (file, folder = "oishi") => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(
-        errorData.error?.message || "Error uploading to Cloudinary",
-      );
+      const msg = errorData.error?.message || "Error uploading to Cloudinary";
+      if (msg.toLowerCase().includes("preset") && msg.toLowerCase().includes("not found")) {
+        throw new Error("Configuración de Cloudinary: el Upload Preset no existe. Revisa .env (VITE_CLOUDINARY_UPLOAD_PRESET) y crea un preset sin firmar en cloudinary.com.");
+      }
+      throw new Error(msg);
     }
 
     const data = await response.json();

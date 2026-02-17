@@ -12,16 +12,26 @@ export const ordersService = {
      */
     async createOrder(orderData, receiptFile = null) {
         try {
-            // 1. Subida de comprobante (si aplica)
+            // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
+            let receiptUploadFailed = false;
             if (orderData.payment_type === 'online' && receiptFile) {
-                receiptUrl = await uploadImage(receiptFile, 'receipts');
+                try {
+                    receiptUrl = await uploadImage(receiptFile, 'receipts');
+                } catch (uploadErr) {
+                    console.warn('No se pudo subir comprobante, se guarda el pedido sin URL:', uploadErr);
+                    receiptUploadFailed = true;
+                }
             }
 
             // 2. Lógica de Cliente (Upsert)
             const clientId = await this._ensureClient(orderData);
 
             // 3. Inserción del Pedido
+            const paymentRef = receiptUrl
+                || orderData.payment_ref
+                || (orderData.payment_type === 'online' ? 'Comprobante pendiente por WhatsApp' : 'Pago Presencial');
+
             const { data: newOrder, error: orderError } = await supabase
                 .from('orders')
                 .insert({
@@ -32,7 +42,7 @@ export const ordersService = {
                     items: orderData.items,
                     total: orderData.total,
                     payment_type: orderData.payment_type,
-                    payment_ref: receiptUrl || orderData.payment_ref || (orderData.payment_type === 'online' ? '' : 'Pago Presencial'),
+                    payment_ref: paymentRef,
                     note: orderData.note,
                     status: orderData.status || 'pending',
                     created_at: new Date().toISOString()
@@ -41,7 +51,7 @@ export const ordersService = {
                 .maybeSingle();
 
             if (orderError) throw orderError;
-            return newOrder;
+            return { order: newOrder, receiptUploadFailed };
         } catch (error) {
             console.error('Error in ordersService.createOrder:', error);
             throw error;
@@ -56,14 +66,16 @@ export const ordersService = {
         const { client_rut, client_name, client_phone, total } = orderData;
         const hasValidRut = client_rut && client_rut.length > 7;
 
-        // 1. Intentar buscar cliente existente por Teléfono (Prioridad por ser único) o RUT
+        // Escapar comillas dobles para filtros PostgREST (valores con puntos, espacios, etc.)
+        const escape = (v) => (v ?? '').replace(/"/g, '""');
+        const quoted = (v) => `"${escape(v)}"`;
+
+        // 1. Intentar buscar cliente existente por Teléfono (Prioridad) o RUT
         let query = supabase.from('clients').select('*');
 
         if (hasValidRut) {
-            // Si tenemos RUT válido, buscamos coincidencia por RUT o por Teléfono
-            query = query.or(`rut.eq.${client_rut},phone.eq.${client_phone}`);
+            query = query.or(`rut.eq.${quoted(client_rut)},phone.eq.${quoted(client_phone)}`);
         } else {
-            // Si no hay RUT, buscamos por Teléfono
             query = query.eq('phone', client_phone);
         }
 
