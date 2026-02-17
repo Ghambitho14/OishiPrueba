@@ -345,6 +345,20 @@
 /* =========================================
    RESPONSIVE DESIGN
    ========================================= */
+
+/* Tablet Grande */
+@media (max-width: 1200px) {
+    .analytics-grid {
+        grid-template-columns: 2fr 1fr; /* Ajustar proporción */
+        gap: 20px;
+    }
+    
+    .bottom-grid {
+        gap: 20px;
+    }
+}
+
+/* Tablet */
 @media (max-width: 1024px) {
     .analytics-grid {
         grid-template-columns: 1fr; /* Stack Chart and KPIs */
@@ -353,14 +367,24 @@
     .kpi-column {
         display: grid;
         grid-template-columns: repeat(3, 1fr); /* 3 columnas de KPIs */
+        gap: 16px;
     }
 
     .bottom-grid {
         grid-template-columns: 1fr; /* Stack Products and Clients */
     }
+    
+    .chart-section {
+        min-height: 350px;
+    }
 }
 
+/* Móvil */
 @media (max-width: 768px) {
+    .admin-analytics-container {
+        padding-bottom: 20px;
+    }
+
     .kpi-column {
         grid-template-columns: 1fr; /* Stack KPIs verticalmente en móvil */
     }
@@ -373,10 +397,55 @@
     .analytics-header {
         flex-direction: column;
         align-items: flex-start;
+        padding: 12px 15px;
     }
     
     .header-controls {
         width: 100%;
         justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    
+    .bottom-card {
+        padding: 16px;
+    }
+    
+    .chart-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .chart-tabs {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .chart-tab {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+/* Móvil Pequeño */
+@media (max-width: 480px) {
+    .header-left h2 {
+        font-size: 1.2rem;
+    }
+    
+    .kpi-value {
+        font-size: 1.5rem;
+    }
+    
+    .stat-num {
+        font-size: 1.5rem;
+    }
+    
+    .btn-report {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .select-wrapper {
+        flex: 1;
     }
 }

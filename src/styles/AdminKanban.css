@@ -5,13 +5,17 @@
 /* Contenedor Principal */
 .kanban-board {
     display: grid;
-    /* Grid de 3 columnas equitativas con mínimo de ancho para no aplastar */
-    grid-template-columns: repeat(3, minmax(300px, 1fr));
-    gap: 24px; /* Más aire entre columnas */
+    /* Grid flexible que se adapta al ancho disponible */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
     
     /* Lógica de altura robusta: Llenar el contenedor padre */
     height: 100%;
-    min-height: 0; /* CRÍTICO: Permite que el scroll interno funcione dentro de un Grid/Flex */
+    min-height: 0;
+    
+    /* Prevenir overflow horizontal */
+    width: 100%;
+    overflow-x: auto;
     
     /* Animación de entrada */
     animation: fadeIn 0.5s ease-out;
@@ -150,9 +154,19 @@
 }
 
 /* =========================================
+   RESPONSIVE TABLET
+   ========================================= */
+@media (max-width: 1200px) {
+    .kanban-board {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+    }
+}
+
+/* =========================================
    RESPONSIVE MÓVIL (SEGMENTED CONTROL)
    ========================================= */
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
     .kanban-board {
         display: flex;
         flex-direction: column;
@@ -160,6 +174,7 @@
         /* En móvil dejamos que la página crezca */
         min-height: calc(100vh - 140px); 
         gap: 0;
+        overflow-x: visible;
     }
 
     /* Pestañas estilo iOS / Segmented Control */

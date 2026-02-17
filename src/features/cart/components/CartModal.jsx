@@ -8,6 +8,7 @@ import {
 import { useCart } from '../hooks/useCart';
 import { ordersService } from '../../orders/services/orders';
 import { cashService } from '../../admin/services/cashService';
+import { useBusiness } from '../../../context/useBusiness';
 import '../../../styles/CartModal.css';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&q=80&w=400';
@@ -43,8 +44,8 @@ const formatRut = (rut) => {
   return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-${dv}`;
 };
 
-const generateWSMessage = (formData, cart, total, paymentType, note) => {
-  let msg = '*NUEVO PEDIDO WEB - OISHI*\n';
+const generateWSMessage = (formData, cart, total, paymentType, note, businessName) => {
+  let msg = `*NUEVO PEDIDO WEB - ${businessName || 'OISHI'}*\n`;
   msg += '================================\n\n';
   msg += `Cliente: ${formData.name}\n`;
   msg += `RUT: ${formData.rut}\n`;
@@ -62,6 +63,7 @@ const generateWSMessage = (formData, cart, total, paymentType, note) => {
 // --- COMPONENTE PRINCIPAL ---
 const CartModal = React.memo(() => {
   const navigate = useNavigate();
+  const { businessInfo } = useBusiness();
   const {
     cart, isCartOpen, toggleCart,
     addToCart, decreaseQuantity, removeFromCart, clearCart,
@@ -79,21 +81,17 @@ const CartModal = React.memo(() => {
   });
 
   const [paymentType, setPaymentType] = useState(null);
-  const [currentBranch, setCurrentBranch] = useState(null);
-
-  // Cargar sucursal seleccionada al abrir
-  useEffect(() => {
-    if (isCartOpen) {
-      try {
-        const stored = localStorage.getItem('selectedBranch');
-        if (stored) {
-          setCurrentBranch(JSON.parse(stored));
-        }
-      } catch (e) {
-        console.error("Error leyendo sucursal:", e);
-      }
+  
+  // Cargar sucursal desde localStorage (lazy initialization)
+  const currentBranch = (() => {
+    try {
+      const stored = localStorage.getItem('selectedBranch');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      console.error("Error leyendo sucursal:", e);
+      return null;
     }
-  }, [isCartOpen]);
+  })();
 
   // Datos del Cliente
   const [formData, setFormData] = useState({
@@ -238,16 +236,15 @@ const CartModal = React.memo(() => {
       setViewState(v => ({ ...v, showSuccess: true, isSaving: false, receiptUploadFailed: receiptUploadFailed ?? false }));
 
       setTimeout(() => {
-        const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote);
+        const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote, businessInfo.name);
         
-        // Obtener teléfono de la sucursal o fallback
-        let targetPhone = "56976645547"; // Fallback San Joaquín
-        if (currentBranch && currentBranch.phone) {
-            // Limpiar: +56 9 1234 5678 -> 56912345678
-            targetPhone = currentBranch.phone.replace(/[^0-9]/g, '');
-        } else if (currentBranch && currentBranch.whatsappUrl) {
-             // O intentar extraerlo de la URL si el formato es consistente, pero mejor usar phone limpio
-             // Si el formato en json es '+56 9 ...', el replace funciona bien.
+        // Obtener teléfono de configuración global prioritariamente, luego sucursal o fallback
+        let targetPhone = "56976645547"; // Default
+        
+        if (businessInfo.phone) {
+            targetPhone = businessInfo.phone.replace(/\D/g, '');
+        } else if (currentBranch && currentBranch.phone) {
+            targetPhone = currentBranch.phone.replace(/\D/g, '');
         }
 
         window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -484,44 +481,50 @@ const PaymentFlow = ({
   );
 };
 
-import { useBusiness } from '../../../context/BusinessContext';
-
 const BankInfo = ({ cartTotal }) => {
   const { businessInfo } = useBusiness();
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    // Podrías añadir un toast aquí si quisieras
   };
+
+  // Verificar si hay datos configurados
+  const hasData = businessInfo.bank_name || businessInfo.account_number || businessInfo.account_rut || businessInfo.account_email || businessInfo.name;
 
   return (
     <div className="bank-info glass">
       <h4>Datos para Transferir</h4>
-      {businessInfo.bank_details ? (
-          <div className="bank-details-text" style={{ whiteSpace: 'pre-wrap', marginBottom: 15, fontSize: '0.9rem', lineHeight: 1.6, color: '#e5e7eb', background: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 8 }}>
-            {businessInfo.bank_details}
-            <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-                <button 
-                    onClick={() => copyToClipboard(businessInfo.bank_details)}
-                    className="btn-text"
-                    style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 5 }}
-                >
-                    <Copy size={14} /> Copiar Todo
-                </button>
-            </div>
-          </div>
-      ) : (
+      {hasData ? (
           <ul className="bank-details-list">
-            <li><span>Banco:</span> <b>Tenpo (Prepago)</b></li>
-            <li className="copy-row" onClick={() => copyToClipboard('111126281473')}>
-            <span>Cuenta:</span> <b>****281473</b> <Copy size={14} />
-            </li>
-            <li className="copy-row" onClick={() => copyToClipboard('26.281.473-4')}>
-            <span>RUT:</span> <b>26.281.***-*</b> <Copy size={14} />
-            </li>
-            <li className="copy-row" onClick={() => copyToClipboard('doranteegrimar@gmail.com')}>
-            <span>Email:</span> <b>doran...gmail.com</b> <Copy size={14} />
-            </li>
-        </ul>
+            {businessInfo.bank_name && (
+                <li><span>Banco:</span> <b>{businessInfo.bank_name}</b></li>
+            )}
+            {businessInfo.account_type && (
+                <li><span>Tipo:</span> <b>{businessInfo.account_type}</b></li>
+            )}
+            {businessInfo.account_number && (
+                <li className="copy-row" onClick={() => copyToClipboard(businessInfo.account_number)}>
+                    <span>Cuenta:</span> <b>{businessInfo.account_number}</b> <Copy size={14} />
+                </li>
+            )}
+            {businessInfo.account_rut && (
+                <li className="copy-row" onClick={() => copyToClipboard(businessInfo.account_rut)}>
+                    <span>RUT:</span> <b>{businessInfo.account_rut}</b> <Copy size={14} />
+                </li>
+            )}
+            {businessInfo.account_email && (
+                <li className="copy-row" onClick={() => copyToClipboard(businessInfo.account_email)}>
+                    <span>Email:</span> <b>{businessInfo.account_email}</b> <Copy size={14} />
+                </li>
+            )}
+            {businessInfo.name && (
+                <li><span>Nombre:</span> <b>{businessInfo.name}</b></li>
+            )}
+          </ul>
+      ) : (
+          <p style={{ color: '#9ca3af', fontSize: '0.9rem', textAlign: 'center', padding: '20px 0' }}>
+              No hay datos de transferencia configurados.<br/>
+              Contacta al administrador.
+          </p>
       )}
       <div className="pay-total">Total: ${cartTotal.toLocaleString('es-CL')}</div>
     </div>

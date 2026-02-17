@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import "../styles/AdminSettings.css";
 
@@ -10,7 +10,11 @@ const AdminSettings = ({ showNotify }) => {
         address: '',
         instagram: '',
         schedule: '',
-        bank_details: ''
+        bank_name: '',
+        account_type: '',
+        account_number: '',
+        account_rut: '',
+        account_email: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -34,7 +38,11 @@ const AdminSettings = ({ showNotify }) => {
                     address: data.address || '',
                     instagram: data.instagram || '',
                     schedule: data.schedule || '',
-                    bank_details: data.bank_details || ''
+                    bank_name: data.bank_name || '',
+                    account_type: data.account_type || '',
+                    account_number: data.account_number || '',
+                    account_rut: data.account_rut || '',
+                    account_email: data.account_email || ''
                 });
                 setDataId(data.id);
             }
@@ -106,12 +114,15 @@ const AdminSettings = ({ showNotify }) => {
                     <div className="form-grid">
                         <div className="form-group">
                             <label>Nombre del Negocio</label>
-                            <input 
-                                className="form-input"
-                                value={formData.name}
-                                onChange={e => setFormData({...formData, name: e.target.value})}
-                                placeholder="Ej. Oishi Sushi"
-                            />
+                            <div className="input-icon-wrapper">
+                                <Building size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.name}
+                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                    placeholder="Ej. Oishi Sushi"
+                                />
+                            </div>
                         </div>
                         <div className="form-group">
                             <label>Teléfono / WhatsApp (para botón)</label>
@@ -134,12 +145,15 @@ const AdminSettings = ({ showNotify }) => {
                     <div className="form-grid">
                         <div className="form-group full-width">
                             <label>Dirección Completa</label>
-                            <input 
-                                className="form-input"
-                                value={formData.address}
-                                onChange={e => setFormData({...formData, address: e.target.value})}
-                                placeholder="Ej. Av. Siempre Viva 123, Santiago"
-                            />
+                            <div className="input-icon-wrapper">
+                                <MapPin size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.address}
+                                    onChange={e => setFormData({...formData, address: e.target.value})}
+                                    placeholder="Ej. Av. Siempre Viva 123, Santiago"
+                                />
+                            </div>
                         </div>
                         <div className="form-group">
                             <label>Instagram</label>
@@ -170,16 +184,86 @@ const AdminSettings = ({ showNotify }) => {
                                 rows={3}
                             />
                         </div>
+                    </div>
+                </section>
+
+                {/* Datos Bancarios */}
+                <section className="settings-section">
+                    <h3 className="section-title"><CreditCard size={20} className="text-secondary" /> Datos de Transferencia</h3>
+                    <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: 20 }}>
+                        Estos datos se mostrarán cuando el cliente elija "Pagar con Transferencia"
+                    </p>
+                    <div className="form-grid">
+                        <div className="form-group">
+                            <label>Banco</label>
+                            <div className="input-icon-wrapper">
+                                <CreditCard size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.bank_name}
+                                    onChange={e => setFormData({...formData, bank_name: e.target.value})}
+                                    placeholder="Ej. Banco Estado"
+                                />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Tipo de Cuenta</label>
+                            <div className="input-icon-wrapper">
+                                <CreditCard size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.account_type}
+                                    onChange={e => setFormData({...formData, account_type: e.target.value})}
+                                    placeholder="Ej. Cuenta RUT, Cuenta Vista"
+                                />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Número de Cuenta</label>
+                            <div className="input-icon-wrapper">
+                                <Hash size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.account_number}
+                                    onChange={e => setFormData({...formData, account_number: e.target.value})}
+                                    placeholder="Ej. 12345678-9"
+                                />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>RUT Titular</label>
+                            <div className="input-icon-wrapper">
+                                <User size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.account_rut}
+                                    onChange={e => setFormData({...formData, account_rut: e.target.value})}
+                                    placeholder="Ej. 12.345.678-9"
+                                />
+                            </div>
+                        </div>
                         <div className="form-group full-width">
-                            <label>Datos de Transferencia (Se muestran al elegir Pagar con Transferencia)</label>
-                            <div className="input-icon-wrapper textarea-wrapper">
-                                <CreditCard size={16} className="input-icon" style={{ marginTop: 12 }} />
-                                <textarea 
-                                    className="form-textarea with-icon"
-                                    value={formData.bank_details}
-                                    onChange={e => setFormData({...formData, bank_details: e.target.value})}
-                                    placeholder="Banco, Tipo de Cuenta, Número, Rut, Email..."
-                                    rows={5}
+                            <label>Correo Electrónico</label>
+                            <div className="input-icon-wrapper">
+                                <Mail size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.account_email}
+                                    onChange={e => setFormData({...formData, account_email: e.target.value})}
+                                    placeholder="Ej. contacto@negocio.cl"
+                                    type="email"
+                                />
+                            </div>
+                        </div>
+                        <div className="form-group full-width">
+                            <label>Nombre del Titular</label>
+                            <div className="input-icon-wrapper">
+                                <User size={16} className="input-icon" />
+                                <input 
+                                    className="form-input with-icon"
+                                    value={formData.name}
+                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                    placeholder="Ej. Juan Pérez"
                                 />
                             </div>
                         </div>

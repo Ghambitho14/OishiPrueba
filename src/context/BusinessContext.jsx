@@ -1,16 +1,20 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-const BusinessContext = createContext();
+export const BusinessContext = createContext();
 
 export const BusinessProvider = ({ children }) => {
     const [businessInfo, setBusinessInfo] = useState({
-        name: 'Oishi Sushi',
-        phone: '+56900000000',
-        instagram: '@oishi.sushi',
+        name: '',
+        phone: '',
+        instagram: '',
         address: '',
         schedule: '',
-        bank_details: ''
+        bank_name: '',
+        account_type: '',
+        account_number: '',
+        account_rut: '',
+        account_email: ''
     });
     const [loading, setLoading] = useState(true);
 
@@ -56,5 +60,3 @@ export const BusinessProvider = ({ children }) => {
         </BusinessContext.Provider>
     );
 };
-
-export const useBusiness = () => useContext(BusinessContext);

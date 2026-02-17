@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { routes } from "../router";
+import { BusinessProvider } from "../../context/BusinessContext";
 
 // Assets
 import menuPattern from "../../assets/menu-pattern.webp";
@@ -157,9 +158,11 @@ function InnerApp() {
 
 function App() {
   return (
-    <Router>
-      <InnerApp />
-    </Router>
+    <BusinessProvider>
+      <Router>
+        <InnerApp />
+      </Router>
+    </BusinessProvider>
   );
 }
 

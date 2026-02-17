@@ -6,7 +6,7 @@ import '../../styles/Home.css';
 import logo from '../../assets/logo.png';
 import BranchSelectorModal from './BranchSelectorModal'; // Asegurar ruta correcta
 import { branches } from '../data/branches';
-import { useBusiness } from '../../context/BusinessContext';
+import { useBusiness } from '../../context/useBusiness';
 
 const Home = () => {
   const navigate = useNavigate();
