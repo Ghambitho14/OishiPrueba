@@ -79,6 +79,21 @@ const CartModal = React.memo(() => {
   });
 
   const [paymentType, setPaymentType] = useState(null);
+  const [currentBranch, setCurrentBranch] = useState(null);
+
+  // Cargar sucursal seleccionada al abrir
+  useEffect(() => {
+    if (isCartOpen) {
+      try {
+        const stored = localStorage.getItem('selectedBranch');
+        if (stored) {
+          setCurrentBranch(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.error("Error leyendo sucursal:", e);
+      }
+    }
+  }, [isCartOpen]);
 
   // Datos del Cliente
   const [formData, setFormData] = useState({
@@ -197,7 +212,9 @@ const CartModal = React.memo(() => {
         items: itemsForOrder,
         note: sanitizeInput(orderNote),
         status: 'pending',
-        receiptFile: formData.receiptFile
+        receiptFile: formData.receiptFile,
+        branch_id: currentBranch?.id || 'unknown',
+        branch_name: currentBranch?.name || 'Desconocido'
       };
 
       const { receiptUploadFailed } = await ordersService.createOrder(orderPayload, formData.receiptFile);
@@ -222,7 +239,18 @@ const CartModal = React.memo(() => {
 
       setTimeout(() => {
         const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote);
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+        
+        // Obtener teléfono de la sucursal o fallback
+        let targetPhone = "56976645547"; // Fallback San Joaquín
+        if (currentBranch && currentBranch.phone) {
+            // Limpiar: +56 9 1234 5678 -> 56912345678
+            targetPhone = currentBranch.phone.replace(/[^0-9]/g, '');
+        } else if (currentBranch && currentBranch.whatsappUrl) {
+             // O intentar extraerlo de la URL si el formato es consistente, pero mejor usar phone limpio
+             // Si el formato en json es '+56 9 ...', el replace funciona bien.
+        }
+
+        window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`, '_blank');
         clearCart();
       }, 1500);
 
@@ -244,13 +272,14 @@ const CartModal = React.memo(() => {
             onNewOrder={resetFlow}
             onGoHome={() => { resetFlow(); navigate('/'); }}
             receiptUploadFailed={viewState.receiptUploadFailed}
+            branch={currentBranch}
           />
         ) : (
           <>
             <header className="cart-header">
               <div className="flex-center">
                 <ShoppingBag size={22} className="text-accent" />
-                <h3>Tu Pedido</h3>
+                <h3>Tu Pedido {currentBranch && <span style={{ fontSize: '0.7em', opacity: 0.7 }}>({currentBranch.name})</span>}</h3>
                 <span className="cart-count-badge">{cart.reduce((a, c) => a + c.quantity, 0)}</span>
               </div>
               <button onClick={handleCloseCart} className="btn-close-cart"><X size={24} /></button>

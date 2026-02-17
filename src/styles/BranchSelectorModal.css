@@ -21,7 +21,7 @@
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  z-index: 9999;
+  z-index: 2147483647; /* Máximo z-index seguro */
 }
 
 /* Contenedor principal del modal */

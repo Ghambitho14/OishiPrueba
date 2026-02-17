@@ -32,6 +32,12 @@ export const ordersService = {
                 || orderData.payment_ref
                 || (orderData.payment_type === 'online' ? 'Comprobante pendiente por WhatsApp' : 'Pago Presencial');
 
+            // Agregar info de sucursal a la nota para que el admin sepa
+            let finalNote = orderData.note || '';
+            if (orderData.branch_name) {
+                finalNote = `[Sucursal: ${orderData.branch_name}] \n${finalNote}`.trim();
+            }
+
             const { data: newOrder, error: orderError } = await supabase
                 .from('orders')
                 .insert({
@@ -43,7 +49,7 @@ export const ordersService = {
                     total: orderData.total,
                     payment_type: orderData.payment_type,
                     payment_ref: paymentRef,
-                    note: orderData.note,
+                    note: finalNote,
                     status: orderData.status || 'pending',
                     created_at: new Date().toISOString()
                 })

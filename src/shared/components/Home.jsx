@@ -1,26 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Utensils, MessageCircle, Instagram, MapPin, Settings } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import '../../styles/Home.css';
 import logo from '../../assets/logo.png';
+import BranchSelectorModal from './BranchSelectorModal'; // Asegurar ruta correcta
+import { branches } from '../data/branches';
 
 const Home = () => {
   const navigate = useNavigate();
-
-  const handleMenuClick = () => {
-    // Ir directo al menú (modal aparecerá allá)
-    navigate('/menu');
-  };
+  const [showModal, setShowModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // 'menu', 'whatsapp', 'instagram', 'location'
 
   // Genera automáticamente la URL del menú basada en donde estés alojado
   const menuUrl = `${window.location.origin}/menu`;
 
+  const handleActionClick = (action) => {
+    setPendingAction(action);
+    setShowModal(true);
+  };
+
+  const handleBranchSelect = (branch) => {
+    setShowModal(false);
+    
+    if (!branch) return;
+
+    switch (pendingAction) {
+      case 'menu':
+        // Guardar sucursal y navegar
+        localStorage.setItem('selectedBranch', JSON.stringify(branch));
+        navigate('/menu');
+        break;
+      case 'whatsapp':
+        if (branch.whatsappUrl) window.open(branch.whatsappUrl, '_blank');
+        break;
+      case 'instagram':
+        if (branch.instagramUrl) window.open(branch.instagramUrl, '_blank');
+        break;
+      case 'location':
+        if (branch.mapUrl) window.open(branch.mapUrl, '_blank');
+        break;
+      default:
+        break;
+    }
+    
+    setPendingAction(null);
+  };
+
   const buttons = [
-    { label: "Ver Menú Digital", icon: <Utensils size={20} />, onClick: handleMenuClick, primary: true },
-    { label: "WhatsApp", icon: <MessageCircle size={20} />, onClick: () => window.open("https://wa.me/56976645547", "_blank") },
-    { label: "Instagram", icon: <Instagram size={20} />, onClick: () => window.open("https://instagram.com/oishi.sushi.stg", "_blank") },
-    { label: "Ubicación", icon: <MapPin size={20} />, onClick: () => window.open("https://maps.google.com/?q=Oishi+Sushi+Santiago", "_blank") },
+    { label: "Ver Menú Digital", icon: <Utensils size={20} />, onClick: () => navigate('/menu'), primary: true }, // Directo al menú (allá sale el modal)
+    { label: "WhatsApp", icon: <MessageCircle size={20} />, onClick: () => handleActionClick('whatsapp') },
+    { label: "Instagram", icon: <Instagram size={20} />, onClick: () => handleActionClick('instagram') },
+    { label: "Ubicación", icon: <MapPin size={20} />, onClick: () => handleActionClick('location') },
   ];
 
   return (
@@ -91,6 +122,15 @@ const Home = () => {
           </div>
         </div>
       </main>
+
+      {/* Modal Reutilizable */}
+      <BranchSelectorModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        branches={branches}
+        onSelectBranch={handleBranchSelect}
+        allowClose={true} // Permitir cerrar si se arrepienten
+      />
     </div>
   );
 };

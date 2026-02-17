@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, Phone, X, Store } from 'lucide-react';
 import '../../styles/BranchSelectorModal.css';
 
 const BranchSelectorModal = ({ isOpen, onClose, branches, onSelectBranch, allowClose = true }) => {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleBranchSelect = (branch) => {
     onSelectBranch(branch);
     if (onClose) onClose();
   };
 
-  return (
+  const modalContent = (
     <div className="branch-modal-overlay" onClick={allowClose ? onClose : undefined}>
       <div 
         className="branch-modal-wrapper" 
@@ -82,6 +90,10 @@ const BranchSelectorModal = ({ isOpen, onClose, branches, onSelectBranch, allowC
       </div>
     </div>
   );
+
+  // Usar portal si existe el elemento root, sino renderizar normal (fallback)
+  const portalRoot = document.getElementById('modal-root') || document.body;
+  return createPortal(modalContent, portalRoot);
 };
 
 export default BranchSelectorModal;

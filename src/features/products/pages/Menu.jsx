@@ -168,6 +168,26 @@ const Menu = () => {
     };
   }, [categories, products, loading, activeCategory]);
 
+  // Bloquear scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (showBranchModal) {
+      document.body.style.overflow = 'hidden';
+      // También intentar bloquear el wrapper si existe
+      const appWrapper = document.querySelector('.app-wrapper');
+      if (appWrapper) appWrapper.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      const appWrapper = document.querySelector('.app-wrapper');
+      if (appWrapper) appWrapper.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      const appWrapper = document.querySelector('.app-wrapper');
+      if (appWrapper) appWrapper.style.overflow = '';
+    };
+  }, [showBranchModal]);
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -181,8 +201,11 @@ const Menu = () => {
   return (
     <div className="page-wrapper">
       {/* Portal del Header Fijo (Lo enviamos a la capa de UI fuera del scroll) */}
+      {/* Condicional: Solo mostrar Navbar y contenido si NO está el modal bloqueando, 
+          O usar z-index superior para el modal. Usaremos z-index superior. */}
+      
       {document.getElementById('navbar-portal-root') && createPortal(
-        <header className="navbar-sticky">
+        <header className="navbar-sticky" style={{ zIndex: showBranchModal ? 0 : 100 }}> {/* Bajar z-index si modal activo */}
           <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px' }}>
             <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0 }}>
               <ChevronLeft size={28} />
@@ -258,7 +281,7 @@ const Menu = () => {
         })}
       </main>
       
-      {/* Modal de Selección de Sucursal con Blur Overlay */}
+      {/* Modal de Selección de Sucursal con Blur Overlay - Z-INDEX EXTREMO */}
       {showBranchModal && (
         <div style={{
           position: 'fixed',
@@ -266,12 +289,16 @@ const Menu = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          zIndex: 9998, // Blur detrás del modal
-          pointerEvents: 'auto'
-        }} />
+          backdropFilter: 'blur(15px)', // Blur más intenso
+          WebkitBackdropFilter: 'blur(15px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)', // Fondo más oscuro
+          zIndex: 2000000000, // Z-index máximo posible en muchos navegadores (casi)
+          pointerEvents: 'auto' // Captura todos los clicks
+        }} 
+          // Prevenir scroll wheel
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        />
       )}
       
       <BranchSelectorModal
