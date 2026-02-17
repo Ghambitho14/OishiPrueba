@@ -1,0 +1,260 @@
+/* ==========================================================================
+   BRANCH SELECTOR MODAL - Estilos Independientes
+   ========================================================================== */
+
+/* Variables */
+:root {
+  --modal-radius: 24px;
+  --accent-green: #25d366;
+}
+
+/* Overlay del modal */
+.branch-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9999;
+}
+
+/* Contenedor principal del modal */
+.branch-modal-wrapper {
+  max-width: 550px;
+  width: 90%;
+  margin: auto;
+  animation: modalFadeIn 0.3s ease;
+  
+  /* Fondo glassmorphism */
+  background-color: #121212;
+  background-image: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E"),
+    linear-gradient(to bottom right, rgba(255,255,255,0.05), rgba(0,0,0,0.2));
+  
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--modal-radius);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+/* Contenido interno */
+.branch-modal-content {
+  padding: clamp(2rem, 5vw, 3.5rem);
+  padding-bottom: 20px;
+}
+
+/* Header */
+.branch-modal-header {
+  margin-bottom: 25px;
+  width: 100%;
+  text-align: center;
+}
+
+.branch-modal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.branch-modal-title-section {
+  flex: 1;
+}
+
+.branch-modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.branch-modal-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: linear-gradient(180deg, #fff 10%, #f8e7b9 40%, #d4af37 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.5));
+}
+
+.branch-modal-subtitle {
+  margin-top: 0;
+  font-size: 0.9rem;
+  font-family: serif;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.branch-modal-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  color: white;
+}
+
+.branch-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Icono acento verde */
+.branch-icon-accent {
+  color: var(--accent-green);
+}
+
+/* Lista de sucursales */
+.branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Botón de sucursal */
+.branch-button {
+  position: relative;
+  padding: 18px 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: auto;
+  
+  /* Glassmorphism */
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  
+  color: rgba(255,255,255,0.9);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  overflow: hidden;
+}
+
+.branch-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-3px);
+}
+
+/* Efecto brillo al hover */
+.branch-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: 0.5s;
+}
+
+.branch-button:hover::after {
+  left: 100%;
+}
+
+/* Nombre de la sucursal */
+.branch-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.branch-icon-container {
+  background: rgba(37, 211, 102, 0.15);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.branch-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #fff;
+  text-transform: none;
+}
+
+/* Dirección */
+.branch-address-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9rem;
+  opacity: 0.65;
+  padding-left: 34px;
+}
+
+.branch-address-text {
+  line-height: 1.5;
+  color: #e0e0e0;
+}
+
+.branch-icon-small {
+  margin-top: 3px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* Teléfono */
+.branch-phone-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  opacity: 0.65;
+  padding-left: 34px;
+  margin-top: 2px;
+}
+
+.branch-phone-text {
+  color: #e0e0e0;
+}
+
+/* Línea divisoria */
+.branch-divider {
+  width: 90%;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,0.2) 0, rgba(255,255,255,0.2) 10px, transparent 10px, transparent 20px);
+  margin: 25px auto 5px;
+}
+
+/* Animación de entrada */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

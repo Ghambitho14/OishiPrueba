@@ -7,6 +7,8 @@ import '../../../styles/Menu.css';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../services/supabase/client';
 import logo from '../../../assets/logo.png';
+import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
+import { branches } from '../../../shared/data/branches';
 
 const Menu = () => {
   const navigate = useNavigate();
@@ -14,6 +16,21 @@ const Menu = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
+  
+  // Branch selection state - Muestra modal cada vez que entras al menú
+  const [showBranchModal, setShowBranchModal] = useState(true); // Siempre mostrar al entrar
+
+  const handleBranchSelect = (branch) => {
+      localStorage.setItem('selectedBranch', JSON.stringify(branch));
+      setShowBranchModal(false);
+  };
+
+  // Limpiar flag cuando sales del componente (vuelves a Home)
+  useEffect(() => {
+      return () => {
+          // Cleanup: cuando desmontas el componente, preparar para próxima visita
+      };
+  }, []);
 
   // Referencia para bloquear el Scroll Spy durante el desplazamiento manual
   const isManualScrolling = useRef(false);
@@ -240,6 +257,30 @@ const Menu = () => {
           );
         })}
       </main>
+      
+      {/* Modal de Selección de Sucursal con Blur Overlay */}
+      {showBranchModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          zIndex: 9998, // Blur detrás del modal
+          pointerEvents: 'auto'
+        }} />
+      )}
+      
+      <BranchSelectorModal
+        isOpen={showBranchModal}
+        onClose={() => {}} // No permitir cerrar
+        branches={branches}
+        onSelectBranch={handleBranchSelect}
+        allowClose={false} // Obligatorio seleccionar
+      />
     </div>
   );
 };

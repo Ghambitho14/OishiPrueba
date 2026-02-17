@@ -1,33 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Utensils, MessageCircle, Instagram, MapPin, Settings, Store } from 'lucide-react';
+import { Utensils, MessageCircle, Instagram, MapPin, Settings } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import '../../styles/Home.css';
 import logo from '../../assets/logo.png';
-import BranchSelectorModal from './BranchSelectorModal';
-import { branches } from '../data/branches';
 
 const Home = () => {
   const navigate = useNavigate();
-  
-  const [selectedBranch, setSelectedBranch] = useState(() => {
-    const savedBranch = localStorage.getItem('selectedBranch');
-    return savedBranch ? JSON.parse(savedBranch) : null;
-  });
-  
-  const [showBranchModal, setShowBranchModal] = useState(false); // No mostrar automáticamente
-
-  const handleBranchSelect = (branch) => {
-    setSelectedBranch(branch);
-    localStorage.setItem('selectedBranch', JSON.stringify(branch));
-    setShowBranchModal(false);
-    // Después de seleccionar, ir al menú
-    navigate('/menu');
-  };
 
   const handleMenuClick = () => {
-    // Al hacer click en Ver Menú, primero mostrar modal de sucursal
-    setShowBranchModal(true);
+    // Ir directo al menú (modal aparecerá allá)
+    navigate('/menu');
   };
 
   // Genera automáticamente la URL del menú basada en donde estés alojado
@@ -64,45 +47,10 @@ const Home = () => {
                 <img src={logo} alt="Oishi Sushi Logo" className="home-logo-centered" />
                 <div className="brand-text-centered">
                   <h1 className="text-gradient">OISHI</h1>
-                  <span className="brand-subtitle">SUSHI & COCKTAIL</span>
+                  <span className="brand-subtitle">SUSHI</span>
                 </div>
               </div>
               <p className="home-tagline">Sabor auténtico en cada pieza</p>
-              
-              {/* Indicador de Sucursal */}
-              {selectedBranch && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  gap: 8,
-                  marginTop: 15,
-                  padding: '8px 16px',
-                  background: 'rgba(37, 211, 102, 0.1)',
-                  border: '1px solid rgba(37, 211, 102, 0.3)',
-                  borderRadius: 12,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease'
-                }}
-                onClick={() => setShowBranchModal(true)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(37, 211, 102, 0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(37, 211, 102, 0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(37, 211, 102, 0.1)';
-                  e.currentTarget.style.borderColor = 'rgba(37, 211, 102, 0.3)';
-                }}
-                >
-                  <Store size={16} style={{ color: '#25d366' }} />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                    {selectedBranch.name}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-                    (Click para cambiar)
-                  </span>
-                </div>
-              )}
             </header>
 
             <nav className="home-nav-grid">
@@ -143,15 +91,6 @@ const Home = () => {
           </div>
         </div>
       </main>
-
-      {/* Modal de Selección de Sucursal */}
-      <BranchSelectorModal
-        isOpen={showBranchModal}
-        onClose={() => setShowBranchModal(false)}
-        branches={branches}
-        onSelectBranch={handleBranchSelect}
-        allowClose={true}
-      />
     </div>
   );
 };
