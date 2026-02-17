@@ -1,9 +1,11 @@
 import React from 'react';
-import { ChefHat, ShoppingBag, BarChart3, Users, List, Settings, LogOut, DollarSign } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChefHat, ShoppingBag, BarChart3, Users, List, Settings, LogOut, DollarSign, Store } from 'lucide-react';
 import logo from '../../../assets/logo.png';
 import '../../../styles/AdminSidebar.css';
 
 const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogout }) => {
+    const navigate = useNavigate();
     const pendingCount = kanbanColumns?.pending?.length || 0;
 
     return (
@@ -35,10 +37,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
                 <button onClick={() => setActiveTab('settings')} className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}>
                     <Settings size={22} /> {!isMobile && 'Herramientas'}
                 </button>
+                <button onClick={() => navigate('/')} className="nav-item" style={{ marginTop: 'auto', marginBottom: 10 }}>
+                    <Store size={22} /> {!isMobile && 'Ver Tienda'}
+                </button>
+                <button onClick={onLogout} className="nav-item logout">
+                    <LogOut size={22} /> {!isMobile && 'Cerrar Sesión'}
+                </button>
             </nav>
-            <button onClick={onLogout} className="nav-item logout">
-                <LogOut size={22} /> {!isMobile && 'Salir'}
-            </button>
         </aside>
     );
 };

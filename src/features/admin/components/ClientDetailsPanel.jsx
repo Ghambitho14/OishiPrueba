@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package } from 'lucide-react';
 import '../../../styles/AdminClientsTable.css';
 

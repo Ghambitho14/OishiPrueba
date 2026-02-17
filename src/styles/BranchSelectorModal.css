@@ -258,3 +258,73 @@
     transform: scale(1);
   }
 }
+
+/* ==========================================================================
+   RESPONSIVE (Mobile < 480px)
+   ========================================================================== */
+@media (max-width: 480px) {
+  .branch-modal-wrapper {
+    width: 95%;
+    max-height: 85vh; /* Un poco menos para dar aire arriba/abajo */
+    display: flex;
+    flex-direction: column;
+  }
+
+  .branch-modal-content {
+    padding: 1.5rem 1.25rem;
+    overflow-y: auto;
+  }
+
+  .branch-modal-title {
+    font-size: 1.4rem;
+  }
+
+  .branch-modal-subtitle {
+     font-size: 0.85rem;
+  }
+
+  .branch-list {
+    gap: 10px;
+  }
+
+  .branch-button {
+    padding: 16px 14px;
+    gap: 6px;
+  }
+
+  .branch-name-row {
+     margin-bottom: 4px;
+  }
+
+  .branch-name {
+    font-size: 1.1rem;
+  }
+  
+  .branch-address-row, 
+  .branch-phone-row {
+    padding-left: 0; /* Alinear a izquierda en móvil para ganar espacio */
+    margin-top: 4px;
+    font-size: 0.85rem;
+    padding-left: 36px; /* Mantener la indentación del icono si cabe */
+  }
+  
+  /* Ajuste ultra pequeño (< 360px - Iphone SE / Fold) */
+  @media (max-width: 360px) {
+      .branch-modal-content {
+          padding: 1.25rem 1rem;
+      }
+      .branch-name {
+          font-size: 1rem;
+      }
+      .branch-address-row, 
+      .branch-phone-row {
+          padding-left: 0; /* Aquí sí quitar indentación para ganar espacio */
+          display: flex;
+          align-items: flex-start;
+      }
+      .branch-icon-small {
+          margin-top: 2px;
+          margin-right: 6px;
+      }
+  }
+}

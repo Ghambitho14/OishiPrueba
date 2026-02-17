@@ -1,17 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, Phone, X, Store } from 'lucide-react';
 import '../../styles/BranchSelectorModal.css';
 
 const BranchSelectorModal = ({ isOpen, onClose, branches, onSelectBranch, allowClose = true }) => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
-  if (!isOpen || !mounted) return null;
+  if (!isOpen) return null;
 
   const handleBranchSelect = (branch) => {
     onSelectBranch(branch);
