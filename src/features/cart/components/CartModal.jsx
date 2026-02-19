@@ -9,7 +9,7 @@ import { useCart } from '../hooks/useCart';
 import { ordersService } from '../../orders/services/orders';
 import { cashService } from '../../admin/services/cashService';
 import { useBusiness } from '../../../context/useBusiness';
-import { useLocation } from '../../../context/LocationContext';
+import { useLocation } from '../../../context/useLocation';
 
 import '../../../styles/CartModal.css';
 

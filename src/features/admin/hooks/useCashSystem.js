@@ -189,6 +189,44 @@ export const useCashSystem = (showNotify) => {
         }
     };
 
+    /**
+     * Registra una devolución/ajuste cuando se cancela una orden que ya había sido registrada
+     * Crea un movimiento de tipo 'expense' vinculado a la orden para dejar rastro en la caja
+     */
+    const registerRefund = async (order) => {
+        if (!activeShift) return;
+        try {
+            // Evitar duplicados: verificar si ya existe movimiento asociado a esta orden con tipo 'expense' o 'refund'
+            const { data: existing } = await supabase
+                .from('cash_movements')
+                .select('id, type')
+                .eq('shift_id', activeShift.id)
+                .eq('order_id', order.id);
+
+            if (existing && existing.length > 0) {
+                console.log('Ya existe un movimiento asociado a la orden (posible devolución):', order.id);
+                return;
+            }
+
+            const movement = {
+                shift_id: activeShift.id,
+                type: 'expense',
+                amount: order.total || 0,
+                description: `Devolución #${String(order.id).slice(-4)} - ${order.client_name}`,
+                payment_method: order.payment_type === 'online' ? 'online' : (order.payment_type === 'tarjeta' ? 'card' : 'cash'),
+                order_id: order.id
+            };
+
+            await cashService.addMovement(movement);
+            // Recargar estado de caja
+            await loadActiveShift();
+            if (showNotify) showNotify('Devolución registrada en caja', 'success');
+        } catch (error) {
+            console.error('Error registrando devolución en caja:', error);
+            if (showNotify) showNotify('Error registrando devolución', 'error');
+        }
+    };
+
     return {
         activeShift,
         loading,
@@ -198,6 +236,7 @@ export const useCashSystem = (showNotify) => {
         closeShift,
         addManualMovement,
         registerSale,
+        registerRefund,
         refresh: loadActiveShift,
         // Nuevas funciones para historia
         getPastShifts: cashService.getPastShifts,

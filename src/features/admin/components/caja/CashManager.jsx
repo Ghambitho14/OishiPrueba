@@ -13,7 +13,7 @@ import cashIcon from '../../../../assets/cash.svg';
 
 const CashManager = ({ showNotify }) => {
     const { 
-        activeShift, loading: loadingSystem, 
+        activeShift, loading: loadingSystem, movements,
         openShift, closeShift, addManualMovement, 
         getPastShifts, getTotals
     } = useCashSystem(showNotify);
@@ -29,11 +29,15 @@ const CashManager = ({ showNotify }) => {
     const [filterPeriod, setFilterPeriod] = useState('30'); 
 
     const loadHistory = useCallback(async () => {
+        console.log('CashManager: loadHistory start');
         setLoadingHistory(true);
         try {
+            console.log('CashManager: calling getPastShifts');
             const data = await getPastShifts();
+            console.log('CashManager: getPastShifts result:', data);
             setPastShifts(data || []);
-        } catch {
+        } catch (err) {
+            console.error('CashManager: loadHistory error:', err);
             showNotify('Error al cargar historial', 'error');
         } finally {
             setLoadingHistory(false);
@@ -53,6 +57,7 @@ const CashManager = ({ showNotify }) => {
 
     return (
         <div className="cash-container animate-fade">
+            {console.log('CashManager Render. ActiveShift:', activeShift, 'PastShifts:', pastShifts, 'LoadingHistory:', loadingHistory)}
             
             {/* HEADER PRINCIPAL */}
             <header className="cash-header">
@@ -119,8 +124,27 @@ const CashManager = ({ showNotify }) => {
                                     </td>
                                     <td>Caja Principal</td>
                                     <td>
-                                        {/* El sistema asume que el expected es calculado en vivo */}
-                                        ${(activeShift.expected_balance ?? activeShift.opening_balance ?? 0).toLocaleString('es-CL')}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            <div style={{ fontWeight: 600, fontSize: '1rem' }}>
+                                                ${(activeShift.expected_balance ?? activeShift.opening_balance ?? 0).toLocaleString('es-CL')}
+                                            </div>
+                                            
+                                            {/* Desglose simplificado */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: '0.75rem' }}>
+                                                <div style={{ color: 'var(--text-secondary)' }}>
+                                                    💵 ${(getTotals(movements).cash || 0).toLocaleString('es-CL')}
+                                                </div>
+                                                <div style={{ color: 'var(--text-secondary)' }}>
+                                                    💳 ${(getTotals(movements).card || 0).toLocaleString('es-CL')}
+                                                </div>
+                                                <div style={{ color: 'var(--text-secondary)' }}>
+                                                    📲 ${(getTotals(movements).online || 0).toLocaleString('es-CL')}
+                                                </div>
+                                                <div style={{ color: '#ef4444' }}>
+                                                    📤 -${(getTotals(movements).expenses || 0).toLocaleString('es-CL')}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td style={{ textAlign: 'center' }}>-</td>
                                     <td style={{ textAlign: 'center' }}>-</td>
@@ -128,20 +152,22 @@ const CashManager = ({ showNotify }) => {
                                         <span className="status-badge open">Abierta</span>
                                     </td>
                                     <td>
-                                        <button 
-                                            className="btn-table-action"
-                                            onClick={() => setIsShiftModalOpen(true)}
-                                            style={{ background: '#3b82f6' }}
-                                        >
-                                            Cerrar caja
-                                        </button>
-                                        <button 
-                                            className="btn-text" 
-                                            style={{ marginLeft: 10, fontSize: '0.85rem' }}
-                                            onClick={() => { setViewingShift(activeShift); }}
-                                        >
-                                            Ver detalles
-                                        </button>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <button 
+                                                className="btn-table-action"
+                                                onClick={() => setIsShiftModalOpen(true)}
+                                                style={{ background: '#3b82f6' }}
+                                            >
+                                                Cerrar caja
+                                            </button>
+                                            <button 
+                                                className="btn-text" 
+                                                style={{ fontSize: '0.85rem' }}
+                                                onClick={() => { setViewingShift(activeShift); }}
+                                            >
+                                                Ver detalles
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : (

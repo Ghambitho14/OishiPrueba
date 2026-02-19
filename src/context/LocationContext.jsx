@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useState } from 'react';
 
-const LocationContext = createContext();
+export const LocationContext = createContext();
 
 export const LocationProvider = ({ children }) => {
   const [selectedBranch, setSelectedBranch] = useState(() => {
@@ -66,10 +66,6 @@ export const LocationProvider = ({ children }) => {
   );
 };
 
-export const useLocation = () => {
-  const context = useContext(LocationContext);
-  if (!context) {
-    throw new Error('useLocation must be used within a LocationProvider');
-  }
-  return context;
-};
+// Note: `useLocation` hook is provided in `src/context/useLocation.js` to
+// satisfy fast-refresh linting rules (files that export hooks should be
+// separate from files that export components).

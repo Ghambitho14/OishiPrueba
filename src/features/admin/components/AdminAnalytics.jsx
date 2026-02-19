@@ -38,7 +38,9 @@ ChartJS.register(
 
 const AdminAnalytics = ({ orders, products, clients }) => {
   const [filterPeriod, setFilterPeriod] = useState('7'); // '7', '30', 'all'
-  const [chartTab, setChartTab] = useState('Todos'); // 'Todos', 'WEB', 'PDV', etc.
+    const [chartTab, setChartTab] = useState('Todos'); // 'Todos', 'WEB', 'PDV', etc.
+    const [tabs, setTabs] = useState(['Todos', 'WEB', 'PDV', 'trans', 'efectivo', 'uber']);
+    const [newTab, setNewTab] = useState('');
 
   // --- PROCESAMIENTO DE DATOS ---
   const { chartData, kpis } = useMemo(() => {
@@ -125,30 +127,29 @@ const AdminAnalytics = ({ orders, products, clients }) => {
 
   // CÁLCULO DE NUEVOS CLIENTES (Simple)
   const newClientsCount = useMemo(() => {
-      if(!clients) return 0;
+      if (!clients) return 0;
       // Asumimos que queremos saber los ultimos 7 dias
       const now = new Date();
       const cutoff = new Date();
       cutoff.setDate(now.getDate() - 7);
-      return clients.filter(c => new Date(c.created_at || new Date()) >= cutoff).length; 
+      return clients.filter(c => new Date(c.created_at || new Date()) >= cutoff).length;
   }, [clients]);
 
   // TOP PRODUCTO
   const topProduct = useMemo(() => {
-      if(!products) return null;
-      // Lógica simplificada: tomamos el que tenga más 'sold_count' si existe, o iteramos orders
-      // Iterar orders es mas preciso para el periodo seleccionado
+      if (!orders) return null;
       const counts = {};
       orders.forEach(o => {
-          if(o.items && Array.isArray(o.items)) {
+          if (o.items && Array.isArray(o.items)) {
               o.items.forEach(item => {
-                  counts[item.name] = (counts[item.name] || 0) + (item.quantity || 1);
+                  const name = item.name ? String(item.name).split(' (')[0] : 'Desconocido';
+                  counts[name] = (counts[name] || 0) + (item.quantity || 1);
               });
           }
       });
       const sorted = Object.entries(counts).sort(([,a], [,b]) => b - a);
       return sorted.length > 0 ? { name: sorted[0][0], count: sorted[0][1] } : null;
-  }, [orders, products]);
+  }, [orders]);
 
 
   return (
@@ -184,7 +185,7 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             <div className="chart-header-row">
                 <h3>Progreso de ventas</h3>
                 <div className="chart-tabs">
-                    {['Todos', 'WEB', 'PDV', 'RAPPI', 'DIDI'].map(tab => (
+                    {tabs.map(tab => (
                         <button 
                             key={tab} 
                             className={`chart-tab ${chartTab === tab ? 'active' : ''}`}
@@ -193,6 +194,22 @@ const AdminAnalytics = ({ orders, products, clients }) => {
                             {tab}
                         </button>
                     ))}
+
+                    {/* Input para agregar categoría personalizada */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 8 }}>
+                        <input
+                            placeholder="Agregar categoria"
+                            value={newTab}
+                            onChange={(e) => setNewTab(e.target.value)}
+                            style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.06)', background: 'transparent', color: 'inherit' }}
+                        />
+                        <button className="btn-small" onClick={() => {
+                            const t = (newTab || '').trim();
+                            if (!t) return;
+                            if (!tabs.includes(t)) setTabs(prev => [...prev, t]);
+                            setNewTab('');
+                        }}>Agregar</button>
+                    </div>
                 </div>
             </div>
             <div className="chart-wrapper">

@@ -643,7 +643,7 @@ const Admin = () => {
     pending: orders.filter(o => o.status === 'pending'),
     active: orders.filter(o => o.status === 'active'),
     completed: orders.filter(o => o.status === 'completed'),
-    history: orders.filter(o => o.status === 'picked_up' || o.status === 'canceled')
+    history: orders.filter(o => o.status === 'picked_up' || o.status === 'cancelled')
   }), [orders]);
 
 

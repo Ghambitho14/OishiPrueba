@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import logo from '../../../assets/logo.png';
 import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
-import { useLocation } from '../../../context/LocationContext';
+import { useLocation } from '../../../context/useLocation';
 
 const Menu = () => {
   const navigate = useNavigate();
