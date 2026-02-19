@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { routes } from "../router";
 import { BusinessProvider } from "../../context/BusinessContext";
+import { LocationProvider } from "../../context/LocationContext";
 
 // Assets
 import menuPattern from "../../assets/menu-pattern.webp";
@@ -103,7 +104,8 @@ function InnerApp() {
     };
 
     window.addEventListener('resize', handleVisualLock);
-    handleVisualLock();
+    // Ejecutar inicial con un pequeño delay para asegurar montaje
+    setTimeout(handleVisualLock, 100);
 
     return () => window.removeEventListener('resize', handleVisualLock);
   }, []);
@@ -159,9 +161,11 @@ function InnerApp() {
 function App() {
   return (
     <BusinessProvider>
-      <Router>
-        <InnerApp />
-      </Router>
+      <LocationProvider>
+        <Router>
+          <InnerApp />
+        </Router>
+      </LocationProvider>
     </BusinessProvider>
   );
 }

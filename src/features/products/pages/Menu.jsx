@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Navbar from '../../../shared/components/Navbar';
 import ProductCard from '../components/ProductCard';
-import { Search, ChevronLeft, Loader2, X } from 'lucide-react';
+import { Search, ChevronLeft, Loader2, X, MapPin } from 'lucide-react';
 import '../../../styles/Menu.css';
 import '../../../styles/Navbar.css';
 import { useNavigate } from 'react-router-dom';
@@ -83,59 +83,61 @@ const Menu = () => {
 
     const element = document.getElementById(`section-${id}`);
     if (element) {
-      // scrollMarginTop en el estilo del elemento maneja el offset del header
+      // scrollMarginTop en CSS (180px) asegura que no quede tapado
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+      // Bloquear el spy un poco más de tiempo para permitir que la animación termine
       setTimeout(() => {
         isManualScrolling.current = false;
-      }, 850);
+      }, 1000);
     }
   };
 
   useEffect(() => {
     if (loading) return;
 
-    // Si estamos haciendo scroll manual (clic en navbar), no actualizamos
-    if (isManualScrolling.current) return;
-
     const observerOptions = {
-      root: null, // viewport
-      rootMargin: '-20% 0px -60% 0px', // Zona activa en el centro-superior de la pantalla
+      root: null, 
+      // Offset negativo superior grande para compensar el header fijo (~130px - 180px)
+      // Esto hace que la línea de "intersección" esté más abajo, justo donde el usuario mira.
+      rootMargin: '-140px 0px -70% 0px', 
       threshold: 0
     };
 
     const observerCallback = (entries) => {
       if (isManualScrolling.current) return;
 
-      // Filtramos solo las entradas que están intersectando
       const visibleSections = entries.filter(entry => entry.isIntersecting);
 
       if (visibleSections.length > 0) {
-        // Si hay varias visibles, tomamos la que esté más arriba en la pantalla
-        // o la que tenga mayor ratio de intersección
-        const bestCandidate = visibleSections.reduce((prev, current) => {
-          return (prev.intersectionRatio > current.intersectionRatio) ? prev : current;
-        });
-
-        const id = bestCandidate.target.id.replace('section-', '');
-        setActiveCategory(id);
+        // Preferir la sección que está más cerca de la parte superior (menor top bounding rect)
+        // o la que tiene mayor intersectionRatio.
+        
+        // Ordenar por cercanía al "corte" superior
+        visibleSections.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        
+        // La primera visible es la candidata principal
+        const bestCandidate = visibleSections[0];
+        
+        if (bestCandidate && bestCandidate.target.id) {
+           const id = bestCandidate.target.id.replace('section-', '');
+           setActiveCategory(id);
+        }
       }
     };
 
     const observer = new IntersectionObserver(observerCallback, observerOptions);
 
-    // Observar sección especial si existe
     const specialSection = document.getElementById('section-special');
     if (specialSection) observer.observe(specialSection);
 
-    // Observar todas las categorías
     categories.forEach(cat => {
       const el = document.getElementById(`section-${cat.id}`);
       if (el) observer.observe(el);
     });
 
     return () => observer.disconnect();
-  }, [categories, products, loading]); // Dependencias limpias
+  }, [categories, products, loading]);
 
   // Bloquear scroll del body cuando el modal está abierto
   useEffect(() => {
@@ -190,8 +192,8 @@ const Menu = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
                   {selectedBranch && (
-                     <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.8, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '4px', cursor: 'pointer' }} onClick={() => setIsLocationModalOpen(true)}>
-                       • {selectedBranch.name}
+                     <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.9, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '6px', marginLeft: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }} onClick={() => setIsLocationModalOpen(true)}>
+                       <MapPin size={10} /> {selectedBranch.name}
                      </span>
                   )}
                 </div>

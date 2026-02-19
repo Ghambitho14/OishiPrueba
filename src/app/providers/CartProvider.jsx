@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import CartContext from '../../features/cart/hooks/cart-context';
+import { supabase } from '../../services/supabase/client';
 
 export const CartProvider = ({ children }) => {
   // 1. ESTADO INICIAL (CON PERSISTENCIA)
@@ -21,10 +22,6 @@ export const CartProvider = ({ children }) => {
       if (cart.length === 0) return;
 
       try {
-        // Importamos supabase dinámicamente o lo pasamos como prop si es necesario
-        // Asumimos que podemos importarlo aquí arriba
-        const { supabase } = await import('../../services/supabase/client');
-
         const ids = cart.map(item => item.id);
         const { data: freshProducts, error } = await supabase
           .from('products')
