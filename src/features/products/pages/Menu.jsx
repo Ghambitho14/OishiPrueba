@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Navbar from '../../../shared/components/Navbar';
 import ProductCard from '../components/ProductCard';
-import { Search, ChevronLeft, Loader2, X } from 'lucide-react';
+import { Search, ChevronLeft, Loader2, X, MapPin } from 'lucide-react';
 import '../../../styles/Menu.css';
 import '../../../styles/Navbar.css';
 import { useNavigate } from 'react-router-dom';
@@ -74,17 +74,7 @@ const Menu = () => {
     loadData();
   }, []);
 
-  // Helper para detectar el contenedor de scroll activo dinámicamente
-  const getScrollParent = () => {
-    const wrapper = document.querySelector('.app-wrapper');
-    if (wrapper) {
-      const style = window.getComputedStyle(wrapper);
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        return wrapper;
-      }
-    }
-    return window;
-  };
+
 
   // Función de scroll mejorada: Usa scrollIntoView nativo + scrollMarginTop CSS
   const scrollToCategory = (id) => {
@@ -93,86 +83,61 @@ const Menu = () => {
 
     const element = document.getElementById(`section-${id}`);
     if (element) {
-      // scrollMarginTop en el estilo del elemento maneja el offset del header
+      // scrollMarginTop en CSS (180px) asegura que no quede tapado
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+      // Bloquear el spy un poco más de tiempo para permitir que la animación termine
       setTimeout(() => {
         isManualScrolling.current = false;
-      }, 850);
+      }, 1000);
     }
   };
 
   useEffect(() => {
     if (loading) return;
 
-    const handleScroll = () => {
+    const observerOptions = {
+      root: null, 
+      // Offset negativo superior grande para compensar el header fijo (~130px - 180px)
+      // Esto hace que la línea de "intersección" esté más abajo, justo donde el usuario mira.
+      rootMargin: '-140px 0px -70% 0px', 
+      threshold: 0
+    };
+
+    const observerCallback = (entries) => {
       if (isManualScrolling.current) return;
 
-      const container = getScrollParent();
-      const currentScroll = container === window ? window.scrollY : container.scrollTop;
+      const visibleSections = entries.filter(entry => entry.isIntersecting);
 
-      const headerEl = document.querySelector('.navbar-sticky');
-      const headerHeight = headerEl ? headerEl.offsetHeight : 110;
-
-      // Lista de secciones a verificar
-      const sections = [];
-      if (document.getElementById('section-special')) sections.push({ id: 'special', elId: 'section-special' });
-      categories.forEach(c => {
-        if (document.getElementById(`section-${c.id}`)) {
-          sections.push({ id: c.id, elId: `section-${c.id}` });
+      if (visibleSections.length > 0) {
+        // Preferir la sección que está más cerca de la parte superior (menor top bounding rect)
+        // o la que tiene mayor intersectionRatio.
+        
+        // Ordenar por cercanía al "corte" superior
+        visibleSections.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        
+        // La primera visible es la candidata principal
+        const bestCandidate = visibleSections[0];
+        
+        if (bestCandidate && bestCandidate.target.id) {
+           const id = bestCandidate.target.id.replace('section-', '');
+           setActiveCategory(id);
         }
-      });
-
-      if (sections.length === 0) return;
-
-      // SI ESTAMOS CERKA DEL TOP, SIEMPRE ES LA PRIMERA SECCIÓN
-      if (currentScroll < 100) {
-        if (activeCategory !== sections[0].id) setActiveCategory(sections[0].id);
-        return;
-      }
-
-      let currentId = null;
-      // Usamos una línea de disparo visual (un poco debajo del header)
-      const trigger = headerHeight + 60;
-
-      for (const section of sections) {
-        const el = document.getElementById(section.elId);
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-
-        // NORMALIZACIÓN ANTI-ZOOM: Al usar zoom en el body, las coordenadas del rect se escalan.
-        // Las multiplicamos por DPR para volver a la escala real de la página.
-        const dpr = window.devicePixelRatio || 1;
-        const isZoomed = dpr > 1 && !('ontouchstart' in window); // Solo en PC
-        const normalizedTop = isZoomed ? rect.top * dpr : rect.top;
-        const normalizedBottom = isZoomed ? rect.bottom * dpr : rect.bottom;
-
-        // Si el tope de la sección ya pasó la línea de disparo
-        // Y el fondo de la sección aun no ha pasado la línea de disparo
-        if (normalizedTop <= trigger && normalizedBottom > trigger) {
-          currentId = section.id;
-          break;
-        }
-      }
-
-      if (currentId && currentId !== activeCategory) {
-        setActiveCategory(currentId);
       }
     };
 
-    // Listener dinámico
-    const scrollContainer = getScrollParent();
-    scrollContainer.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
-    // También escuchamos scroll en window por si acaso cambia el modo dinámicamente
-    if (scrollContainer !== window) window.addEventListener('scroll', handleScroll);
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
 
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-      if (scrollContainer !== window) window.removeEventListener('scroll', handleScroll);
-    };
-  }, [categories, products, loading, activeCategory]);
+    const specialSection = document.getElementById('section-special');
+    if (specialSection) observer.observe(specialSection);
+
+    categories.forEach(cat => {
+      const el = document.getElementById(`section-${cat.id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [categories, products, loading]);
 
   // Bloquear scroll del body cuando el modal está abierto
   useEffect(() => {
@@ -227,8 +192,8 @@ const Menu = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
                   {selectedBranch && (
-                     <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.8, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '4px', cursor: 'pointer' }} onClick={() => setIsLocationModalOpen(true)}>
-                       • {selectedBranch.name}
+                     <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.9, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '6px', marginLeft: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }} onClick={() => setIsLocationModalOpen(true)}>
+                       <MapPin size={10} /> {selectedBranch.name}
                      </span>
                   )}
                 </div>

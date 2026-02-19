@@ -47,7 +47,7 @@
     padding-bottom: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     position: relative;
-    scroll-margin-top: calc(var(--menu-header-height) + 10px);
+    scroll-margin-top: 180px;
     /* Asegura que el título no quede tapado por el header */
 }
 
