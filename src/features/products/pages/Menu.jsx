@@ -70,17 +70,7 @@ const Menu = () => {
     loadData();
   }, []);
 
-  // Helper para detectar el contenedor de scroll activo dinámicamente
-  const getScrollParent = () => {
-    const wrapper = document.querySelector('.app-wrapper');
-    if (wrapper) {
-      const style = window.getComputedStyle(wrapper);
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        return wrapper;
-      }
-    }
-    return window;
-  };
+
 
   // Función de scroll mejorada: Usa scrollIntoView nativo + scrollMarginTop CSS
   const scrollToCategory = (id) => {
@@ -101,74 +91,47 @@ const Menu = () => {
   useEffect(() => {
     if (loading) return;
 
-    const handleScroll = () => {
+    // Si estamos haciendo scroll manual (clic en navbar), no actualizamos
+    if (isManualScrolling.current) return;
+
+    const observerOptions = {
+      root: null, // viewport
+      rootMargin: '-20% 0px -60% 0px', // Zona activa en el centro-superior de la pantalla
+      threshold: 0
+    };
+
+    const observerCallback = (entries) => {
       if (isManualScrolling.current) return;
 
-      const container = getScrollParent();
-      const currentScroll = container === window ? window.scrollY : container.scrollTop;
+      // Filtramos solo las entradas que están intersectando
+      const visibleSections = entries.filter(entry => entry.isIntersecting);
 
-      const headerEl = document.querySelector('.navbar-sticky');
-      const headerHeight = headerEl ? headerEl.offsetHeight : 110;
+      if (visibleSections.length > 0) {
+        // Si hay varias visibles, tomamos la que esté más arriba en la pantalla
+        // o la que tenga mayor ratio de intersección
+        const bestCandidate = visibleSections.reduce((prev, current) => {
+          return (prev.intersectionRatio > current.intersectionRatio) ? prev : current;
+        });
 
-      // Lista de secciones a verificar
-      const sections = [];
-      if (document.getElementById('section-special')) sections.push({ id: 'special', elId: 'section-special' });
-      categories.forEach(c => {
-        if (document.getElementById(`section-${c.id}`)) {
-          sections.push({ id: c.id, elId: `section-${c.id}` });
-        }
-      });
-
-      if (sections.length === 0) return;
-
-      // SI ESTAMOS CERKA DEL TOP, SIEMPRE ES LA PRIMERA SECCIÓN
-      if (currentScroll < 100) {
-        if (activeCategory !== sections[0].id) setActiveCategory(sections[0].id);
-        return;
-      }
-
-      let currentId = null;
-      // Usamos una línea de disparo visual (un poco debajo del header)
-      const trigger = headerHeight + 60;
-
-      for (const section of sections) {
-        const el = document.getElementById(section.elId);
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-
-        // NORMALIZACIÓN ANTI-ZOOM: Al usar zoom en el body, las coordenadas del rect se escalan.
-        // Las multiplicamos por DPR para volver a la escala real de la página.
-        const dpr = window.devicePixelRatio || 1;
-        const isZoomed = dpr > 1 && !('ontouchstart' in window); // Solo en PC
-        const normalizedTop = isZoomed ? rect.top * dpr : rect.top;
-        const normalizedBottom = isZoomed ? rect.bottom * dpr : rect.bottom;
-
-        // Si el tope de la sección ya pasó la línea de disparo
-        // Y el fondo de la sección aun no ha pasado la línea de disparo
-        if (normalizedTop <= trigger && normalizedBottom > trigger) {
-          currentId = section.id;
-          break;
-        }
-      }
-
-      if (currentId && currentId !== activeCategory) {
-        setActiveCategory(currentId);
+        const id = bestCandidate.target.id.replace('section-', '');
+        setActiveCategory(id);
       }
     };
 
-    // Listener dinámico
-    const scrollContainer = getScrollParent();
-    scrollContainer.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
-    // También escuchamos scroll en window por si acaso cambia el modo dinámicamente
-    if (scrollContainer !== window) window.addEventListener('scroll', handleScroll);
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
 
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-      if (scrollContainer !== window) window.removeEventListener('scroll', handleScroll);
-    };
-  }, [categories, products, loading, activeCategory]);
+    // Observar sección especial si existe
+    const specialSection = document.getElementById('section-special');
+    if (specialSection) observer.observe(specialSection);
+
+    // Observar todas las categorías
+    categories.forEach(cat => {
+      const el = document.getElementById(`section-${cat.id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [categories, products, loading]); // Dependencias limpias
 
   // Bloquear scroll del body cuando el modal está abierto
   useEffect(() => {
