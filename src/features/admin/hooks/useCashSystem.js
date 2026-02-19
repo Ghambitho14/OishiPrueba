@@ -99,7 +99,11 @@ export const useCashSystem = (showNotify) => {
             return true;
         } catch (error) {
             console.error('Error opening shift:', error);
-            if (showNotify) showNotify('Error al abrir caja', 'error');
+            if (showNotify) {
+                // Si el error es conocido (ej: ya existe caja), mostrarlo
+                const msg = error.message.includes('Ya existe') ? error.message : 'Error al abrir caja';
+                showNotify(msg, 'error');
+            }
             return false;
         }
     };

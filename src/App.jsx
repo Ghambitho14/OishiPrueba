@@ -194,14 +194,20 @@ function InnerApp() {
 }
 
 
+import { LocationProvider } from "./context/LocationContext";
+
+// ... (existing imports)
+
 function App() {
   return (
     <BusinessProvider>
-      <CartProvider>
-        <Router>
-          <InnerApp />
-        </Router>
-      </CartProvider>
+      <LocationProvider>
+        <CartProvider>
+          <Router>
+            <InnerApp />
+          </Router>
+        </CartProvider>
+      </LocationProvider>
     </BusinessProvider>
   );
 }

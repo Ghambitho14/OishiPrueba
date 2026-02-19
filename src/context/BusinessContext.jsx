@@ -1,7 +1,7 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { BusinessContext } from './BusinessContextInstance';
 
-export const BusinessContext = createContext();
 
 export const BusinessProvider = ({ children }) => {
     const [businessInfo, setBusinessInfo] = useState({

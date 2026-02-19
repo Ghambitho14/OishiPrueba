@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_PRUEBA_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_PRUEBA_SUPABASE_ANON_KEY || '';
 const useMcp = import.meta.env.VITE_SUPABASE_USE_MCP === 'true';
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_REF || '';
 
