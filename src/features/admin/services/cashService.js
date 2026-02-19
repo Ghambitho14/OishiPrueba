@@ -25,6 +25,23 @@ export const cashService = {
      * Abre un nuevo turno de caja
      */
     openShift: async (openingBalance, userId) => {
+        // [Fase 1 Fix] Validar si el usuario ya tiene una caja abierta
+        const { data: existingShift, error: checkError } = await supabase
+            .from('cash_shifts')
+            .select('id')
+            .eq('status', 'open')
+            .eq('opened_by', userId)
+            .limit(1)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+            throw new Error('Error al verificar cajas abiertas: ' + checkError.message);
+        }
+
+        if (existingShift) {
+            throw new Error('Ya existe una caja abierta para este usuario.');
+        }
+
         const { data, error } = await supabase
             .from('cash_shifts')
             .insert({

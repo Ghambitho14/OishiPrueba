@@ -51,6 +51,7 @@ export const ordersService = {
                     payment_ref: paymentRef,
                     note: finalNote,
                     status: orderData.status || 'pending',
+                    branch_id: orderData.branch_id, // Add branch_id
                     created_at: new Date().toISOString()
                 })
                 .select()

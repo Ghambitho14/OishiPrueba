@@ -9,6 +9,8 @@ import { useCart } from '../hooks/useCart';
 import { ordersService } from '../../orders/services/orders';
 import { cashService } from '../../admin/services/cashService';
 import { useBusiness } from '../../../context/useBusiness';
+import { useLocation } from '../../../context/LocationContext';
+
 import '../../../styles/CartModal.css';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&q=80&w=400';
@@ -64,6 +66,8 @@ const generateWSMessage = (formData, cart, total, paymentType, note, businessNam
 const CartModal = React.memo(() => {
   const navigate = useNavigate();
   const { businessInfo } = useBusiness();
+  const { selectedBranch } = useLocation();
+
   const {
     cart, isCartOpen, toggleCart,
     addToCart, decreaseQuantity, removeFromCart, clearCart,
@@ -82,16 +86,8 @@ const CartModal = React.memo(() => {
 
   const [paymentType, setPaymentType] = useState(null);
   
-  // Cargar sucursal desde localStorage (lazy initialization)
-  const currentBranch = (() => {
-    try {
-      const stored = localStorage.getItem('selectedBranch');
-      return stored ? JSON.parse(stored) : null;
-    } catch (e) {
-      console.error("Error leyendo sucursal:", e);
-      return null;
-    }
-  })();
+  const currentBranch = selectedBranch;
+
 
   // Datos del Cliente
   const [formData, setFormData] = useState({

@@ -9,30 +9,26 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../services/supabase/client';
 import logo from '../../../assets/logo.png';
 import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
-import { branches } from '../../../shared/data/branches';
+import { useLocation } from '../../../context/LocationContext';
 
 const Menu = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectBranch, isLocationModalOpen, setIsLocationModalOpen } = useLocation();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [branches, setBranches] = useState([]); // Dynamic branches
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchExpanded, setSearchExpanded] = useState(false);
   const searchInputRef = useRef(null);
-  const [showBranchModal, setShowBranchModal] = useState(true);
+
+  // Load selected branch from context or local storage
+  // (Handled by LocationContext)
 
   const handleBranchSelect = (branch) => {
-      localStorage.setItem('selectedBranch', JSON.stringify(branch));
-      setShowBranchModal(false);
+      selectBranch(branch);
   };
-
-  // Limpiar flag cuando sales del componente (vuelves a Home)
-  useEffect(() => {
-      return () => {
-          // Cleanup: cuando desmontas el componente, preparar para próxima visita
-      };
-  }, []);
 
   // Referencia para bloquear el Scroll Spy durante el desplazamiento manual
   const isManualScrolling = useRef(false);
@@ -54,8 +50,16 @@ const Menu = () => {
           .eq('is_active', true)
           .order('name', { ascending: true });
 
+        // Fetch Branches
+        const { data: branchesData } = await supabase
+            .from('branches')
+            .select('*')
+            .eq('is_active', true)
+            .order('name', { ascending: true });
+        
         setCategories(categoriesData || []);
         setProducts(productsData || []);
+        setBranches(branchesData || []);
 
         const hasSpecial = (productsData || []).some(p => p.is_special);
         if (hasSpecial) setActiveCategory('special');
@@ -135,7 +139,7 @@ const Menu = () => {
 
   // Bloquear scroll del body cuando el modal está abierto
   useEffect(() => {
-    if (showBranchModal) {
+    if (isLocationModalOpen) {
       document.body.style.overflow = 'hidden';
       // También intentar bloquear el wrapper si existe
       const appWrapper = document.querySelector('.app-wrapper');
@@ -151,7 +155,7 @@ const Menu = () => {
       const appWrapper = document.querySelector('.app-wrapper');
       if (appWrapper) appWrapper.style.overflow = '';
     };
-  }, [showBranchModal]);
+  }, [isLocationModalOpen]);
 
   if (loading) {
     return (
@@ -174,17 +178,23 @@ const Menu = () => {
           O usar z-index superior para el modal. Usaremos z-index superior. */}
       
       {document.getElementById('navbar-portal-root') && createPortal(
-        <header className="navbar-sticky" style={{ zIndex: showBranchModal ? 0 : 100 }}> {/* Bajar z-index si modal activo */}
+        <header className="navbar-sticky" style={{ zIndex: isLocationModalOpen ? 0 : 100 }}> {/* Bajar z-index si modal activo */}
           <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px' }}>
             <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0 }}>
               <ChevronLeft size={28} />
             </button>
-
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <img src={logo} alt="Oishi Logo" style={{ height: '38px', width: 'auto', borderRadius: '6px' }} />
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1 }}>
                 <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'white' }}>Oishi Sushi</h2>
-                <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
+                  {selectedBranch && (
+                     <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.8, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '4px', cursor: 'pointer' }} onClick={() => setIsLocationModalOpen(true)}>
+                       • {selectedBranch.name}
+                     </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="nav-search-section">
@@ -300,7 +310,7 @@ const Menu = () => {
       </main>
       
       {/* Modal de Selección de Sucursal con Blur Overlay - Z-INDEX EXTREMO */}
-      {showBranchModal && (
+      {isLocationModalOpen && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -320,7 +330,7 @@ const Menu = () => {
       )}
       
       <BranchSelectorModal
-        isOpen={showBranchModal}
+        isOpen={isLocationModalOpen}
         onClose={() => {}} // No permitir cerrar
         branches={branches}
         onSelectBranch={handleBranchSelect}

@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { CartProvider } from "./app/providers/CartProvider";
 import { BusinessProvider } from "./context/BusinessContext";
+import { LocationProvider } from "./context/LocationContext";
 
 // Páginas
 import Home from "./shared/components/Home";
@@ -138,11 +139,13 @@ function InnerApp() {
 function App() {
   return (
     <BusinessProvider>
-      <CartProvider>
-        <Router>
-          <InnerApp />
-        </Router>
-      </CartProvider>
+      <LocationProvider>
+        <CartProvider>
+          <Router>
+            <InnerApp />
+          </Router>
+        </CartProvider>
+      </LocationProvider>
     </BusinessProvider>
   );
 }
