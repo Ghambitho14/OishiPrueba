@@ -114,7 +114,7 @@ const Admin = () => {
   }, []);
 
   // --- SISTEMA DE CAJA ---
-  useCashSystem(showNotify);
+  const { registerSale } = useCashSystem(showNotify);
 
   // --- 1. CARGA DE DATOS ---
   const loadData = useCallback(async (isRefresh = false) => {
@@ -249,8 +249,13 @@ const Admin = () => {
       const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
       if (error) throw error;
       
-      // Nota: No registramos venta aquí porque ya se registró en CartModal al crear la orden
-      // Admin solo cambia estado/kanban, la caja se actualiza desde CartModal
+      // [FIX] Registrar venta en caja si se completa/entrega
+      if ((nextStatus === 'completed' || nextStatus === 'picked_up') && activeTab === 'orders') {
+          const targetOrder = orders.find(o => o.id === orderId);
+          if (targetOrder) {
+             registerSale(targetOrder);
+          }
+      }
 
       showNotify('Pedido actualizado');
     } catch {

@@ -15,10 +15,10 @@ export const cashService = {
             .from('cash_shifts')
             .select('*')
             .eq('status', 'open')
-            .limit(1);
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
-        return data && data.length > 0 ? data[0] : null;
+        if (error) throw error;
+        return data;
     },
 
     /**

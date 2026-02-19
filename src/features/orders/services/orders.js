@@ -71,74 +71,76 @@ export const ordersService = {
      */
     async _ensureClient(orderData) {
         const { client_rut, client_name, client_phone, total } = orderData;
-        const hasValidRut = client_rut && client_rut.length > 7;
-
-        // Escapar comillas dobles para filtros PostgREST (valores con puntos, espacios, etc.)
-        const escape = (v) => (v ?? '').replace(/"/g, '""');
-        const quoted = (v) => `"${escape(v)}"`;
-
-        // 1. Intentar buscar cliente existente por Teléfono (Prioridad) o RUT
-        let query = supabase.from('clients').select('*');
-
-        if (hasValidRut) {
-            query = query.or(`rut.eq.${quoted(client_rut)},phone.eq.${quoted(client_phone)}`);
-        } else {
-            query = query.eq('phone', client_phone);
-        }
-
-        const { data: foundClients, error: searchError } = await query;
         
+        // 1. Limpieza de datos
+        const safePhone = (client_phone || '').trim();
+        const safeRut = (client_rut || '').trim();
+        const hasValidRut = safeRut.length > 6;
+
+        if (!safePhone) throw new Error('El teléfono es obligatorio para crear un pedido');
+
+        // 2. Buscar cliente existente por Teléfono (Identificador principal)
+        const { data: existingClient, error: searchError } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('phone', safePhone)
+            .maybeSingle(); // Usamos maybeSingle para evitar error si no existe o si hay múltiples (aunque unique lo previene)
+
         if (searchError) {
             console.error("Error buscando cliente:", searchError);
             throw searchError;
         }
 
-        // Tomamos el primer match (dado que teléfono es único, debería ser uno solo)
-        const existingClient = foundClients?.[0];
-
         if (existingClient) {
-            // 2. Actualizar cliente existente
+            // 3. Actualizar cliente existente
             const updateData = {
-                name: client_name, // Actualizamos nombre reciente
+                name: client_name || existingClient.name,
                 last_order_at: new Date().toISOString(),
                 total_spent: (existingClient.total_spent || 0) + total,
                 total_orders: (existingClient.total_orders || 0) + 1
             };
 
-            // Si el cliente ya existe pero tenía un RUT temporal, y ahora traemos uno real, lo actualizamos
+            // Solo actualizamos RUT si el nuevo es válido y el existente es temporal/nulo
             if (hasValidRut && (!existingClient.rut || existingClient.rut.startsWith('SIN-RUT'))) {
-                updateData.rut = client_rut;
+                updateData.rut = safeRut;
             }
-            // Si el cliente tiene un RUT real en BD, NO lo sobreescribimos con uno temporal,
-            // pero sí actualizamos el teléfono si por alguna razón coinciden por RUT y no por teléfono.
-            updateData.phone = client_phone;
 
             const { error: updateError } = await supabase
                 .from('clients')
                 .update(updateData)
                 .eq('id', existingClient.id);
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                 console.error("Error actualizando cliente:", updateError);
+                 // No lanzamos error para no bloquear la venta, solo logueamos
+            }
             return existingClient.id;
         } else {
-            // 3. Crear nuevo cliente
-            // Si no exite, usamos el RUT válido o generamos uno temporal
-            const rutToSave = hasValidRut ? client_rut : `SIN-RUT-${Date.now().toString().slice(-6)}`;
-
+            // 4. Crear nuevo cliente
+            const rutToSave = hasValidRut ? safeRut : `SIN-RUT-${Date.now().toString().slice(-6)}`;
+            
+            // Usamos UPSERT por seguridad (en caso de condición de carrera con el teléfono)
             const { data: newClient, error: createError } = await supabase
                 .from('clients')
-                .insert({
+                .upsert({
                     name: client_name,
-                    phone: client_phone,
+                    phone: safePhone,
                     rut: rutToSave,
                     total_spent: total,
                     total_orders: 1,
                     last_order_at: new Date().toISOString()
-                })
+                }, { onConflict: 'phone' }) // Si el teléfono ya existe, actualiza
                 .select('id')
-                .maybeSingle();
+                .single();
 
-            if (createError) throw createError;
+            if (createError) {
+                 // Si falla upsert, intentamos buscar de nuevo por si acaso fue creado milisegundos antes
+                 if (createError.code === '23505') {
+                      const { data: retryClient } = await supabase.from('clients').select('id').eq('phone', safePhone).single();
+                      if (retryClient) return retryClient.id;
+                 }
+                 throw createError;
+            }
             return newClient.id;
         }
     }

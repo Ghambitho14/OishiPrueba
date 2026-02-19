@@ -155,9 +155,25 @@ export const useCashSystem = (showNotify) => {
     /**
      * Registra una venta automáticamente
      */
+    /**
+     * Registra una venta automáticamente
+     */
     const registerSale = async (order) => {
         if (!activeShift) return;
         try {
+            // [FIX] Evitar duplicados: Verificar si ya existe movimiento para esta orden
+            const { data: existing } = await supabase
+                .from('cash_movements')
+                .select('id')
+                .eq('shift_id', activeShift.id)
+                .eq('order_id', order.id)
+                .maybeSingle();
+
+            if (existing) {
+                console.log('Orden ya registrada en caja:', order.id);
+                return; 
+            }
+
             const movement = {
                 shift_id: activeShift.id,
                 type: 'sale',
