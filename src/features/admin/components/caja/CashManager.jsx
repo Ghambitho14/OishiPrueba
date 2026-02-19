@@ -120,7 +120,7 @@ const CashManager = ({ showNotify }) => {
                                     <td>Caja Principal</td>
                                     <td>
                                         {/* El sistema asume que el expected es calculado en vivo */}
-                                        ${activeShift.expected_balance ? activeShift.expected_balance.toLocaleString('es-CL') : getTotals().expected.toLocaleString('es-CL')}
+                                        ${(activeShift.expected_balance ?? activeShift.opening_balance ?? 0).toLocaleString('es-CL')}
                                     </td>
                                     <td style={{ textAlign: 'center' }}>-</td>
                                     <td style={{ textAlign: 'center' }}>-</td>

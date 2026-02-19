@@ -114,7 +114,7 @@ const Admin = () => {
   }, []);
 
   // --- SISTEMA DE CAJA ---
-  const { registerSale } = useCashSystem(showNotify);
+  const { registerSale, registerRefund } = useCashSystem(showNotify);
 
   // --- 1. CARGA DE DATOS ---
   const loadData = useCallback(async (isRefresh = false) => {
@@ -255,6 +255,15 @@ const Admin = () => {
           if (targetOrder) {
              registerSale(targetOrder);
           }
+      }
+
+      // [FIX] Registrar devolución si se cancela una orden previamente completada
+      if (nextStatus === 'cancelled') {
+        const targetOrder = orders.find(o => o.id === orderId);
+        // Solo si estaba completada o entregada (ya sumó a caja)
+        if (targetOrder && (targetOrder.status === 'completed' || targetOrder.status === 'picked_up')) {
+            registerRefund(targetOrder);
+        }
       }
 
       showNotify('Pedido actualizado');
@@ -546,7 +555,10 @@ const Admin = () => {
             </button>
             {activeTab === 'orders' && (
               <>
-                <button className={`btn ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setIsHistoryView(!isHistoryView)}>
+                <button className={`btn ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`} 
+                        onClick={() => setIsHistoryView(!isHistoryView)}
+                        style={!isHistoryView ? { background: 'white', color: '#1a1a1a', border: '1px solid #e5e7eb' } : {}}
+                >
                   {isHistoryView ? 'Ver Tablero' : 'Ver Historial'}
                 </button>
                 <button onClick={() => setIsManualOrderModalOpen(true)} className="btn btn-primary">
@@ -850,6 +862,7 @@ const Admin = () => {
         </div>
       )}
 
+
       <ManualOrderModal
         isOpen={isManualOrderModalOpen}
         onClose={() => setIsManualOrderModalOpen(false)}
@@ -857,6 +870,7 @@ const Admin = () => {
         onOrderSaved={() => loadData(true)}
         isMobile={isMobile}
         showNotify={showNotify}
+        registerSale={registerSale}
       />
 
       <ProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveProduct} product={editingProduct} categories={categories} />

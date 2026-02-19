@@ -12,7 +12,7 @@ const initialOrderState = {
     note: ''
 };
 
-export const useManualOrder = (showNotify, onOrderSaved, onClose) => {
+export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale) => {
     // --- ESTADOS DE DATOS ---
     // Usar lazy initialization para evitar reset
     const [manualOrder, setManualOrder] = useState(() => initialOrderState);
@@ -138,7 +138,12 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose) => {
         setLoading(true);
         try {
             // Aquí llamamos a tu servicio existente
-            await createManualOrder(manualOrder, receiptFile);
+            const { order } = await createManualOrder(manualOrder, receiptFile);
+
+            // [FIX] Registrar venta en caja si existe la función
+            if (order && registerSale) {
+                await registerSale(order);
+            }
 
             showNotify('Pedido creado con éxito', 'success');
             resetOrder();

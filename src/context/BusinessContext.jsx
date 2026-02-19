@@ -40,7 +40,7 @@ export const BusinessProvider = ({ children }) => {
                 .from('business_info')
                 .select('*')
                 .limit(1)
-                .single();
+                .maybeSingle();
             
             if (data) {
                 setBusinessInfo(prev => ({ ...prev, ...data }));

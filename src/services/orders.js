@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { uploadImage } from '../lib/cloudinary';
+import { uploadImage } from '../shared/utils/cloudinary';
 
 /**
  * Servicio Senior de Órdenes

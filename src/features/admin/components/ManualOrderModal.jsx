@@ -9,14 +9,14 @@ import logo from '../../../assets/logo.png';
 import { useManualOrder } from '../hooks/useManualOrder';
 import '../../../styles/ManualOrderModal.css';
 
-const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify }) => {
+const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify, registerSale }) => {
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
         updateClientName, updateNote, updatePaymentType, handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
         submitOrder, getInputStyle
-    } = useManualOrder(showNotify, onOrderSaved, onClose);
+    } = useManualOrder(showNotify, onOrderSaved, onClose, registerSale);
 
     const [searchQuery, setSearchQuery] = useState('');
 

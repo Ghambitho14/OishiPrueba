@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import CartContext from '../../features/cart/hooks/cart-context';
-import { supabase } from '../../services/supabase/client';
+import { supabase } from '../../lib/supabase';
 
 export const CartProvider = ({ children }) => {
   // 1. ESTADO INICIAL (CON PERSISTENCIA)

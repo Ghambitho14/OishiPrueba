@@ -15,7 +15,7 @@ import AdminHistoryTable from '../components/admin/AdminHistoryTable';
 import AdminClientsTable from '../components/admin/AdminClientsTable';
 import ClientDetailsPanel from '../components/admin/ClientDetailsPanel';
 import { supabase } from '../lib/supabase';
-import { uploadImage } from '../lib/cloudinary';
+import { uploadImage } from '../shared/utils/cloudinary';
 import CashManager from '../components/admin/caja/CashManager';
 import { useCashSystem } from '../hooks/caja/useCashSystem';
 import '../styles/AdminLayout.css';

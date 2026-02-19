@@ -27,9 +27,9 @@ const AdminSettings = ({ showNotify }) => {
                 .from('business_info')
                 .select('*')
                 .limit(1)
-                .single();
+                .maybeSingle();
             
-            if (error && error.code !== 'PGRST116') throw error; // PGRST116 is no rows found
+            if (error) throw error;
 
             if (data) {
                 setFormData({

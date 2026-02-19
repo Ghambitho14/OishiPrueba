@@ -14,6 +14,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
             setMovements(data || []);
         } catch (error) {
             console.error('Error cargando movimientos históricos:', error);
+            setMovements([]);
         } finally {
             setLoading(false);
         }
@@ -27,7 +28,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
 
     if (!isOpen || !shift) return null;
 
-    const totals = getTotals(movements);
+    const totals = getTotals ? getTotals(movements) : { income: 0, expense: 0, cash: 0, card: 0, online: 0 };
 
     return (
         <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
@@ -77,15 +78,15 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
                         <div className="mini-kpi glass" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: 15 }}>
                             <label style={{ marginBottom: 5 }}>Base Caja</label>
-                            <span style={{ fontSize: '1.1rem' }}>${shift.opening_balance.toLocaleString('es-CL')}</span>
+                            <span style={{ fontSize: '1.1rem' }}>${(shift.opening_balance || 0).toLocaleString('es-CL')}</span>
                         </div>
                         <div className="mini-kpi glass" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: 15 }}>
                             <label style={{ marginBottom: 5 }}>Efectivo Final</label>
-                            <span style={{ color: '#25d366', fontSize: '1.1rem' }}>${shift.actual_balance.toLocaleString('es-CL')}</span>
+                            <span style={{ color: '#25d366', fontSize: '1.1rem' }}>${(shift.actual_balance || 0).toLocaleString('es-CL')}</span>
                         </div>
                         <div className="mini-kpi glass" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: 15 }}>
                             <label style={{ marginBottom: 5 }}>Ingresos Totales</label>
-                            <span style={{ color: '#38bdf8', fontSize: '1.1rem' }}>+${totals.income.toLocaleString('es-CL')}</span>
+                            <span style={{ color: '#38bdf8', fontSize: '1.1rem' }}>+${(totals.income || 0).toLocaleString('es-CL')}</span>
                         </div>
                         <div className="mini-kpi glass" style={{ 
                             flexDirection: 'column', 
@@ -94,9 +95,9 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                             border: shift.actual_balance < shift.expected_balance ? '1px solid rgba(230, 57, 70, 0.3)' : '1px solid rgba(37, 211, 102, 0.3)',
                             background: shift.actual_balance < shift.expected_balance ? 'rgba(230, 57, 70, 0.05)' : 'rgba(37, 211, 102, 0.05)'
                         }}>
-                            <label style={{ marginBottom: 5 }}>{shift.actual_balance >= shift.expected_balance ? 'Sobrante' : 'Faltante'}</label>
-                            <span className={shift.actual_balance >= shift.expected_balance ? 'profit-plus' : 'profit-minus'} style={{ fontSize: '1.1rem' }}>
-                                ${Math.abs(shift.actual_balance - shift.expected_balance).toLocaleString('es-CL')}
+                            <label style={{ marginBottom: 5 }}>{(shift.actual_balance || 0) >= (shift.expected_balance || 0) ? 'Sobrante' : 'Faltante'}</label>
+                            <span className={(shift.actual_balance || 0) >= (shift.expected_balance || 0) ? 'profit-plus' : 'profit-minus'} style={{ fontSize: '1.1rem' }}>
+                                ${Math.abs((shift.actual_balance || 0) - (shift.expected_balance || 0)).toLocaleString('es-CL')}
                             </span>
                         </div>
                     </div>
@@ -106,15 +107,15 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 30 }}>
                         <div className="glass" style={{ padding: 12, textAlign: 'center', borderRadius: 10 }}>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>💵 Efectivo</div>
-                            <div style={{ fontWeight: 700 }}>${totals.cash.toLocaleString('es-CL')}</div>
+                            <div style={{ fontWeight: 700 }}>${(totals.cash || 0).toLocaleString('es-CL')}</div>
                         </div>
                         <div className="glass" style={{ padding: 12, textAlign: 'center', borderRadius: 10 }}>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>💳 Tarjeta</div>
-                            <div style={{ fontWeight: 700 }}>${totals.card.toLocaleString('es-CL')}</div>
+                            <div style={{ fontWeight: 700 }}>${(totals.card || 0).toLocaleString('es-CL')}</div>
                         </div>
                         <div className="glass" style={{ padding: 12, textAlign: 'center', borderRadius: 10 }}>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>📲 Transf.</div>
-                            <div style={{ fontWeight: 700 }}>${totals.online.toLocaleString('es-CL')}</div>
+                            <div style={{ fontWeight: 700 }}>${(totals.online || 0).toLocaleString('es-CL')}</div>
                         </div>
                     </div>
 
@@ -142,13 +143,25 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                                             </td>
                                             <td style={{ fontSize: '0.85rem', padding: '12px 10px' }}>
                                                 <div style={{ fontWeight: 500 }}>{m.description}</div>
+                                                {m.orders && (
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', marginTop: 2, marginBottom: 2 }}>
+                                                        <div style={{ fontWeight: 600 }}>{m.orders.client_name || 'Cliente Casual'}</div>
+                                                        {m.orders.items && (
+                                                            <div style={{ opacity: 0.85, fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+                                                                {Array.isArray(m.orders.items) 
+                                                                    ? m.orders.items.map(i => `${i.quantity}x ${i.name.split(' (')[0]}`).join(', ')
+                                                                    : ''}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: 2 }}>
                                                     {m.payment_method === 'cash' ? '💵 Efectivo' : (m.payment_method === 'card' ? '💳 Tarjeta' : '📲 Transf.')}
                                                 </div>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '12px 15px' }}>
                                                 <span className={`movement-amount ${m.type === 'expense' ? 'amount-minus' : 'amount-plus'}`} style={{ fontSize: '0.9rem' }}>
-                                                    {m.type === 'expense' ? '-' : '+'}${m.amount.toLocaleString('es-CL')}
+                                                    {m.type === 'expense' ? '-' : '+'}${Number(m.amount).toLocaleString('es-CL')}
                                                 </span>
                                             </td>
                                         </tr>

@@ -32,9 +32,9 @@ export const cashService = {
             .eq('status', 'open')
             .eq('opened_by', userId)
             .limit(1)
-            .single();
+            .maybeSingle();
 
-        if (checkError && checkError.code !== 'PGRST116') {
+        if (checkError) {
             throw new Error('Error al verificar cajas abiertas: ' + checkError.message);
         }
 
@@ -51,7 +51,7 @@ export const cashService = {
                 status: 'open'
             })
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
         return data;
@@ -70,7 +70,7 @@ export const cashService = {
             })
             .eq('id', shiftId)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
         return data;
@@ -93,16 +93,7 @@ export const cashService = {
         if (movement.payment_method === 'cash') {
             const amountChange = movement.type === 'expense' ? -movement.amount : movement.amount;
             
-            // Intentar con RPC primero (ignora si no existe = 404)
-            const { error: rpcError } = await supabase.rpc('update_shift_balance', {
-                p_shift_id: movement.shift_id,
-                p_amount: amountChange
-            });
-            
-            // Si falla RPC o código 404, usar fallback manual
-            if (rpcError && rpcError.code !== '404') {
-                console.warn('RPC error (non-404):', rpcError);
-            }
+
             
             // Siempre hacer fallback manual (RPC probablemente no existe)
             try {
@@ -134,7 +125,7 @@ export const cashService = {
     getShiftMovements: async (shiftId) => {
         const { data, error } = await supabase
             .from('cash_movements')
-            .select('*')
+            .select('*, orders(*)')
             .eq('shift_id', shiftId)
             .order('created_at', { ascending: false });
 
@@ -165,7 +156,7 @@ export const cashService = {
             .from('cash_shifts')
             .select('*')
             .eq('id', shiftId)
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
         return data;

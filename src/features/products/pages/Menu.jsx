@@ -6,7 +6,7 @@ import { Search, ChevronLeft, Loader2, X, MapPin } from 'lucide-react';
 import '../../../styles/Menu.css';
 import '../../../styles/Navbar.css';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../../services/supabase/client';
+import { supabase } from '../../../lib/supabase';
 import logo from '../../../assets/logo.png';
 import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
 import { useLocation } from '../../../context/LocationContext';
@@ -72,6 +72,13 @@ const Menu = () => {
       }
     };
     loadData();
+  }, []);
+
+  // Forzar apertura del selector de sucursal al entrar en la página /menu
+  useEffect(() => {
+    // Siempre mostrar modal de local al montar Menu (el usuario desea elegir)
+    setIsLocationModalOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -191,11 +198,9 @@ const Menu = () => {
                 <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'white' }}>Oishi Sushi</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
-                  {selectedBranch && (
                      <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.9, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '6px', marginLeft: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }} onClick={() => setIsLocationModalOpen(true)}>
-                       <MapPin size={10} /> {selectedBranch.name}
+                       <MapPin size={10} /> {selectedBranch ? selectedBranch.name : 'Seleccionar Sucursal'}
                      </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -311,25 +316,7 @@ const Menu = () => {
         })}
       </main>
       
-      {/* Modal de Selección de Sucursal con Blur Overlay - Z-INDEX EXTREMO */}
-      {isLocationModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backdropFilter: 'blur(15px)', // Blur más intenso
-          WebkitBackdropFilter: 'blur(15px)',
-          backgroundColor: 'rgba(0, 0, 0, 0.8)', // Fondo más oscuro
-          zIndex: 2000000000, // Z-index máximo posible en muchos navegadores (casi)
-          pointerEvents: 'auto' // Captura todos los clicks
-        }} 
-          // Prevenir scroll wheel
-          onWheel={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-        />
-      )}
+
       
       <BranchSelectorModal
         isOpen={isLocationModalOpen}
