@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, Download, Filter, MoreVertical, User, ShoppingBag, FileText } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Plus, Download, Filter, MoreVertical, User, ShoppingBag, FileText, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import ClientFormModal from './ClientFormModal';
 import '../styles/AdminClients.css';
 
@@ -7,6 +7,11 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // all, elite, top, frequent
     const [isFormOpen, setIsFormOpen] = useState(false);
+    
+    // --- ESTADOS DE TABLA AVANZADA ---
+    const [sortConfig, setSortConfig] = useState({ key: 'last_order_at', direction: 'desc' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Calcular métricas derivadas por cliente usando orders
     const enrichedClients = useMemo(() => {
@@ -82,6 +87,54 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         });
     }, [enrichedClients, searchTerm, activeFilter]);
 
+    // --- ORDENAMIENTO (SORTING) ---
+    const sortedClients = useMemo(() => {
+        const sorted = [...filteredClients];
+        if (sortConfig.key) {
+            sorted.sort((a, b) => {
+                let aVal = a[sortConfig.key];
+                let bVal = b[sortConfig.key];
+
+                // Manejo de nulos
+                if (aVal === null || aVal === undefined) aVal = '';
+                if (bVal === null || bVal === undefined) bVal = '';
+
+                // Manejo específico de fechas y strings
+                if (sortConfig.key === 'last_order_at') {
+                    aVal = aVal ? new Date(aVal).getTime() : 0;
+                    bVal = bVal ? new Date(bVal).getTime() : 0;
+                } else if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sorted;
+    }, [filteredClients, sortConfig]);
+
+    // --- PAGINACIÓN ---
+    const paginatedClients = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return sortedClients.slice(start, start + itemsPerPage);
+    }, [sortedClients, currentPage]);
+
+    const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
+
+    // Resetear página al filtrar
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeFilter]);
+
+    const handleSort = (key) => {
+        setSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
 
     const getSegmentBadge = (segment) => {
         switch(segment) {
@@ -134,6 +187,16 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         link.click();
         document.body.removeChild(link);
         showNotify('Base de clientes exportada', 'success');
+    };
+
+    // Helper para abrir WhatsApp
+    const openWhatsApp = (e, phone) => {
+        e.stopPropagation();
+        if (!phone) return;
+        // Limpiar teléfono (dejar solo números)
+        const cleanPhone = phone.replace(/\D/g, '');
+        const finalPhone = cleanPhone.startsWith('56') ? cleanPhone : `56${cleanPhone}`;
+        window.open(`https://wa.me/${finalPhone}`, '_blank');
     };
 
     return (
@@ -195,8 +258,8 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                 >
                     Comprador Frecuente
                 </button>
-                <div style={{ marginLeft: 'auto', fontSize: '0.85rem', color: '#9ca3af' }}>
-                    Total de clientes: {filteredClients.length}
+                <div className="clients-total-count">
+                    Total: {filteredClients.length}
                 </div>
             </div>
 
@@ -205,49 +268,78 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                 <table className="clients-table">
                     <thead>
                         <tr>
-                            <th>CLIENTE</th>
-                            <th>CANAL DE REGISTRO</th>
-                            <th>PUNTOS DE FIDELIDAD</th>
-                            <th>TOTAL DE PEDIDOS</th>
-                            <th>SEGMENTO DE CLIENTE</th>
-                            <th>ESTADO DE CLIENTE</th>
+                            <th onClick={() => handleSort('name')} className="sortable-th">
+                                CLIENTE {sortConfig.key === 'name' && <ArrowUpDown size={12} />}
+                            </th>
+                            <th className="hide-mobile">CANAL</th>
+                            <th onClick={() => handleSort('fidelityPoints')} className="sortable-th text-center">
+                                PUNTOS {sortConfig.key === 'fidelityPoints' && <ArrowUpDown size={12} />}
+                            </th>
+                            <th onClick={() => handleSort('totalOrders')} className="sortable-th text-center">
+                                PEDIDOS {sortConfig.key === 'totalOrders' && <ArrowUpDown size={12} />}
+                            </th>
+                            <th onClick={() => handleSort('total_spent')} className="sortable-th text-center">
+                                GASTO TOTAL {sortConfig.key === 'total_spent' && <ArrowUpDown size={12} />}
+                            </th>
+                            <th onClick={() => handleSort('last_order_at')} className="sortable-th">
+                                ÚLTIMA VEZ {sortConfig.key === 'last_order_at' && <ArrowUpDown size={12} />}
+                            </th>
+                            <th>SEGMENTO</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredClients.map(client => (
+                        {paginatedClients.map(client => (
                             <tr key={client.id} onClick={() => onSelectClient && onSelectClient(client)} style={{ cursor: 'pointer' }}>
-                                <td>
+                                <td data-label="Cliente">
                                     <div className="client-info-cell">
                                         <h4>{client.name || 'Sin Nombre'}</h4>
-                                        <span>{client.phone}</span>
-                                        {client.email && <span style={{ display: 'block', fontSize: '0.75rem' }}>{client.email}</span>}
+                                        <div className="client-contact-row">
+                                            <span>{client.phone}</span>
+                                            {client.phone && (
+                                                <button 
+                                                    onClick={(e) => openWhatsApp(e, client.phone)}
+                                                    className="btn-icon-xs"
+                                                    title="Abrir WhatsApp"
+                                                >
+                                                    <MessageCircle size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        {client.email && <span className="client-email">{client.email}</span>}
                                     </div>
                                 </td>
-                                <td>
+                                <td className="hide-mobile" data-label="Canal">
                                     <span style={{ fontWeight: '500' }}>
                                         {client.source === 'pos' ? 'PDV' : 'Menú digital'}
                                     </span>
                                 </td>
-                                <td>
-                                    <span className="points-badge" style={{ background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', padding: '4px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                <td className="text-center" data-label="Puntos">
+                                    <span className="points-badge">
                                         ⭐ {client.fidelityPoints}
                                     </span>
                                 </td>
-                                <td style={{ textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{client.totalOrders}</span>
-                                        <span style={{ fontSize: '0.75rem', color: '#10b981' }}>${client.total_spent.toLocaleString('es-CL')}</span>
+                                <td className="text-center" data-label="Pedidos">
+                                    <span className="text-lg font-bold">{client.totalOrders}</span>
+                                </td>
+                                <td className="text-center" data-label="Gasto Total">
+                                    <span className="text-success font-semibold">
+                                        ${client.total_spent.toLocaleString('es-CL')}
+                                    </span>
+                                </td>
+                                <td data-label="Última vez">
+                                    <div className="text-sm text-gray-400">
+                                        {client.last_order_at ? new Date(client.last_order_at).toLocaleDateString('es-CL') : '-'}
+                                    </div>
+                                    <div className="text-xs opacity-60">
+                                        {getStatusIndicator(client.status)}
                                     </div>
                                 </td>
-                                <td>
+                                <td data-label="Segmento">
                                     {getSegmentBadge(client.segment)}
                                 </td>
-                                <td>
-                                    {getStatusIndicator(client.status)}
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                    <button className="btn-icon-text" style={{ padding: 5 }}>
+                                <td className="actions-cell">
+                                    <button className="btn-icon-text">
                                         <MoreVertical size={18} color="#9ca3af" />
                                     </button>
                                 </td>
@@ -256,6 +348,23 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                     </tbody>
                 </table>
             </div>
+
+            {/* PAGINACIÓN */}
+            {totalPages > 1 && (
+                <div className="pagination-controls">
+                    <span className="pagination-info">
+                        Página {currentPage} de {totalPages}
+                    </span>
+                    <div className="pagination-buttons">
+                        <button className="btn-icon-sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button className="btn-icon-sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <ClientFormModal 
                 isOpen={isFormOpen}

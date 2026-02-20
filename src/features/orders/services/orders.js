@@ -12,6 +12,17 @@ export const ordersService = {
      */
     async createOrder(orderData, receiptFile = null) {
         try {
+            // 0. VALIDACIÓN DE CAJA (REGLA DE NEGOCIO GLOBAL)
+            const { data: openShift } = await supabase
+                .from('cash_shifts')
+                .select('id')
+                .eq('status', 'open')
+                .maybeSingle();
+
+            if (!openShift) {
+                throw new Error("El local no está recibiendo pedidos en este momento (Caja Cerrada).");
+            }
+
             // [MEJORA DE SEGURIDAD] Recalcular total para evitar manipulación de precios
             const calculatedTotal = orderData.items.reduce((sum, item) => {
                 // Priorizar precio de descuento si existe y es válido

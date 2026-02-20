@@ -75,11 +75,11 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                     <div className="price-container">
                         {product.has_discount && product.discount_price ? (
                             <>
-                                <span className="inv-price-original">${product.price.toLocaleString('es-CL')}</span>
-                                <span className="inv-price discount">${product.discount_price.toLocaleString('es-CL')}</span>
+                                <span className="inv-price-original">${(product.price || 0).toLocaleString('es-CL')}</span>
+                                <span className="inv-price discount">${(product.discount_price || 0).toLocaleString('es-CL')}</span>
                             </>
                         ) : (
-                            <span className="inv-price">${product.price.toLocaleString('es-CL')}</span>
+                            <span className="inv-price">${(product.price || 0).toLocaleString('es-CL')}</span>
                         )}
                     </div>
                 </div>

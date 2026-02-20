@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package } from 'lucide-react';
+import React, { useEffect, useMemo } from 'react';
+import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock } from 'lucide-react';
 import '../../../styles/AdminClientsTable.css';
 
 const ClientDetailsPanel = ({
@@ -18,6 +18,22 @@ const ClientDetailsPanel = ({
         if (selectedClient) window.addEventListener('keydown', handleEsc);
         return () => window.removeEventListener('keydown', handleEsc);
     }, [selectedClient, setSelectedClient]);
+
+    // --- CÁLCULO DE MÉTRICAS CRM ---
+    const stats = useMemo(() => {
+        if (!selectedClient) return { avgTicket: 0, daysSince: 'N/A' };
+
+        const totalSpent = selectedClient.total_spent || 0;
+        const totalOrders = selectedClient.total_orders || 0;
+        const avgTicket = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
+        
+        let daysSince = 'N/A';
+        if (selectedClient.last_order_at) {
+            const diff = new Date().getTime() - new Date(selectedClient.last_order_at).getTime();
+            daysSince = Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+        return { avgTicket, daysSince };
+    }, [selectedClient]);
 
     if (!selectedClient) return null;
 
@@ -137,6 +153,22 @@ const ClientDetailsPanel = ({
                             <div>
                                 <span className="kpi-label">PEDIDOS</span>
                                 <span className="kpi-value">{selectedClient.total_orders || 0}</span>
+                            </div>
+                        </div>
+                        <div className="kpi-card side-kpi">
+                            <div className="kpi-icon-sm kpi-icon-trending"><TrendingUp size={16}/></div>
+                            <div>
+                                <span className="kpi-label">TICKET PROM.</span>
+                                <span className="kpi-value kpi-value-light">
+                                    ${stats.avgTicket.toLocaleString('es-CL')}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="kpi-card side-kpi">
+                            <div className="kpi-icon-sm kpi-icon-inactive"><Clock size={16}/></div>
+                            <div>
+                                <span className="kpi-label">INACTIVIDAD</span>
+                                <span className="kpi-value kpi-value-light">{stats.daysSince} días</span>
                             </div>
                         </div>
                     </div>

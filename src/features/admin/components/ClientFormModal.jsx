@@ -40,7 +40,6 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
                 .insert([{
                     name: formData.name,
                     phone: formData.phone,
-                    email: formData.email, // Si existe columna email
                     rut: formData.rut,
                     total_spent: 0,
                     created_at: new Date().toISOString()
@@ -100,19 +99,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
                         </div>
                     </div>
 
-                    <div className="form-group">
-                        <label><Mail size={16} /> Email (Opcional)</label>
-                        <input 
-                            type="email" 
-                            name="email"
-                            className="form-input" 
-                            placeholder="cliente@ejemplo.com"
-                            value={formData.email}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="form-group">
+<div className="form-group">
                         <label><FileText size={16} /> RUT (Opcional)</label>
                         <input 
                             type="text" 
