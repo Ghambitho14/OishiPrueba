@@ -9,7 +9,7 @@ import logo from '../../../assets/logo.png';
 import { useManualOrder } from '../hooks/useManualOrder';
 import '../../../styles/ManualOrderModal.css';
 
-const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify, registerSale }) => {
+const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderSaved, showNotify, registerSale }) => {
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
@@ -90,6 +90,79 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
         return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutRequiredAndValid && isPhoneStrictlyValid;
     };
 
+    const renderProductCard = (p) => {
+        const hasDiscount = Boolean(p.has_discount) && p.discount_price != null && Number(p.discount_price) > 0;
+        const unitPrice = hasDiscount ? Number(p.discount_price) : Number(p.price);
+
+        const handleAddClick = (e) => {
+            e.stopPropagation();
+            try { addItem(p); } catch (error) { console.error('Error calling addItem:', error); }
+        };
+
+        return (
+            <div key={p.id} className="manual-order-product-card" onClick={() => addItem(p)}>
+                {hasDiscount && (
+                    <div style={{
+                        position: 'absolute', top: '10px', left: '10px',
+                        background: 'rgba(230,57,70,0.95)', color: '#fff',
+                        fontSize: '10px', fontWeight: '800', padding: '4px 8px',
+                        borderRadius: '999px', letterSpacing: '1px',
+                        textTransform: 'uppercase', boxShadow: '0 8px 20px rgba(230,57,70,0.25)', zIndex: 2
+                    }}>
+                        Oferta
+                    </div>
+                )}
+                <div className="manual-order-image-wrapper">
+                    <img
+                        src={p.image_url || logo} alt={p.name}
+                        className={!p.image_url ? 'is-logo' : ''}
+                        onError={(e) => { e.target.onerror = null; e.target.src = logo; e.target.classList.add('is-logo'); }}
+                    />
+                </div>
+                <div className="manual-order-card-content">
+                    <h3 className="manual-order-card-title" title={p.name}>{p.name}</h3>
+                    <div className="manual-order-card-footer-row">
+                        <div className="manual-order-card-price">
+                            {hasDiscount ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+                                    <span style={{ fontSize: '11px', opacity: 0.65, textDecoration: 'line-through' }}>
+                                        {formatCurrency(Number(p.price))}
+                                    </span>
+                                    <span style={{ fontSize: '14px', fontWeight: '900', color: '#e63946' }}>
+                                        {formatCurrency(unitPrice)}
+                                    </span>
+                                </div>
+                            ) : (
+                                formatCurrency(Number(p.price))
+                            )}
+                        </div>
+                        <div className={`manual-order-stepper-container ${getQty(p.id) > 0 ? 'active' : ''}`}>
+                            {getQty(p.id) === 0 ? (
+                                <button className="manual-order-add-btn" onClick={handleAddClick}>
+                                    <Plus size={18} />
+                                </button>
+                            ) : (
+                                <div className="manual-order-stepper animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                    <button className="mo-step-btn minus" onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (getQty(p.id) === 1) removeItem(p.id);
+                                        else updateQuantity(p.id, -1);
+                                    }}>
+                                        <Minus size={14} />
+                                    </button>
+                                    <span className="mo-step-count">{getQty(p.id)}</span>
+                                    <button className="mo-step-btn plus" onClick={handleAddClick}>
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="manual-order-overlay" onClick={onClose}>
             <div
@@ -140,137 +213,50 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                             />
                         </div>
 
-                        {/* Grid de productos */}
-                        <div className="manual-order-products-grid">
-                            {products
-                                .filter(p => p.is_active && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                                .length === 0 ? (
-                                <div className="manual-order-empty-search" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#666' }}>
-                                    No se encontraron productos
-                                </div>
-                            ) : (
-                                products
-                                    .filter(p => p.is_active && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                                    .map(p => {
-                                        const hasDiscount = Boolean(p.has_discount) && p.discount_price != null && Number(p.discount_price) > 0;
-                                        const unitPrice = hasDiscount ? Number(p.discount_price) : Number(p.price);
+                        {/* Productos agrupados por categoría */}
+                        <div className="manual-order-categories-scroll">
+                            {(() => {
+                                const query = searchQuery.toLowerCase();
+                                const activeProducts = products.filter(p => p.is_active && p.name.toLowerCase().includes(query));
 
-                                        const handleAddClick = (e) => {
-                                            e.stopPropagation();
-                                            try {
-                                                addItem(p);
-                                            } catch (error) {
-                                                console.error('Error calling addItem:', error);
-                                            }
-                                        };
+                                if (activeProducts.length === 0) {
+                                    return (
+                                        <div className="manual-order-empty-search" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                            No se encontraron productos
+                                        </div>
+                                    );
+                                }
 
-                                        return (
-                                            <div
-                                                key={p.id}
-                                                className="manual-order-product-card"
-                                                onClick={() => addItem(p)}
-                                            >
-                                                {hasDiscount && (
-                                                    <div style={{
-                                                        position: 'absolute',
-                                                        top: '10px',
-                                                        left: '10px',
-                                                        background: 'rgba(230,57,70,0.95)',
-                                                        color: '#fff',
-                                                        fontSize: '10px',
-                                                        fontWeight: '800',
-                                                        padding: '4px 8px',
-                                                        borderRadius: '999px',
-                                                        letterSpacing: '1px',
-                                                        textTransform: 'uppercase',
-                                                        boxShadow: '0 8px 20px rgba(230,57,70,0.25)',
-                                                        zIndex: 2
-                                                    }}>
-                                                        Oferta
+                                const sortedCategories = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                                const uncategorized = activeProducts.filter(p => !p.category_id || !categories.some(c => c.id === p.category_id));
+
+                                return (
+                                    <>
+                                        {sortedCategories.map(cat => {
+                                            const catProducts = activeProducts.filter(p => p.category_id === cat.id);
+                                            if (catProducts.length === 0) return null;
+
+                                            return (
+                                                <div key={cat.id} className="manual-order-category-section">
+                                                    <h3 className="manual-order-category-title">{cat.name}</h3>
+                                                    <div className="manual-order-products-grid">
+                                                        {catProducts.map(p => renderProductCard(p))}
                                                     </div>
-                                                )}
-
-                                                {/* Imagen del producto */}
-                                                <div className="manual-order-image-wrapper">
-                                                    <img
-                                                        src={p.image_url || logo}
-                                                        alt={p.name}
-                                                        className={!p.image_url ? 'is-logo' : ''}
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = logo;
-                                                            e.target.classList.add('is-logo');
-                                                        }}
-                                                    />
                                                 </div>
-
-                                                {/* Info del producto */}
-                                                <div className="manual-order-card-content">
-                                                    <span className="manual-order-card-category">
-                                                        {p.category_name || 'GENERAL'}
-                                                    </span>
-                                                    <h3 className="manual-order-card-title" title={p.name}>
-                                                        {p.name}
-                                                    </h3>
-                                                    <div className="manual-order-card-footer-row">
-                                                        <div className="manual-order-card-price">
-                                                            {hasDiscount ? (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-                                                                    <span style={{
-                                                                        fontSize: '11px',
-                                                                        opacity: 0.65,
-                                                                        textDecoration: 'line-through'
-                                                                    }}>
-                                                                        {formatCurrency(Number(p.price))}
-                                                                    </span>
-                                                                    <span style={{
-                                                                        fontSize: '14px',
-                                                                        fontWeight: '900',
-                                                                        color: '#e63946'
-                                                                    }}>
-                                                                        {formatCurrency(unitPrice)}
-                                                                    </span>
-                                                                </div>
-                                                            ) : (
-                                                                formatCurrency(Number(p.price))
-                                                            )}
-                                                        </div>
-                                                        <div className={`manual-order-stepper-container ${getQty(p.id) > 0 ? 'active' : ''}`}>
-                                                            {getQty(p.id) === 0 ? (
-                                                                <button
-                                                                    className="manual-order-add-btn"
-                                                                    onClick={handleAddClick}
-                                                                >
-                                                                    <Plus size={18} />
-                                                                </button>
-                                                            ) : (
-                                                                <div className="manual-order-stepper animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                                                    <button
-                                                                        className="mo-step-btn minus"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if (getQty(p.id) === 1) removeItem(p.id);
-                                                                            else updateQuantity(p.id, -1);
-                                                                        }}
-                                                                    >
-                                                                        <Minus size={14} />
-                                                                    </button>
-                                                                    <span className="mo-step-count">{getQty(p.id)}</span>
-                                                                    <button
-                                                                        className="mo-step-btn plus"
-                                                                        onClick={handleAddClick}
-                                                                    >
-                                                                        <Plus size={14} />
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                            );
+                                        })}
+                                        {uncategorized.length > 0 && (
+                                            <div className="manual-order-category-section">
+                                                <h3 className="manual-order-category-title">Otros</h3>
+                                                <div className="manual-order-products-grid">
+                                                    {uncategorized.map(p => renderProductCard(p))}
                                                 </div>
                                             </div>
-                                        );
-                                    })
-                            )}
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
 

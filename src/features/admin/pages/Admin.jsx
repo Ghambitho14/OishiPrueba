@@ -653,6 +653,7 @@ const Admin = () => {
         isOpen={isManualOrderModalOpen}
         onClose={() => setIsManualOrderModalOpen(false)}
         products={products}
+        categories={categories}
         onOrderSaved={() => loadData(true)}
         isMobile={isMobile}
         showNotify={showNotify}

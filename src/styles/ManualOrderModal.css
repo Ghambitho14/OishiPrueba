@@ -322,31 +322,72 @@
     }
 }
 
-/* === GRID DE PRODUCTOS === */
-.manual-order-products-grid {
+/* === SCROLL CONTAINER DE CATEGORÍAS === */
+.manual-order-categories-scroll {
     flex: 1;
     overflow-y: auto;
     padding: var(--spacing-lg);
+    padding-top: 60px;
+    min-height: 0;
+}
+
+/* === SECCIÓN DE CATEGORÍA === */
+.manual-order-category-section {
+    margin-bottom: 28px;
+}
+
+.manual-order-category-section:last-child {
+    margin-bottom: 0;
+}
+
+.manual-order-category-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 14px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.manual-order-category-title::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: var(--accent-red);
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* === GRID DE PRODUCTOS === */
+.manual-order-products-grid {
     display: grid;
-    /* FIXED SIZE COLUMNS as requested */
     grid-template-columns: repeat(auto-fill, 160px);
     grid-auto-rows: max-content;
-    /* Ensure rows don't collapse */
-    gap: 32px;
-    /* Increased gap as requested */
+    gap: 24px;
     align-content: start;
     justify-content: center;
-    min-height: 0;
 }
 
 /* Responsive grid */
 @media (max-width: 767px) {
-    .manual-order-products-grid {
+    .manual-order-categories-scroll {
         padding: var(--spacing-md);
-        /* 2 columns flexible but robust */
+        padding-top: 56px;
+    }
+
+    .manual-order-category-title {
+        font-size: 13px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+    }
+
+    .manual-order-products-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--spacing-md);
-        /* Reduced gap slightly for mobile, but still clear */
         justify-content: stretch;
     }
 }
@@ -839,23 +880,23 @@
 }
 
 /* === SCROLLBAR PERSONALIZADO === */
-.manual-order-products-grid::-webkit-scrollbar,
+.manual-order-categories-scroll::-webkit-scrollbar,
 .manual-order-sidebar::-webkit-scrollbar {
     width: 8px;
 }
 
-.manual-order-products-grid::-webkit-scrollbar-track,
+.manual-order-categories-scroll::-webkit-scrollbar-track,
 .manual-order-sidebar::-webkit-scrollbar-track {
     background: #0a0a0a;
 }
 
-.manual-order-products-grid::-webkit-scrollbar-thumb,
+.manual-order-categories-scroll::-webkit-scrollbar-thumb,
 .manual-order-sidebar::-webkit-scrollbar-thumb {
     background: #1a1a1a;
     border-radius: 4px;
 }
 
-.manual-order-products-grid::-webkit-scrollbar-thumb:hover,
+.manual-order-categories-scroll::-webkit-scrollbar-thumb:hover,
 .manual-order-sidebar::-webkit-scrollbar-thumb:hover {
     background: #2a2a2a;
 }
