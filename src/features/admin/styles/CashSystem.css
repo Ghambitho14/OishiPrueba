@@ -3,19 +3,14 @@
    ========================================================================== */
 
 .admin-layout .cash-container {
-    /* Paleta de Colores Financieros */
     --cash-bg: #0f0f0f;
     --cash-surface: rgba(255, 255, 255, 0.03);
     --cash-surface-hover: rgba(255, 255, 255, 0.06);
     --cash-border: rgba(255, 255, 255, 0.08);
-    
-    /* Semántica de Estados */
-    --c-balance: #38bdf8;  /* Azul info */
-    --c-income: #22c55e;   /* Verde éxito */
-    --c-expense: #ef4444;  /* Rojo peligro */
+    --c-balance: #38bdf8;
+    --c-income: #22c55e;
+    --c-expense: #ef4444;
     --c-text-muted: #94a3b8;
-    
-    /* Efectos de Interfaz */
     --glass-blur: blur(16px) saturate(180%);
     --shadow-heavy: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
     --expo-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -33,19 +28,263 @@
     animation: cashEntrance 0.6s var(--expo-out);
 }
 
-/* --- 1. HEADER & GLOBAL ACTIONS --- */
+/* ===========================================
+   1. BOTONES GLOBALES (Cash scope)
+   =========================================== */
+.admin-layout .cash-container .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.admin-layout .cash-container .btn-primary {
+    background: linear-gradient(135deg, #e63946 0%, #c62828 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+.admin-layout .cash-container .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+}
+
+.admin-layout .cash-container .btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border: 1px solid var(--cash-border);
+}
+
+.admin-layout .cash-container .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.admin-layout .cash-container .btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.admin-layout .cash-container .btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.admin-layout .cash-container .btn-block {
+    width: 100%;
+}
+
+.admin-layout .cash-container .btn-table-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #3b82f6;
+}
+
+.admin-layout .cash-container .btn-table-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.admin-layout .cash-container .btn-text {
+    background: transparent;
+    border: none;
+    color: var(--c-text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.admin-layout .cash-container .btn-text:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-layout .cash-container .btn-close {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--cash-border);
+    color: var(--c-text-muted);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-layout .cash-container .btn-close:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ===========================================
+   2. MODALES (Cash scope)
+   =========================================== */
+.admin-layout .cash-container .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.2s ease;
+}
+
+.admin-layout .cash-container .modal-content {
+    background: linear-gradient(145deg, #151515 0%, #0d0d0d 100%);
+    border: 1px solid var(--cash-border);
+    border-radius: 20px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    animation: slideUp 0.3s var(--expo-out);
+    padding: 0 24px 24px;
+}
+
+.admin-layout .cash-container .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--cash-border);
+    margin-bottom: 8px;
+}
+
+.admin-layout .cash-container .modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.admin-layout .cash-container .modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.admin-layout .cash-container .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-layout .cash-container .form-group label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--c-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-layout .cash-container .form-input {
+    width: 100%;
+    background: #0a0a0a;
+    border: 1px solid var(--cash-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    color: #fff;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.admin-layout .cash-container .form-input:focus {
+    outline: none;
+    border-color: var(--c-balance);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+}
+
+.admin-layout .cash-container .form-input::placeholder {
+    color: #555;
+}
+
+.admin-layout .cash-container .modal-footer {
+    padding-top: 16px;
+    border-top: 1px solid var(--cash-border);
+}
+
+/* Mini KPI cards inside modals */
+.admin-layout .cash-container .mini-kpi {
+    background: var(--cash-surface);
+    border: 1px solid var(--cash-border);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.admin-layout .cash-container .mini-kpi label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--c-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-layout .cash-container .mini-kpi span {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+/* Profit indicators */
+.admin-layout .cash-container .profit-plus { color: var(--c-income) !important; }
+.admin-layout .cash-container .profit-minus { color: var(--c-expense) !important; }
+
+/* Text helpers */
+.admin-layout .cash-container .text-accent { color: var(--c-balance); }
+.admin-layout .cash-container .text-danger { color: var(--c-expense); }
+.admin-layout .cash-container .text-secondary { color: var(--c-text-muted); }
+.admin-layout .cash-container .fw-700 { font-weight: 700; }
+.admin-layout .cash-container .flex-center { display: flex; align-items: center; justify-content: center; }
+
+/* ===========================================
+   3. HEADER & GLOBAL ACTIONS
+   =========================================== */
 .admin-layout .cash-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 16px;
     border-bottom: 1px solid var(--cash-border);
     padding-bottom: 1.5rem;
 }
 
 .admin-layout .cash-header h1 {
-    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-size: clamp(1.4rem, 4vw, 2rem);
     font-weight: 900;
     letter-spacing: -0.04em;
     color: #fff;
@@ -54,91 +293,68 @@
 
 .admin-layout .cash-header-actions {
     display: flex;
-    gap: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-/* --- 2. KPI DASHBOARD (MÉTRICAS) --- */
-.admin-layout .cash-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-}
-
-.admin-layout .cash-kpi-card {
-    background: var(--cash-surface);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    padding: 2rem;
-    border-radius: 24px;
-    border: 1px solid var(--cash-border);
+/* ===========================================
+   4. SECTIONS
+   =========================================== */
+.admin-layout .cash-section {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    transition: all 0.4s var(--expo-out);
-    position: relative;
-    box-shadow: var(--shadow-heavy);
+    gap: 16px;
 }
 
-.admin-layout .cash-kpi-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    border-color: rgba(255, 255, 255, 0.2);
-    background: var(--cash-surface-hover);
-}
-
-.admin-layout .cash-kpi-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 18px;
+.admin-layout .cash-section-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    transition: transform 0.3s var(--expo-out);
+    gap: 8px;
 }
 
-.admin-layout .cash-kpi-card:hover .cash-kpi-icon { transform: scale(1.1) rotate(5deg); }
-
-.admin-layout .cash-kpi-icon.balance { background: rgba(56, 189, 248, 0.1); color: var(--c-balance); }
-.admin-layout .cash-kpi-icon.income { background: rgba(34, 197, 94, 0.1); color: var(--c-income); }
-.admin-layout .cash-kpi-icon.expense { background: rgba(239, 68, 68, 0.1); color: var(--c-expense); }
-
-.admin-layout .cash-kpi-info h4 {
-    margin: 0;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--c-text-muted);
+.admin-layout .cash-section-title::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: var(--c-balance);
+    border-radius: 2px;
+    flex-shrink: 0;
 }
 
-.admin-layout .cash-kpi-value {
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
-    font-weight: 900;
-    color: #fff;
-    font-variant-numeric: tabular-nums; /* Mantiene los números alineados */
+/* Info icon next to table headers */
+.admin-layout .cash-container .info-icon {
+    opacity: 0.4;
+    vertical-align: middle;
+    margin-left: 4px;
 }
 
-/* --- 3. BARRA DE FILTROS --- */
+/* ===========================================
+   5. BARRA DE FILTROS
+   =========================================== */
 .admin-layout .cash-filters-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: 10px;
     background: rgba(255, 255, 255, 0.02);
-    padding: 1rem;
-    border-radius: 16px;
+    padding: 12px;
+    border-radius: 14px;
     border: 1px solid var(--cash-border);
 }
 
 .admin-layout .filter-input-group {
     flex: 1;
-    min-width: 200px;
+    min-width: 160px;
     background: #1a1a1a;
     border: 1px solid var(--cash-border);
-    border-radius: 12px;
-    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    padding: 10px 14px;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 8px;
     transition: all 0.3s ease;
 }
 
@@ -147,24 +363,31 @@
     background: #222;
 }
 
-.admin-layout .filter-input-group select, .admin-layout .filter-input-group input {
+.admin-layout .filter-input-group select,
+.admin-layout .filter-input-group input {
     background: transparent;
     border: none;
     color: white;
     width: 100%;
     outline: none;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    font-family: inherit;
 }
 
-/* --- 4. DATA TABLE (SISTEMA DE MOVIMIENTOS) --- */
+.admin-layout .filter-input-group select option {
+    background: #1a1a1a;
+    color: #fff;
+}
+
+/* ===========================================
+   6. DATA TABLE
+   =========================================== */
 .admin-layout .cash-table-container {
     background: var(--cash-surface);
-    border-radius: 24px;
+    border-radius: 16px;
     border: 1px solid var(--cash-border);
     overflow: hidden;
-    position: relative;
-    /* Scroll horizontal optimizado para móviles */
-    overflow-x: auto; 
+    overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.1) transparent;
 }
@@ -172,39 +395,94 @@
 .admin-layout .cash-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 850px; /* Asegura que la tabla no se colapse */
+    min-width: 750px;
 }
 
 .admin-layout .cash-table th {
     background: rgba(255, 255, 255, 0.02);
-    padding: 1.25rem 1.5rem;
+    padding: 14px 16px;
     text-align: left;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 800;
     color: var(--c-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 2px solid var(--cash-border);
+    border-bottom: 1px solid var(--cash-border);
+    white-space: nowrap;
 }
 
 .admin-layout .cash-table td {
-    padding: 1.25rem 1.5rem;
-    font-size: 0.95rem;
+    padding: 14px 16px;
+    font-size: 0.9rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     color: #e2e8f0;
 }
 
-.admin-layout .cash-table tr:hover td { background: rgba(255, 255, 255, 0.015); }
+.admin-layout .cash-table tr:hover td {
+    background: rgba(255, 255, 255, 0.015);
+}
 
-/* Badges de Tipo */
+/* Table empty state */
+.admin-layout .cash-container .table-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px 20px;
+    color: var(--c-text-muted);
+    font-size: 0.9rem;
+}
+
+/* Movements table inside detail modal */
+.admin-layout .cash-container .cash-movements-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-layout .cash-container .movement-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.15s ease;
+}
+
+.admin-layout .cash-container .movement-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ===========================================
+   7. BADGES & STATUS
+   =========================================== */
+.admin-layout .cash-container .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.admin-layout .cash-container .status-badge.open {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--c-income);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.admin-layout .cash-container .status-badge.closed {
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--c-text-muted);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* Movement type badges */
 .admin-layout .movement-type {
-    padding: 0.5rem 0.8rem;
-    border-radius: 10px;
-    font-size: 0.7rem;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.68rem;
     font-weight: 800;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 4px;
     text-transform: uppercase;
 }
 
@@ -212,39 +490,197 @@
 .admin-layout .type-income { background: rgba(34, 197, 94, 0.1); color: var(--c-income); border: 1px solid rgba(34, 197, 94, 0.2); }
 .admin-layout .type-expense { background: rgba(239, 68, 68, 0.1); color: var(--c-expense); border: 1px solid rgba(239, 68, 68, 0.2); }
 
-/* --- 5. RESPONSIVIDAD AVANZADA --- */
-@media (max-width: 1024px) {
-    .admin-layout .cash-stats-grid { grid-template-columns: 1fr 1fr; }
+/* Difference colors */
+.admin-layout .cash-container .diff-positive { color: var(--c-income); font-weight: 700; }
+.admin-layout .cash-container .diff-negative { color: var(--c-expense); font-weight: 700; }
+
+/* Movement amounts */
+.admin-layout .cash-container .amount-plus { color: var(--c-income); font-weight: 800; }
+.admin-layout .cash-container .amount-minus { color: var(--c-expense); font-weight: 800; }
+
+/* ===========================================
+   8. KPI DASHBOARD
+   =========================================== */
+.admin-layout .cash-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
 }
 
+.admin-layout .cash-kpi-card {
+    background: var(--cash-surface);
+    backdrop-filter: var(--glass-blur);
+    padding: 1.5rem;
+    border-radius: 18px;
+    border: 1px solid var(--cash-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    transition: all 0.3s var(--expo-out);
+    box-shadow: var(--shadow-heavy);
+}
+
+.admin-layout .cash-kpi-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.15);
+    background: var(--cash-surface-hover);
+}
+
+.admin-layout .cash-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}
+
+.admin-layout .cash-kpi-icon.balance { background: rgba(56, 189, 248, 0.1); color: var(--c-balance); }
+.admin-layout .cash-kpi-icon.income { background: rgba(34, 197, 94, 0.1); color: var(--c-income); }
+.admin-layout .cash-kpi-icon.expense { background: rgba(239, 68, 68, 0.1); color: var(--c-expense); }
+
+.admin-layout .cash-kpi-info h4 {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--c-text-muted);
+}
+
+.admin-layout .cash-kpi-value {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================
+   9. RESPONSIVE MOBILE
+   =========================================== */
 @media (max-width: 768px) {
+    .admin-layout .cash-container {
+        padding: 16px;
+        gap: 20px;
+    }
+
     .admin-layout .cash-header {
         flex-direction: column;
-        align-items: center;
-        text-align: center;
+        align-items: flex-start;
+        gap: 12px;
+        padding-bottom: 16px;
     }
-    
-    .admin-layout .cash-stats-grid { grid-template-columns: 1fr; }
-    
+
     .admin-layout .cash-header-actions {
         width: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
-    
-    /* Clase para ocultar datos secundarios en móvil */
-    .admin-layout .hide-sm { display: none; }
+
+    .admin-layout .cash-header-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .admin-layout .cash-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-layout .cash-filters-bar {
+        flex-direction: column;
+        padding: 10px;
+    }
+
+    .admin-layout .filter-input-group {
+        min-width: unset;
+        width: 100%;
+    }
+
+    /* Table: allow horizontal scroll with hint */
+    .admin-layout .cash-table-container {
+        border-radius: 12px;
+        margin: 0 -4px;
+    }
+
+    .admin-layout .cash-table {
+        min-width: 600px;
+    }
+
+    .admin-layout .cash-table th {
+        padding: 10px 12px;
+        font-size: 0.62rem;
+    }
+
+    .admin-layout .cash-table td {
+        padding: 10px 12px;
+        font-size: 0.82rem;
+    }
+
+    /* Modal responsive */
+    .admin-layout .cash-container .modal-overlay {
+        padding: 10px;
+        align-items: flex-end;
+    }
+
+    .admin-layout .cash-container .modal-content {
+        border-radius: 20px 20px 0 0;
+        max-height: 85vh;
+        padding: 0 16px 16px;
+    }
+
+    .admin-layout .cash-container .modal-header {
+        padding: 16px 0;
+    }
+
+    .admin-layout .cash-container .modal-header h3 {
+        font-size: 1rem;
+    }
+
+    .admin-layout .cash-container .form-input {
+        padding: 12px 14px;
+        font-size: 0.9rem;
+    }
 }
 
-/* Animaciones */
+@media (max-width: 480px) {
+    .admin-layout .cash-header h1 {
+        font-size: 1.3rem;
+    }
+
+    .admin-layout .cash-section-title {
+        font-size: 0.9rem;
+    }
+}
+
+/* ===========================================
+   10. ANIMATIONS
+   =========================================== */
 @keyframes cashEntrance {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Scrollbar para Webkit */
-.admin-layout .cash-table-container::-webkit-scrollbar { height: 8px; }
-.admin-layout .cash-table-container::-webkit-scrollbar-thumb { 
-    background: rgba(255, 255, 255, 0.1); 
-    border-radius: 20px; 
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Scrollbar */
+.admin-layout .cash-table-container::-webkit-scrollbar { height: 6px; }
+.admin-layout .cash-table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+}
+
+.admin-layout .cash-container .modal-content::-webkit-scrollbar { width: 6px; }
+.admin-layout .cash-container .modal-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
 }

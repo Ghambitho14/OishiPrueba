@@ -57,8 +57,6 @@ const CashManager = ({ showNotify }) => {
 
     return (
         <div className="cash-container animate-fade">
-            {console.log('CashManager Render. ActiveShift:', activeShift, 'PastShifts:', pastShifts, 'LoadingHistory:', loadingHistory)}
-            
             {/* HEADER PRINCIPAL */}
             <header className="cash-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -78,10 +76,9 @@ const CashManager = ({ showNotify }) => {
                     {activeShift && (
                         <button 
                             className="btn btn-secondary" 
-                            style={{ background: 'white', color: '#3b82f6', border: '1px solid #3b82f6' }}
                             onClick={() => { setMovementType('income'); setIsMovementModalOpen(true); }}
                         >
-                            + Nuevo ingreso/gasto
+                            <Plus size={16} /> Nuevo ingreso/gasto
                         </button>
                     )}
                     
@@ -156,13 +153,11 @@ const CashManager = ({ showNotify }) => {
                                             <button 
                                                 className="btn-table-action"
                                                 onClick={() => setIsShiftModalOpen(true)}
-                                                style={{ background: '#3b82f6' }}
                                             >
                                                 Cerrar caja
                                             </button>
                                             <button 
                                                 className="btn-text" 
-                                                style={{ fontSize: '0.85rem' }}
                                                 onClick={() => { setViewingShift(activeShift); }}
                                             >
                                                 Ver detalles
@@ -196,7 +191,6 @@ const CashManager = ({ showNotify }) => {
                     <div className="filter-input-group">
                         <Calendar size={16} style={{ marginRight: 8, color: '#6b7280' }} />
                         <select 
-                            style={{ border: 'none', outline: 'none', background: 'transparent', color: '#333' }}
                             value={filterPeriod}
                             onChange={(e) => setFilterPeriod(e.target.value)}
                         >
@@ -207,7 +201,7 @@ const CashManager = ({ showNotify }) => {
                     </div>
                     
                     <div className="filter-input-group">
-                        <select style={{ border: 'none', outline: 'none', background: 'transparent', color: '#333' }}>
+                        <select>
                             <option value="all">Todas las cajas</option>
                             <option value="main">Caja Principal</option>
                         </select>
