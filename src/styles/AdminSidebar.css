@@ -1,107 +1,163 @@
 /* =========================================
-   ADMIN SIDEBAR (DESKTOP FIRST)
+   ADMIN SIDEBAR (HOVER-EXPAND, DESKTOP FIRST)
    ========================================= */
 
-   .admin-sidebar {
-    /* Layout Base */
-    width: 260px;
+.admin-layout .admin-sidebar {
+    width: 72px;
     height: 100vh;
-    position: sticky; /* Se mantiene al hacer scroll */
+    position: fixed;
     top: 0;
-    z-index: 100; /* Z-index alto para estar sobre tablas */
+    left: 0;
+    z-index: 100;
     
-    /* Estilo Visual */
     background: var(--bg-secondary);
     border-right: 1px solid var(--card-border);
     
-    /* Flexbox Vertical */
     display: flex;
     flex-direction: column;
+    padding: 16px 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+/* --- HOVER: EXPANDIR --- */
+.admin-layout .admin-sidebar:hover {
+    width: 260px;
     padding: 20px;
-    transition: all 0.3s ease;
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.4);
+}
+
+/* --- TEXTOS: ocultos por defecto, visibles al hover --- */
+.admin-layout .nav-text,
+.admin-layout .brand-title,
+.admin-layout .nav-chevron {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    transition: opacity 0.2s ease 0.05s, max-width 0.3s ease;
+}
+
+.admin-layout .admin-sidebar:hover .nav-text,
+.admin-layout .admin-sidebar:hover .brand-title,
+.admin-layout .admin-sidebar:hover .nav-chevron {
+    opacity: 1;
+    max-width: 200px;
 }
 
 /* --- CABECERA SIDEBAR --- */
-.sidebar-top {
+.admin-layout .sidebar-top {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--card-border); /* Separador sutil */
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--card-border);
+    transition: gap 0.3s ease;
 }
 
-.logo-circle {
-    width: 70px;
-    height: 70px;
+.admin-layout .logo-circle {
+    width: 44px;
+    height: 44px;
     background: white;
     border-radius: 50%;
-    padding: 8px;
+    padding: 5px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    display: flex; /* Centrar imagen */
+    display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
 }
 
-.logo-circle img {
+.admin-layout .admin-sidebar:hover .logo-circle {
+    width: 64px;
+    height: 64px;
+    padding: 8px;
+}
+
+.admin-layout .logo-circle img {
     width: 100%;
     height: 100%;
     object-fit: contain;
 }
 
-.brand-title {
+.admin-layout .brand-title {
     font-size: 1.1rem;
     font-weight: 800;
     letter-spacing: -0.5px;
-    color: var(--text-primary); /* Asegurar contraste */
+    color: var(--text-primary);
+    text-align: center;
 }
 
 /* --- MENÚ DE NAVEGACIÓN --- */
-.sidebar-menu {
+.admin-layout .sidebar-menu {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    flex: 1; /* Empuja el logout hacia abajo */
-    overflow-y: auto; /* Si hay muchos items, permite scroll interno */
+    gap: 6px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-.nav-item {
+.admin-layout .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    justify-content: center;
+    gap: 0;
+    padding: 11px 14px;
     border-radius: 12px;
-    
-    /* Reset de botón */
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    
     font-weight: 600;
     font-size: 0.95rem;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
     text-align: left;
     width: 100%;
     position: relative;
+    flex-shrink: 0;
+}
+
+/* Expandido: alinear a la izquierda con gap */
+.admin-layout .admin-sidebar:hover .nav-item {
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+/* Iconos SVG: nunca encoger */
+.admin-layout .nav-item svg,
+.admin-layout .nav-item img {
+    flex-shrink: 0;
+}
+
+.admin-layout .nav-item-inner {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.admin-layout .admin-sidebar:hover .nav-item-inner {
+    gap: 12px;
 }
 
 /* Hover suave */
-.nav-item:hover {
+.admin-layout .nav-item:hover {
     background: rgba(255, 255, 255, 0.05);
     color: white;
-    transform: translateX(4px); /* Pequeño movimiento a la derecha */
 }
 
 /* Estado Activo */
-.nav-item.active {
+.admin-layout .nav-item.active {
     background: rgba(230, 57, 70, 0.1);
-    color: var(--accent-primary); /* Usar el rojo de tu marca */
+    color: var(--accent-primary);
 }
 
-/* Línea indicadora activa (Opcional, toque pro) */
-.nav-item.active::before {
+/* Línea indicadora activa */
+.admin-layout .nav-item.active::before {
     content: '';
     position: absolute;
     left: 0;
@@ -113,84 +169,93 @@
     border-radius: 0 4px 4px 0;
 }
 
-/* Badge (Notificaciones) */
-.badge-count {
+/* Badge */
+.admin-layout .badge-count {
     background: var(--accent-primary);
     color: white;
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     font-weight: 700;
-    padding: 2px 8px;
+    padding: 1px 5px;
     border-radius: 12px;
-    margin-left: auto;
     box-shadow: 0 2px 5px rgba(230, 57, 70, 0.4);
+    position: absolute;
+    top: 4px;
+    right: 4px;
+}
+
+.admin-layout .admin-sidebar:hover .badge-count {
+    position: static;
+    margin-left: auto;
+    font-size: 0.7rem;
+    padding: 2px 8px;
 }
 
 /* --- GRUPOS DESPLEGABLES --- */
-.nav-group-wrapper {
+.admin-layout .nav-group-wrapper {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.nav-group-header {
+.admin-layout .nav-group-header {
     justify-content: space-between;
     padding-right: 12px;
 }
 
-.nav-chevron {
-    transition: transform 0.3s ease;
-    opacity: 0.6;
+.admin-layout .admin-sidebar:hover .nav-group-header {
+    justify-content: space-between;
 }
 
-.nav-chevron.expanded {
+.admin-layout .nav-chevron.expanded {
     transform: rotate(180deg);
 }
 
-.nav-sub-menu {
+/* Submenú: oculto cuando sidebar colapsado */
+.admin-layout .nav-sub-menu {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding-left: 14px; /* Indentación */
+    padding-left: 0;
     overflow: hidden;
     max-height: 0;
     opacity: 0;
     transition: all 0.3s ease;
 }
 
-.nav-sub-menu.expanded {
-    max-height: 300px; /* Suficiente para los items */
+.admin-layout .admin-sidebar:hover .nav-sub-menu.expanded {
+    max-height: 300px;
     opacity: 1;
+    padding-left: 14px;
     margin-bottom: 8px;
 }
 
 /* Ajuste items dentro de submenú */
-.nav-sub-menu .nav-item {
+.admin-layout .nav-sub-menu .nav-item {
     font-size: 0.9rem;
     padding: 10px 14px;
-    border-left: 2px solid transparent; 
+    border-left: 2px solid transparent;
     border-radius: 8px;
 }
 
-.nav-sub-menu .nav-item:hover {
+.admin-layout .nav-sub-menu .nav-item:hover {
     background: rgba(255,255,255,0.03);
     border-left-color: rgba(255,255,255,0.2);
 }
 
-.nav-sub-menu .nav-item.active {
+.admin-layout .nav-sub-menu .nav-item.active {
     background: rgba(230, 57, 70, 0.08);
     border-left-color: var(--accent-primary);
 }
 
 /* --- LOGOUT --- */
-.logout {
+.admin-layout .logout {
     margin-top: 20px;
     color: #ff4444;
 }
 
-.logout:hover {
+.admin-layout .logout:hover {
     background: rgba(255, 68, 68, 0.1);
     color: #ff5555;
-    transform: none; /* No mover a la derecha */
 }
 
 /* =========================================
@@ -198,129 +263,119 @@
    ========================================= */
 @media (max-width: 1024px) {
     
-    .admin-sidebar {
-        /* Transformación a Barra Inferior */
-        width: 100%;
-        height: auto; /* Altura automática según contenido */
-        position: fixed; /* SIEMPRE visible abajo */
+    /* Reset COMPLETO: anular todas las reglas desktop hover-expand */
+    .admin-layout .admin-sidebar,
+    .admin-layout .admin-sidebar:hover {
+        width: 100% !important;
+        height: auto !important;
+        position: fixed !important;
         bottom: 0;
-        top: auto; /* Anular top desktop */
+        top: auto !important;
         left: 0;
         
-        /* Flexbox Horizontal */
         flex-direction: row;
         align-items: center;
-        justify-content: space-between; /* Espaciado uniforme */
+        justify-content: center;
         
-        /* Estética "Glass" Móvil */
-        padding: 10px 20px;
-        padding-bottom: max(10px, env(safe-area-inset-bottom)); /* Soporte iPhone X+ */
+        padding: 6px 8px;
+        padding-bottom: max(6px, env(safe-area-inset-bottom));
         
-        background: rgba(20, 20, 20, 0.95) !important; /* Fondo casi sólido */
-        backdrop-filter: blur(15px) !important; /* Blur potente */
+        background: rgba(15, 15, 15, 0.97) !important;
+        backdrop-filter: blur(15px) !important;
         border-right: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.5); /* Sombra hacia arriba */
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+        z-index: 1000;
+        white-space: normal;
+        overflow-x: hidden;
+        overflow-y: hidden;
     }
 
-    /* Ocultar elementos innecesarios en móvil */
-    .sidebar-top,
-    .logo-circle, 
-    .brand-title,
-    .nav-item span, /* Ocultar texto */
-    .nav-item.active::before { /* Ocultar línea lateral activa */
+    /* Ocultar elementos desktop */
+    .admin-layout .sidebar-top,
+    .admin-layout .nav-item.active::before,
+    .admin-layout .nav-text,
+    .admin-layout .nav-chevron,
+    .admin-layout .nav-group-wrapper,
+    .admin-layout .nav-sub-menu {
         display: none !important;
     }
 
-    /* Ajuste del menú horizontal con scroll (Slider) */
-    .sidebar-menu {
+    /* Menú horizontal con scroll */
+    .admin-layout .sidebar-menu {
         flex-direction: row;
-        justify-content: flex-start; /* Inicio izquierda */
-        align-items: center;
-        gap: 12px; /* Espacio fijo entre items */
+        justify-content: flex-start;
+        align-items: stretch;
+        gap: 2px;
         width: 100%;
-        overflow-x: auto; /* Scroll horizontal */
-        padding-right: 20px; /* Margen final para scroll */
-        -webkit-overflow-scrolling: touch; /* Suavidad iOS */
-        
-        /* Ocultar Scrollbar */
-        scrollbar-width: none; /* Firefox */
-        -ms-overflow-style: none;  /* IE */
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
     
-    .sidebar-menu::-webkit-scrollbar { 
-        display: none; /* Chrome/Safari */
+    .admin-layout .sidebar-menu::-webkit-scrollbar { 
+        display: none;
     }
 
-    /* Iconos táctiles más grandes y sin colapsar */
-    .nav-item {
+    /* Items: icono + label pequeño debajo */
+    .admin-layout .nav-item,
+    .admin-layout .admin-sidebar:hover .nav-item {
         width: auto;
-        padding: 10px 14px;
-        border-radius: 12px;
-        justify-content: center;
-        flex-direction: column; /* Icono arriba, texto abajo si hubiese */
-        flex-shrink: 0; /* Evitar que se aplasten */
-        min-width: 50px; /* Ancho mínimo táctil */
-    }
-
-    /* Ajuste para grupos desplegables en móvil: Mostrarlos inline? 
-       Si son grupos, el botón header está aquí.
-       Al hacer click, debería abrir un menú... Flotante?
-       En la implementación actual, los hijos se renderizan debajo.
-       En flex-row, "debajo" rompe el layout o expande la barra hacia arriba.
-    */
-    
-    .nav-group-wrapper {
-        display: flex;
-        flex-direction: row; /* Inline para slider */
+        min-width: 52px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        justify-content: center !important;
         align-items: center;
-        gap: 8px;
-        position: static; /* Quitar relative */
+        flex-direction: column;
         flex-shrink: 0;
+        gap: 3px !important;
+        font-size: 0.65rem;
     }
 
-    /* Cabecera del grupo (Botón) */
-    .nav-group-header {
-        padding-right: 14px; /* Espacio para chevron */
+    .admin-layout .nav-item:hover {
+        transform: none;
     }
 
-    .nav-sub-menu {
-        position: static; /* Flujo normal */
-        display: flex;
-        flex-direction: row;
-        gap: 8px;
-        padding-left: 0;
-        margin-bottom: 0;
-        
-        background: transparent; /* Fondo transparente para alinear */
-        border-radius: 0;
-        padding: 0;
-        
-        /* Animación de apertura horizontal */
-        overflow: hidden;
-        max-width: 0; 
-        opacity: 0;
-        transition: all 0.3s ease;
-        border: none;
-        box-shadow: none;
-        backdrop-filter: none;
+    /* Label móvil visible */
+    .admin-layout .nav-label-mobile {
+        display: block !important;
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: inherit;
+        white-space: nowrap;
+        line-height: 1;
+        opacity: 0.8;
+        max-width: none !important;
+        overflow: visible !important;
     }
-    
-    .nav-sub-menu.expanded {
-        max-width: 400px; /* Suficiente para mostrar items */
+
+    .admin-layout .nav-item.active .nav-label-mobile {
         opacity: 1;
-        margin-right: 8px;
-        padding: 0 4px; /* Padding horizontal mínimo */
-    }
-    
-    /* Logout button alignment fix */
-    .logout {
-        display: flex;
-        align-items: center;
-        margin-left: auto; 
-        padding: 10px;
-        flex-shrink: 0;
     }
 
-    .logout span { display: none; } /* Ocultar texto "Salir" */
+    /* Activo */
+    .admin-layout .nav-item.active {
+        background: rgba(230, 57, 70, 0.12);
+        color: var(--accent-primary);
+    }
+
+    /* Badge en móvil */
+    .admin-layout .badge-count,
+    .admin-layout .admin-sidebar:hover .badge-count {
+        position: absolute !important;
+        top: 2px;
+        right: 2px;
+        padding: 1px 5px;
+        font-size: 0.6rem;
+        margin-left: 0;
+    }
+    
+    /* Logout al final */
+    .admin-layout .logout {
+        margin-left: auto;
+        flex-shrink: 0;
+        margin-top: 0;
+    }
 }

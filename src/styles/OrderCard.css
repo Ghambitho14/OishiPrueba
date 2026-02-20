@@ -2,7 +2,7 @@
    KANBAN ORDER CARD - UI/UX PREMIUM EDITION
    ========================================= */
 
-:root {
+.admin-layout {
     /* Variables de diseño refinadas */
     --card-radius: 20px;
     --inner-radius: 12px;
@@ -10,7 +10,7 @@
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.kanban-card {
+.admin-layout .kanban-card {
     background: linear-gradient(145deg, #1e1e1e, #161616);
     /* Profundidad sutil */
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -22,7 +22,6 @@
     transition: var(--transition-bounce);
     position: relative;
     box-shadow: var(--shadow-soft);
-
     /* Evita el look "estirado" en pantallas grandes */
     max-width: 450px;
     margin: 8px auto;
@@ -30,12 +29,12 @@
 }
 
 /* Efecto al presionar (Mobile Haptics) */
-.kanban-card:active {
+.admin-layout .kanban-card:active {
     transform: scale(0.97);
 }
 
 /* Indicador de urgencia tipo "Glow" sutil */
-.urgent-pulse {
+.admin-layout .urgent-pulse {
     border-color: rgba(255, 68, 68, 0.5);
     animation: urgent-glow 2s infinite alternate;
 }
@@ -51,7 +50,7 @@
 }
 
 /* --- CABECERA ESTILO DASHBOARD --- */
-.card-header-row {
+.admin-layout .card-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -61,7 +60,7 @@
     font-weight: 700;
 }
 
-.order-time {
+.admin-layout .order-time {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -71,7 +70,7 @@
     border-radius: 20px;
 }
 
-.payment-badge {
+.admin-layout .payment-badge {
     background: rgba(56, 189, 248, 0.1);
     color: #38bdf8;
     padding: 4px 10px;
@@ -80,11 +79,11 @@
 }
 
 /* --- CLIENTE --- */
-.card-client {
+.admin-layout .card-client {
     margin-top: 5px;
 }
 
-.card-client h4 {
+.admin-layout .card-client h4 {
     margin: 0;
     font-size: 1.25rem;
     color: #fff;
@@ -92,7 +91,7 @@
     line-height: 1.1;
 }
 
-.client-phone {
+.admin-layout .client-phone {
     font-size: 0.85rem;
     color: var(--accent-primary);
     display: flex;
@@ -104,7 +103,7 @@
 }
 
 /* --- LISTA DE PRODUCTOS (ESTILO TICKET) --- */
-.card-items {
+.admin-layout .card-items {
     background: rgba(0, 0, 0, 0.25);
     padding: 14px;
     border-radius: var(--inner-radius);
@@ -113,7 +112,7 @@
 }
 
 /* Decoración de ticket */
-.card-items::before {
+.admin-layout .card-items::before {
     content: '';
     position: absolute;
     top: -5px;
@@ -122,7 +121,7 @@
     height: 10px;
 }
 
-.order-item-row {
+.admin-layout .order-item-row {
     display: flex;
     gap: 12px;
     font-size: 0.95rem;
@@ -130,11 +129,11 @@
     align-items: center;
 }
 
-.order-item-row:last-child {
+.admin-layout .order-item-row:last-child {
     margin-bottom: 0;
 }
 
-.qty-circle {
+.admin-layout .qty-circle {
     background: #fff;
     color: #000;
     font-weight: 900;
@@ -149,13 +148,13 @@
     flex-shrink: 0;
 }
 
-.item-name {
+.admin-layout .item-name {
     color: #e0e0e0;
     font-weight: 500;
 }
 
 /* --- NOTAS Y ADJUNTOS --- */
-.card-note {
+.admin-layout .card-note {
     font-size: 0.85rem;
     color: #fbbf24;
     background: rgba(251, 191, 36, 0.08);
@@ -165,7 +164,7 @@
     font-style: italic;
 }
 
-.receipt-link {
+.admin-layout .receipt-link {
     font-size: 0.85rem;
     color: #38bdf8;
     background: rgba(56, 189, 248, 0.05);
@@ -181,7 +180,7 @@
 }
 
 /* --- TOTAL SECCION --- */
-.card-total {
+.admin-layout .card-total {
     font-size: 1.5rem;
     font-weight: 900;
     text-align: right;
@@ -192,7 +191,7 @@
     align-items: center;
 }
 
-.card-total::before {
+.admin-layout .card-total::before {
     content: 'TOTAL';
     font-size: 0.7rem;
     color: #666;
@@ -200,7 +199,7 @@
 }
 
 /* --- ACCIONES (GRID SYSTEM) --- */
-.card-actions {
+.admin-layout .card-actions {
     display: grid;
     grid-template-columns: 1fr 1fr 50px;
     /* Dos botones iguales + uno de icono */
@@ -210,17 +209,17 @@
 
 /* Para órdenes muy pequeñas, que no se vea vacío */
 @media (max-width: 350px) {
-    .card-actions {
+    .admin-layout .card-actions {
         grid-template-columns: 1fr 1fr;
     }
 
-    .btn-icon-action {
+    .admin-layout .btn-icon-action {
         grid-column: span 2;
         width: 100% !important;
     }
 }
 
-.btn-action {
+.admin-layout .btn-action {
     border: none;
     padding: 14px 10px;
     border-radius: var(--inner-radius);
@@ -237,17 +236,17 @@
     transition: var(--transition-bounce);
 }
 
-.btn-action.primary {
+.admin-layout .btn-action.primary {
     background: var(--accent-primary);
     box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
 }
 
-.btn-action.success {
+.admin-layout .btn-action.success {
     background: #10b981;
     box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
-.btn-icon-action {
+.admin-layout .btn-icon-action {
     width: 50px;
     height: 50px;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -261,15 +260,15 @@
     transition: all 0.2s;
 }
 
-.btn-icon-action.cancel:hover,
-.btn-icon-action.cancel:active {
+.admin-layout .btn-icon-action.cancel:hover,
+.admin-layout .btn-icon-action.cancel:active {
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     border-color: #ef4444;
 }
 
 /* Animación de entrada fluida */
-.animate-slide-up {
+.admin-layout .animate-slide-up {
     animation: slideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 

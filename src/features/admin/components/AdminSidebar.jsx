@@ -36,7 +36,6 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
     const navigate = useNavigate();
     const pendingCount = kanbanColumns?.pending?.length || 0;
 
-    // DEFINICIÓN DE LA ESTRUCTURA DEL MENÚ (Memoizada)
     const menuItems = useMemo(() => [
         { 
             id: 'orders', 
@@ -69,18 +68,14 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
         { id: 'settings', label: 'Herramientas', icon: Settings }
     ], [pendingCount]);
 
-    // ESTADO PARA GRUPOS EXPANDIDOS (Inicialización perezosa)
     const [expandedGroups, setExpandedGroups] = useState(() => {
         const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === activeTab));
         return activeGroup ? { [activeGroup.id]: true } : {};
     });
 
-    // Efecto para abrir el grupo correcto si se cambia el tab desde fuera
     useEffect(() => {
         const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === activeTab));
-        
         if (activeGroup) {
-            // Usar setTimeout para evitar warning de actualización síncrona durante render
             const timer = setTimeout(() => {
                 setExpandedGroups(prev => {
                     if (prev[activeGroup.id]) return prev;
@@ -92,10 +87,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
     }, [activeTab, menuItems]);
 
     const toggleGroup = (groupId) => {
-        setExpandedGroups(prev => ({
-            ...prev,
-            [groupId]: !prev[groupId]
-        }));
+        setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
     };
 
     return (
@@ -108,6 +100,19 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
             <nav className="sidebar-menu">
                 {menuItems.map(item => {
                     if (item.isGroup) {
+                        if (isMobile) {
+                            return item.children.map(child => (
+                                <button 
+                                    key={child.id}
+                                    onClick={() => setActiveTab(child.id)}
+                                    className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
+                                >
+                                    <child.icon size={20} />
+                                    <span className="nav-label-mobile">{child.label}</span>
+                                </button>
+                            ));
+                        }
+
                         const isExpanded = expandedGroups[item.id];
                         const isActiveGroup = item.children.some(child => child.id === activeTab);
                         
@@ -117,16 +122,14 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
                                     onClick={() => toggleGroup(item.id)} 
                                     className={`nav-item nav-group-header ${isActiveGroup ? 'active-group' : ''}`}
                                 >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <div className="nav-item-inner">
                                         <item.icon size={22} />
-                                        {!isMobile && item.label}
+                                        <span className="nav-text">{item.label}</span>
                                     </div>
-                                    {!isMobile && (
-                                        <ChevronDown 
-                                            size={16} 
-                                            className={`nav-chevron ${isExpanded ? 'expanded' : ''}`} 
-                                        />
-                                    )}
+                                    <ChevronDown 
+                                        size={16} 
+                                        className={`nav-chevron ${isExpanded ? 'expanded' : ''}`} 
+                                    />
                                 </button>
                                 
                                 <div className={`nav-sub-menu ${isExpanded ? 'expanded' : ''}`}>
@@ -136,34 +139,39 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
                                             onClick={() => setActiveTab(child.id)}
                                             className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
                                         >
-                                            <child.icon size={18} /> {/* Icono un poco más chico */}
-                                            {!isMobile && child.label}
+                                            <child.icon size={18} />
+                                            <span className="nav-text">{child.label}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         );
                     } else {
-                        // Item normal
                         return (
                             <button 
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)} 
                                 className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
                             >
-                                <item.icon size={22} /> 
-                                {!isMobile && item.label}
+                                <item.icon size={isMobile ? 20 : 22} /> 
+                                {isMobile ? (
+                                    <span className="nav-label-mobile">{item.label}</span>
+                                ) : (
+                                    <span className="nav-text">{item.label}</span>
+                                )}
                                 {item.badge && <span className="badge-count">{item.badge}</span>}
                             </button>
                         );
                     }
                 })}
 
-                <button onClick={() => navigate('/')} className="nav-item" style={{ marginTop: 'auto', marginBottom: 10 }}>
-                    <Store size={22} /> {!isMobile && 'Ver Tienda'}
+                <button onClick={() => navigate('/')} className="nav-item" style={!isMobile ? { marginTop: 'auto', marginBottom: 10 } : {}}>
+                    <Store size={isMobile ? 20 : 22} />
+                    {isMobile ? <span className="nav-label-mobile">Tienda</span> : <span className="nav-text">Ver Tienda</span>}
                 </button>
                 <button onClick={onLogout} className="nav-item logout">
-                    <LogOut size={22} /> {!isMobile && 'Cerrar Sesión'}
+                    <LogOut size={isMobile ? 20 : 22} />
+                    {isMobile ? <span className="nav-label-mobile">Salir</span> : <span className="nav-text">Cerrar Sesión</span>}
                 </button>
             </nav>
         </aside>

@@ -1,6 +1,6 @@
 /* ADMIN CLIENTS STYLES - DARK GLASS THEME */
 
-.clients-container {
+.admin-layout .clients-container {
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -10,7 +10,7 @@
 }
 
 /* HEADER Y ACCIONES */
-.clients-header {
+.admin-layout .clients-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -18,19 +18,20 @@
     gap: 20px;
 }
 
-.clients-title h1 {
+.admin-layout .clients-title h1 {
     font-size: 1.8rem;
     margin: 0;
     font-weight: 700;
 }
 
-.clients-actions {
+.admin-layout .clients-actions {
     display: flex;
     gap: 10px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
-.search-box {
+.admin-layout .clients-container .search-box {
     display: flex;
     align-items: center;
     background: white;
@@ -40,7 +41,7 @@
     width: 250px;
 }
 
-.search-box input {
+.admin-layout .clients-container .search-box input {
     border: none;
     outline: none;
     background: transparent;
@@ -50,7 +51,7 @@
     font-size: 0.9rem;
 }
 
-.btn-icon-text {
+.admin-layout .clients-container .btn-icon-text {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -64,17 +65,17 @@
     height: 40px;
 }
 
-.btn-white {
+.admin-layout .clients-container .btn-white {
     background: white;
     color: #333;
 }
 
-.btn-white:hover {
+.admin-layout .clients-container .btn-white:hover {
     background: #f0f0f0;
 }
 
 /* FILTERS TABS */
-.clients-filters {
+.admin-layout .clients-filters {
     display: flex;
     align-items: center;
     gap: 15px;
@@ -83,7 +84,7 @@
     overflow-x: auto;
 }
 
-.filter-chip {
+.admin-layout .filter-chip {
     padding: 6px 16px;
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -95,19 +96,19 @@
     background: transparent;
 }
 
-.filter-chip:hover {
+.admin-layout .filter-chip:hover {
     background: rgba(255, 255, 255, 0.05);
     color: white;
 }
 
-.filter-chip.active {
+.admin-layout .filter-chip.active {
     background: white;
     color: #3b82f6; /* Blue primary text */
     border-color: white;
     font-weight: 600;
 }
 
-.filter-btn-trigger {
+.admin-layout .filter-btn-trigger {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -118,20 +119,26 @@
 }
 
 /* TABLE STYLES (Reusing Glass Dark Theme logic) */
-.clients-table-container {
+.admin-layout .clients-table-container {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     overflow: hidden;
 }
 
-.clients-table {
+.admin-layout .clients-table {
     width: 100%;
     border-collapse: collapse;
     min-width: 900px;
 }
 
-.clients-table th {
+@media (max-width: 1200px) {
+    .admin-layout .clients-table {
+        min-width: 760px;
+    }
+}
+
+.admin-layout .clients-table th {
     text-align: left;
     padding: 15px 20px;
     font-size: 0.75rem;
@@ -142,7 +149,7 @@
     background: rgba(255, 255, 255, 0.02);
 }
 
-.clients-table td {
+.admin-layout .clients-table td {
     padding: 16px 20px;
     font-size: 0.9rem;
     color: #e5e7eb;
@@ -150,27 +157,27 @@
     vertical-align: middle;
 }
 
-.clients-table tr:hover td {
+.admin-layout .clients-table tr:hover td {
     background: rgba(255, 255, 255, 0.02);
 }
 
-.clients-table tr:last-child td {
+.admin-layout .clients-table tr:last-child td {
     border-bottom: none;
 }
 
 /* CELL CONTENT */
-.client-info-cell h4 {
+.admin-layout .client-info-cell h4 {
     margin: 0;
     font-size: 0.95rem;
     color: white;
 }
 
-.client-info-cell span {
+.admin-layout .client-info-cell span {
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
 
-.points-badge {
+.admin-layout .points-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -179,7 +186,7 @@
 }
 
 /* SEGMENT BADGES */
-.segment-badge {
+.admin-layout .segment-badge {
     padding: 4px 10px;
     border-radius: 12px;
     font-size: 0.75rem;
@@ -187,56 +194,56 @@
     border: 1px solid transparent;
 }
 
-.segment-elite {
+.admin-layout .segment-elite {
     background: rgba(59, 130, 246, 0.15); /* Blue */
     color: #60a5fa;
     border-color: rgba(59, 130, 246, 0.3);
 }
 
-.segment-top {
+.admin-layout .segment-top {
     background: rgba(168, 85, 247, 0.15); /* Purple */
     color: #c084fc;
     border-color: rgba(168, 85, 247, 0.3);
 }
 
-.segment-frequent {
+.admin-layout .segment-frequent {
     background: rgba(34, 197, 94, 0.15); /* Green */
     color: #4ade80;
     border-color: rgba(34, 197, 94, 0.3);
 }
 
-.segment-buyer {
+.admin-layout .segment-buyer {
     background: rgba(255, 255, 255, 0.1);
     color: #d1d5db;
 }
 
-.segment-none {
+.admin-layout .segment-none {
     background: transparent;
     color: var(--text-secondary);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* STATUS DOTS */
-.status-indicator {
+.admin-layout .status-indicator {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 0.85rem;
 }
 
-.dot {
+.admin-layout .dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
 }
 
-.dot.active { background: #4ade80; box-shadow: 0 0 5px rgba(74, 222, 128, 0.5); }
-.dot.risk { background: #f87171; }
-.dot.inactive { background: #6b7280; }
-.dot.sleeping { background: #fbbf24; }
+.admin-layout .dot.active { background: #4ade80; box-shadow: 0 0 5px rgba(74, 222, 128, 0.5); }
+.admin-layout .dot.risk { background: #f87171; }
+.admin-layout .dot.inactive { background: #6b7280; }
+.admin-layout .dot.sleeping { background: #fbbf24; }
 
 /* LOADING & FOOTER */
-.table-footer {
+.admin-layout .table-footer {
     padding: 15px 20px;
     text-align: right;
     color: var(--text-secondary);
@@ -245,21 +252,41 @@
 }
 
 @media (max-width: 1024px) {
-    .clients-table-container {
+    .admin-layout .clients-table-container {
         overflow-x: auto;
     }
     
-    .clients-header {
+    .admin-layout .clients-header {
         flex-direction: column;
         align-items: stretch;
     }
     
-    .search-box {
+    .admin-layout .clients-container .search-box {
         width: 100%;
     }
     
-    .clients-actions {
+    .admin-layout .clients-actions {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .admin-layout .clients-container .btn-icon-text {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-layout .clients-container {
+        padding: 10px;
+    }
+
+    .admin-layout .clients-title h1 {
+        font-size: 1.4rem;
+    }
+
+    .admin-layout .clients-table th,
+    .admin-layout .clients-table td {
+        padding: 12px 14px;
     }
 }

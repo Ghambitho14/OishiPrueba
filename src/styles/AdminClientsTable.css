@@ -3,14 +3,14 @@
    ========================================= */
 
 /* --- TABLE BASE --- */
-.data-table {
+.admin-layout .data-table {
     width: 100%;
     border-collapse: separate; /* Permite border-radius en filas */
     border-spacing: 0;
     width: 100%;
 }
 
-.data-table th {
+.admin-layout .data-table th {
     padding: 16px 24px;
     text-align: left;
     font-size: 0.75rem;
@@ -26,7 +26,7 @@
     backdrop-filter: blur(8px);
 }
 
-.data-table td {
+.admin-layout .data-table td {
     padding: 20px 24px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     vertical-align: middle;
@@ -36,23 +36,23 @@
 }
 
 /* Row Hover Effect (Desktop) */
-.clickable-row {
+.admin-layout .clickable-row {
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
-.clickable-row:hover td {
+.admin-layout .clickable-row:hover td {
     background: rgba(255, 255, 255, 0.03);
 }
 
 /* Client Name Highlight */
-.data-table td b {
+.admin-layout .data-table td b {
     color: white;
     font-weight: 600;
     font-size: 0.95rem;
 }
 
-.client-total-amount {
+.admin-layout .client-total-amount {
     color: #25d366;
     font-weight: 700;
     font-family: monospace; /* Alineación numérica perfecta */
@@ -60,12 +60,12 @@
 }
 
 /* --- CLIENTS VIEW SPECIFIC --- */
-.clients-view {
+.admin-layout .clients-view {
     min-height: 200px;
     width: 100%;
 }
 
-.clients-toolbar-fix {
+.admin-layout .clients-toolbar-fix {
     padding: 0 !important;
     border: none !important;
     margin-bottom: 24px !important;
@@ -84,33 +84,43 @@
     to { transform: translateX(0); }
 }
 
-.animate-fade {
+.admin-layout .animate-fade {
     animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-.animate-slide-in {
+.admin-layout .animate-slide-in {
     animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* --- FORM ELEMENTS NORMALIZATION (ADMIN) --- */
-select {
-    background: rgba(30, 41, 59, 0.8) !important;
-    color: #fff !important;
-    border: 1px solid var(--card-border) !important;
-    border-radius: 8px !important;
-    padding: 8px 12px !important;
+.admin-layout .animate-slide-in-right {
+    animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* --- FORM ELEMENTS NORMALIZATION (ADMIN TOOLBARS ONLY) --- */
+.admin-layout .admin-toolbar select,
+.admin-layout .filter-box select,
+.admin-layout .cash-filters-bar select,
+.admin-layout .clients-container select {
+    background: rgba(30, 41, 59, 0.8);
+    color: #fff;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 8px 12px;
     cursor: pointer;
 }
 
-select:focus {
+.admin-layout .admin-toolbar select:focus,
+.admin-layout .filter-box select:focus,
+.admin-layout .cash-filters-bar select:focus,
+.admin-layout .clients-container select:focus {
     outline: none;
-    border-color: var(--accent-primary) !important;
+    border-color: var(--accent-primary);
     box-shadow: 0 0 0 2px rgba(230, 57, 70, 0.2);
 }
 
 /* --- ADMIN SIDE PANEL (CRM / DETAILS) --- */
-.modal-overlay {
-    /* Overlay compartido para cerrar al hacer click fuera */
+.admin-layout .admin-panel-overlay {
+    /* Overlay específico para side panels del admin (no modales globales) */
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
@@ -119,14 +129,13 @@ select:focus {
     transition: opacity 0.3s ease;
 }
 
-.admin-side-panel {
+.admin-layout .admin-side-panel {
     position: fixed;
     right: 0;
     top: 0;
     height: 100vh;
     width: 100%;
     max-width: 480px; /* Ancho cómodo */
-    
     background: #111; /* Fondo sólido oscuro */
     border-left: 1px solid var(--card-border);
     display: flex;
@@ -135,8 +144,12 @@ select:focus {
     box-shadow: -10px 0 50px rgba(0, 0, 0, 0.8);
 }
 
+.admin-layout .admin-side-panel * {
+    max-width: 100%;
+}
+
 /* Side Panel Header */
-.admin-side-header {
+.admin-layout .admin-side-header {
     padding: 24px;
     border-bottom: 1px solid var(--card-border);
     display: flex;
@@ -145,7 +158,7 @@ select:focus {
     background: rgba(255, 255, 255, 0.02);
 }
 
-.admin-side-header h3 {
+.admin-layout .admin-side-header h3 {
     margin: 0;
     font-size: 1.4rem;
     font-weight: 700;
@@ -154,21 +167,20 @@ select:focus {
 }
 
 /* Side Panel Body */
-.admin-side-body {
+.admin-layout .admin-side-body {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
-    
     /* Scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
-.admin-side-body::-webkit-scrollbar { width: 6px; }
-.admin-side-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+.admin-layout .admin-side-body::-webkit-scrollbar { width: 6px; }
+.admin-layout .admin-side-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
 
 /* Side Panel Footer */
-.admin-side-footer {
+.admin-layout .admin-side-footer {
     padding: 20px 24px;
     border-top: 1px solid var(--card-border);
     background: rgba(20, 20, 20, 0.95);
@@ -177,7 +189,7 @@ select:focus {
 }
 
 /* Close Button */
-.btn-close-sidepanel {
+.admin-layout .btn-close-sidepanel {
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-secondary);
@@ -189,7 +201,7 @@ select:focus {
     flex-shrink: 0;
 }
 
-.btn-close-sidepanel:hover {
+.admin-layout .btn-close-sidepanel:hover {
     background: rgba(255, 255, 255, 0.1);
     color: white;
     border-color: white;
@@ -197,7 +209,7 @@ select:focus {
 }
 
 /* --- HISTORY CARD (Inside Panel) --- */
-.history-card {
+.admin-layout .history-card {
     background: rgba(255, 255, 255, 0.03);
     padding: 16px;
     border-radius: 12px;
@@ -206,11 +218,11 @@ select:focus {
     transition: border-color 0.2s;
 }
 
-.history-card:hover {
+.admin-layout .history-card:hover {
     border-color: rgba(255, 255, 255, 0.2);
 }
 
-.history-card-header {
+.admin-layout .history-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -219,7 +231,7 @@ select:focus {
     border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
-.date-badge {
+.admin-layout .date-badge {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -230,19 +242,19 @@ select:focus {
     border-radius: 6px;
 }
 
-.order-total {
+.admin-layout .order-total {
     font-weight: 700;
     color: white;
 }
 
-.history-items {
+.admin-layout .history-items {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 16px;
 }
 
-.item-pill {
+.admin-layout .item-pill {
     font-size: 0.8rem;
     background: rgba(0, 0, 0, 0.3);
     padding: 4px 10px;
@@ -251,23 +263,23 @@ select:focus {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.item-pill b { color: white; }
+.admin-layout .item-pill b { color: white; }
 
-.history-card-footer {
+.admin-layout .history-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 /* KPI Cards in Panel */
-.panel-kpi {
+.admin-layout .panel-kpi {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
     margin-bottom: 32px;
 }
 
-.side-kpi {
+.admin-layout .side-kpi {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--card-border);
     padding: 20px;
@@ -277,7 +289,7 @@ select:focus {
     gap: 16px;
 }
 
-.kpi-icon-sm {
+.admin-layout .kpi-icon-sm {
     width: 40px; height: 40px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 50%;
@@ -286,16 +298,17 @@ select:focus {
 }
 
 /* --- UTILITIES --- */
-.section-divider {
+.admin-layout .section-divider {
     display: flex; align-items: center; gap: 12px;
     margin-bottom: 20px;
 }
-.section-divider::after {
+
+.admin-layout .section-divider::after {
     content: ''; flex: 1; height: 1px;
     background: var(--card-border);
 }
 
-.section-title {
+.admin-layout .section-title {
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -304,19 +317,34 @@ select:focus {
     margin: 0;
 }
 
-.btn-link-icon {
+.admin-layout .btn-link-icon {
     display: flex; align-items: center; gap: 6px;
     color: #60a5fa; font-size: 0.8rem; text-decoration: none;
     padding: 6px 10px; border-radius: 6px;
     background: rgba(96, 165, 250, 0.1);
     transition: background 0.2s;
 }
-.btn-link-icon:hover { background: rgba(96, 165, 250, 0.2); }
 
-.loading-state, .empty-state {
+.admin-layout .btn-link-icon:hover { background: rgba(96, 165, 250, 0.2); }
+
+.admin-layout .loading-state, 
+.admin-layout .empty-state {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 12px; padding: 40px;
     color: var(--text-secondary); opacity: 0.7;
+}
+
+/* Expandable Row History Table */
+.admin-layout .history-expanded-row {
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.admin-layout .history-expanded-content {
+    padding: 20px;
+    border-left: 4px solid #3b82f6;
+    display: flex;
+    gap: 40px;
+    background: linear-gradient(to right, rgba(0,0,0,0.5), transparent);
 }
 
 /* =========================================
@@ -325,15 +353,18 @@ select:focus {
 @media (max-width: 768px) {
     
     /* Reset Table Structure */
-    .data-table, .data-table tbody, .data-table tr, .data-table td {
+    .admin-layout .data-table, 
+    .admin-layout .data-table tbody, 
+    .admin-layout .data-table tr, 
+    .admin-layout .data-table td {
         display: block;
         width: 100%;
     }
     
-    .data-table thead { display: none; } /* Hide headers */
+    .admin-layout .data-table thead { display: none; } /* Hide headers */
 
     /* Card Style for Rows */
-    .data-table tr {
+    .admin-layout .data-table tr {
         background: var(--bg-secondary);
         border: 1px solid var(--card-border);
         border-radius: 16px;
@@ -344,7 +375,7 @@ select:focus {
     }
 
     /* Client Name (Header of Card) */
-    .data-table td:first-child {
+    .admin-layout .data-table td:first-child {
         background: rgba(255, 255, 255, 0.03);
         border-bottom: 1px solid var(--card-border);
         padding: 16px;
@@ -355,10 +386,10 @@ select:focus {
         gap: 10px;
     }
     
-    .data-table td:first-child::before { display: none; } /* No label for name */
+    .admin-layout .data-table td:first-child::before { display: none; } /* No label for name */
 
     /* Data Rows */
-    .data-table td {
+    .admin-layout .data-table td {
         padding: 12px 16px;
         border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
         display: flex;
@@ -368,7 +399,7 @@ select:focus {
     }
 
     /* Label Styling (via data-label attr) */
-    .data-table td::before {
+    .admin-layout .data-table td::before {
         content: attr(data-label);
         font-size: 0.75rem;
         text-transform: uppercase;
@@ -379,18 +410,30 @@ select:focus {
     }
 
     /* Last row cleanup */
-    .data-table td:last-child {
+    .admin-layout .data-table td:last-child {
         border-bottom: none;
         padding-bottom: 16px;
     }
 
     /* Side Panel Mobile */
-    .admin-side-panel {
+    .admin-layout .admin-side-panel {
         max-width: 100%; /* Full width on mobile */
         border-left: none;
     }
     
-    .panel-kpi {
+    .admin-layout .panel-kpi {
         grid-template-columns: 1fr; /* Stack KPIs */
+    }
+
+    .admin-layout .history-expanded-content {
+        flex-direction: column;
+        gap: 20px;
+        padding: 15px;
+        border-left: none;
+        border-top: 3px solid #3b82f6;
+    }
+
+    .admin-layout .history-expanded-content .w-250 {
+        width: 100% !important;
     }
 }

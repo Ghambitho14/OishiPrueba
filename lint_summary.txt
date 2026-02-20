@@ -1,0 +1,84 @@
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\components\admin\DangerZoneModal.jsx
+  17:7 Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  15 |   useEffect(() => {
+  16 |     if (isOpen) {
+> 17 |       setEmail('');
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  18 |       setPassword('');
+  19 |     }
+  20 |   }, [isOpen]); (react-hooks/set-state-in-effect)
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\components\admin\ReceiptModal.jsx
+  15:7 Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  13 |   useEffect(() => {
+  14 |     if (order) {
+> 15 |       setPreview(null);
+     |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  16 |       setSelectedFile(null);
+  17 |     }
+  18 |   }, [order]); (react-hooks/set-state-in-effect)
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\context\LocationContext.jsx
+  3:14 Fast refresh only works when a file only exports components. Move your React context(s) to a separate file. (react-refresh/only-export-components)
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\admin\components\AdminAnalytics.jsx
+  39:35 'products' is defined but never used. (no-unused-vars)
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\admin\components\caja\CashMovementModal.jsx
+  14:13 Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  12 |     useEffect(() => {
+  13 |         if (isOpen) {
+> 14 |             setFormData({
+     |             ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  15 |                 amount: '',
+  16 |                 description: '',
+  17 |                 paymentMethod: 'cash' (react-hooks/set-state-in-effect)
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\admin\components\caja\CashShiftModal.jsx
+  10:13 Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+   8 |     useEffect(() => {
+   9 |         if (isOpen) {
+> 10 |             setAmount('');
+     |             ^^^^^^^^^ Avoid calling setState() directly within an effect
+  11 |             setError('');
+  12 |         }
+  13 |     }, [isOpen]); (react-hooks/set-state-in-effect)
+C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\products\components\ProductModal.jsx
+  33:9 Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  31 |     if (isOpen) {
+  32 |       if (product) {
+> 33 |         setFormData({
+     |         ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |           name: product.name || '',
+  35 |           price: product.price || '',
+  36 |           description: product.description || '', (react-hooks/set-state-in-effect)

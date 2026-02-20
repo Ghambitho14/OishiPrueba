@@ -36,42 +36,59 @@ ChartJS.register(
   Filler
 );
 
-const AdminAnalytics = ({ orders, products, clients }) => {
+const AdminAnalytics = ({ orders, clients }) => {
   const [filterPeriod, setFilterPeriod] = useState('7'); // '7', '30', 'all'
     const [chartTab, setChartTab] = useState('Todos'); // 'Todos', 'WEB', 'PDV', etc.
     const [tabs, setTabs] = useState(['Todos', 'WEB', 'PDV', 'trans', 'efectivo', 'uber']);
     const [newTab, setNewTab] = useState('');
 
   // --- PROCESAMIENTO DE DATOS ---
-  const { chartData, kpis } = useMemo(() => {
+  const { chartData, kpis, trends } = useMemo(() => {
     if (!orders || orders.length === 0) {
-        return { chartData: { labels: [], datasets: [] }, kpis: { total: 0, orders: 0, ticket: 0 } };
+        return { 
+          chartData: { labels: [], datasets: [] }, 
+          kpis: { total: 0, count: 0, ticket: 0 },
+          trends: { total: 0, count: 0 } 
+        };
     }
 
-    // 1. Filtrar por periodo y TAB (Canal)
+    // 1. Filtrar por periodo actual y previo
     const now = new Date();
+    const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
+    
     const cutoffDate = new Date();
-    cutoffDate.setDate(now.getDate() - parseInt(filterPeriod));
+    cutoffDate.setDate(now.getDate() - days);
 
-    const filteredOrders = orders.filter(o => {
+    const prevCutoffDate = new Date();
+    prevCutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const filterByTab = (o) => {
+        if (chartTab === 'Todos') return true;
+        if (chartTab === 'WEB') return o.payment_type === 'online';
+        if (chartTab === 'PDV') return o.payment_type === 'tienda';
+        // Categorías personalizadas o métodos base
+        return o.payment_type === chartTab || o.source === chartTab;
+    };
+
+    const validOrders = orders.filter(o => o.status !== 'cancelled');
+
+    // Pedidos Actuales
+    const currentOrders = validOrders.filter(o => {
         const d = new Date(o.created_at);
-        const dateMatch = filterPeriod === 'all' ? true : d >= cutoffDate;
-        
-        let tabMatch = true;
-        if (chartTab === 'WEB') tabMatch = o.payment_type === 'online';
-        if (chartTab === 'PDV') tabMatch = o.payment_type === 'tienda';
-        // Si tuvieras campo 'source' o 'platform':
-        // if (chartTab === 'RAPPI') tabMatch = o.source === 'rappi';
-        
-        return dateMatch && tabMatch;
-    }).filter(o => o.status !== 'cancelled'); // Solo ventas reales
+        return (filterPeriod === 'all' ? true : d >= cutoffDate) && filterByTab(o);
+    });
+
+    // Pedidos Previos (para trends)
+    const prevOrders = validOrders.filter(o => {
+        const d = new Date(o.created_at);
+        return filterPeriod === 'all' ? false : (d >= prevCutoffDate && d < cutoffDate) && filterByTab(o);
+    });
 
     // 2. Agrupar por fecha para el gráfico
     const salesByDate = {};
     const labels = [];
     
-    // Generar etiquetas de días
-    for (let i = parseInt(filterPeriod) - 1; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(now.getDate() - i);
         const key = d.toISOString().split('T')[0];
@@ -80,8 +97,7 @@ const AdminAnalytics = ({ orders, products, clients }) => {
         labels.push(label);
     }
     
-    // Rellenar datos
-    filteredOrders.forEach(o => {
+    currentOrders.forEach(o => {
         const key = new Date(o.created_at).toISOString().split('T')[0];
         if (salesByDate[key] !== undefined) {
             salesByDate[key] += Number(o.total);
@@ -90,21 +106,26 @@ const AdminAnalytics = ({ orders, products, clients }) => {
 
     const dataPoints = Object.values(salesByDate);
 
-    // 3. KPIs
-    const totalSales = filteredOrders.reduce((acc, o) => acc + Number(o.total), 0);
-    const totalOrdersCount = filteredOrders.length;
+    // 3. KPIs y Trends
+    const totalSales = currentOrders.reduce((acc, o) => acc + Number(o.total), 0);
+    const totalOrdersCount = currentOrders.length;
     const avgTicket = totalOrdersCount > 0 ? totalSales / totalOrdersCount : 0;
 
-    // Configuración del Gráfico
+    const prevSales = prevOrders.reduce((acc, o) => acc + Number(o.total), 0);
+    const prevCount = prevOrders.length;
+
+    const salesTrend = prevSales === 0 ? 100 : Math.round(((totalSales - prevSales) / prevSales) * 100);
+    const countTrend = prevCount === 0 ? 100 : Math.round(((totalOrdersCount - prevCount) / prevCount) * 100);
+
     const data = {
       labels,
       datasets: [
         {
           label: 'Ventas',
           data: dataPoints,
-          borderColor: '#3b82f6', // Azul tipo Tailwind blue-500
+          borderColor: '#3b82f6',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          tension: 0.4, // Curva suave
+          tension: 0.4,
           fill: true,
           pointBackgroundColor: '#fff',
           pointBorderColor: '#3b82f6',
@@ -121,19 +142,36 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             total: totalSales, 
             count: totalOrdersCount, 
             ticket: avgTicket 
-        } 
+        },
+        trends: {
+            total: salesTrend,
+            count: countTrend
+        }
     };
   }, [orders, filterPeriod, chartTab]);
 
-  // CÁLCULO DE NUEVOS CLIENTES (Simple)
-  const newClientsCount = useMemo(() => {
-      if (!clients) return 0;
-      // Asumimos que queremos saber los ultimos 7 dias
+  // CÁLCULO DE NUEVOS CLIENTES
+  const newClientsInfo = useMemo(() => {
+      if (!clients) return { count: 0, trend: 0 };
       const now = new Date();
+      const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
+      
       const cutoff = new Date();
-      cutoff.setDate(now.getDate() - 7);
-      return clients.filter(c => new Date(c.created_at || new Date()) >= cutoff).length;
-  }, [clients]);
+      cutoff.setDate(now.getDate() - days);
+
+      const prevCutoff = new Date();
+      prevCutoff.setDate(cutoff.getDate() - days);
+
+      const currentNew = clients.filter(c => new Date(c.created_at || new Date()) >= cutoff).length;
+      const prevNew = filterPeriod === 'all' ? 0 : clients.filter(c => {
+          const d = new Date(c.created_at || new Date());
+          return d >= prevCutoff && d < cutoff;
+      }).length;
+
+      const trend = prevNew === 0 ? 100 : Math.round(((currentNew - prevNew) / prevNew) * 100);
+
+      return { count: currentNew, trend };
+  }, [clients, filterPeriod]);
 
   // TOP PRODUCTO
   const topProduct = useMemo(() => {
@@ -258,9 +296,9 @@ const AdminAnalytics = ({ orders, products, clients }) => {
                 </div>
                 <div className="kpi-row-main">
                     <span className="kpi-value">{kpis.count}</span>
-                    <span className="kpi-trend negative">
-                        Wait, need calc logic
-                        <ArrowDownRight size={14} /> 1%
+                    <span className={`kpi-trend ${trends.count >= 0 ? 'positive' : 'negative'}`}>
+                        {trends.count >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />} 
+                        {Math.abs(trends.count)}%
                     </span>
                 </div>
             </div>
@@ -273,8 +311,9 @@ const AdminAnalytics = ({ orders, products, clients }) => {
                 </div>
                 <div className="kpi-row-main">
                     <span className="kpi-value">${kpis.total.toLocaleString('es-CL')}</span>
-                    <span className="kpi-trend positive">
-                        <ArrowUpRight size={14} /> 5%
+                    <span className={`kpi-trend ${trends.total >= 0 ? 'positive' : 'negative'}`}>
+                        {trends.total >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />} 
+                        {Math.abs(trends.total)}%
                     </span>
                 </div>
             </div>
@@ -317,8 +356,10 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             <div className="clients-stats-row">
                 <div className="client-stat">
                     <span className="stat-label">Nuevos clientes</span>
-                    <span className="stat-num">{newClientsCount}</span>
-                    <span className="stat-trend positive">▲ 25%</span>
+                    <span className="stat-num">{newClientsInfo.count}</span>
+                    <span className={`stat-trend ${newClientsInfo.trend >= 0 ? 'positive' : 'negative'}`}>
+                        {newClientsInfo.trend >= 0 ? '▲' : '▼'} {Math.abs(newClientsInfo.trend)}%
+                    </span>
                 </div>
                 <div className="client-rating">
                     <span className="stat-label">Valoración</span>

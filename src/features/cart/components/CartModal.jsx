@@ -10,41 +10,12 @@ import { ordersService } from '../../orders/services/orders';
 import { cashService } from '../../admin/services/cashService';
 import { useBusiness } from '../../../context/useBusiness';
 import { useLocation } from '../../../context/useLocation';
+import { formatRut, validateRut } from '../../../shared/utils/formatters';
 
 import '../../../styles/CartModal.css';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&q=80&w=400';
 const WHATSAPP_NUMBER = "56976645547";
-
-// --- VALIDACIONES & HELPERS (Fuera del componente) ---
-const validateRut = (rut) => {
-  if (!rut || rut.trim().length < 3) return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '');
-  if (cleanRut.length < 2) return false;
-  
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1).toUpperCase();
-  
-  let sum = 0;
-  let multiplier = 2;
-  
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body.charAt(i)) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-  
-  const expectedDv = 11 - (sum % 11);
-  const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : expectedDv.toString();
-  return dv === calculatedDv;
-};
-
-const formatRut = (rut) => {
-  const clean = rut.replace(/[^0-9kK]/g, '');
-  if (clean.length <= 1) return clean;
-  const body = clean.slice(0, -1);
-  const dv = clean.slice(-1).toUpperCase();
-  return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-${dv}`;
-};
 
 const generateWSMessage = (formData, cart, total, paymentType, note, businessName) => {
   let msg = `*NUEVO PEDIDO WEB - ${businessName || 'OISHI'}*\n`;
@@ -55,6 +26,9 @@ const generateWSMessage = (formData, cart, total, paymentType, note, businessNam
   msg += 'DETALLE:\n';
   cart.forEach(item => {
     msg += `+ ${item.quantity} x ${item.name.toUpperCase()}\n`;
+    if (item.description) {
+      msg += `   (Hacer: ${item.description})\n`;
+    }
   });
   msg += `\n*TOTAL: $${total.toLocaleString('es-CL')}*\n`;
   msg += `Pago: ${paymentType === 'online' ? 'Transferencia (Comprobante Adjunto)' : 'En Local'}\n`;
@@ -194,7 +168,8 @@ const CartModal = React.memo(() => {
         quantity: Number(item.quantity) || 1,
         price: Number(item.price) || 0,
         has_discount: Boolean(item.has_discount),
-        discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null
+        discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
+        description: item.description ? String(item.description) : null
       }));
 
       const orderPayload = {
@@ -567,13 +542,14 @@ const CartItem = ({ item, unitPrice, onRemove, onAdd, onDecrease }) => (
       className="item-thumb"
       onError={(e) => { e.target.onerror = null; e.target.src = FALLBACK_IMAGE; }}
     />
-    <div className="item-details">
+    <div className="item-details" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
       <div className="item-top">
-        <h4>{item.name}</h4>
+        <h4 style={{ margin: 0 }}>{item.name}</h4>
         <button onClick={() => onRemove(item.id)} className="btn-trash"><Trash2 size={16} /></button>
       </div>
-      <div className="item-bottom">
-        <span className="item-price">${(unitPrice * item.quantity).toLocaleString('es-CL')}</span>
+
+      <div className="item-bottom" style={{ marginTop: 'auto', paddingTop: '4px' }}>
+        <span className="item-price" style={{ fontWeight: 'bold' }}>${(unitPrice * item.quantity).toLocaleString('es-CL')}</span>
         <div className="qty-control-sm">
           <button onClick={() => onDecrease(item.id)}><Minus size={12} /></button>
           <span>{item.quantity}</span>

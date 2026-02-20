@@ -2,7 +2,7 @@
    ADMIN SHARED COMPONENTS (TOOLBARS, SEARCH, ETC)
    ========================================= */
 
-.admin-toolbar {
+.admin-layout .admin-toolbar {
     display: flex;
     flex-wrap: wrap;
     gap: 15px;
@@ -12,8 +12,8 @@
     border-radius: 12px;
 }
 
-.search-box,
-.filter-box {
+.admin-layout .search-box,
+.admin-layout .filter-box {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -25,8 +25,8 @@
     min-width: 200px;
 }
 
-.search-box input,
-.filter-box select {
+.admin-layout .search-box input,
+.admin-layout .filter-box select {
     background: transparent;
     border: none;
     color: white;
@@ -35,20 +35,20 @@
     outline: none;
 }
 
-.search-box input::placeholder {
+.admin-layout .search-box input::placeholder {
     color: var(--text-muted);
 }
 
-.filter-box select {
+.admin-layout .filter-box select {
     cursor: pointer;
 }
 
-.filter-box select option {
+.admin-layout .filter-box select option {
     background: #111;
 }
 
 /* Tooltips or Mini Stats in Toolbars */
-.stats-mini {
+.admin-layout .stats-mini {
     margin-left: auto;
     font-size: 0.85rem;
     color: var(--text-secondary);
@@ -57,7 +57,7 @@
 }
 
 /* Shared Icon Action Buttons */
-.btn-icon-action {
+.admin-layout .btn-icon-action {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--card-border);
     color: var(--text-secondary);
@@ -71,14 +71,91 @@
     cursor: pointer;
 }
 
-.btn-icon-action:hover {
+.admin-layout .btn-icon-action:hover {
     background: rgba(255, 255, 255, 0.1);
     color: white;
     border-color: rgba(255, 255, 255, 0.2);
 }
 
-.btn-icon-action.danger:hover {
+.admin-layout .btn-icon-action.danger:hover {
     background: rgba(255, 68, 68, 0.1);
     color: #ff4444;
     border-color: #ff4444;
+}
+
+/* --- ADMIN NOTIFICATIONS (GLOBAL) --- */
+.admin-layout .admin-notification {
+    position: fixed;
+    left: 50%;
+    top: 20px;
+    transform: translateX(-50%);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(10px);
+    color: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    max-width: min(520px, calc(100vw - 24px));
+}
+
+.admin-layout .admin-notification span {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.admin-layout .admin-notification.success {
+    border-color: rgba(37, 211, 102, 0.35);
+}
+
+.admin-layout .admin-notification.error {
+    border-color: rgba(255, 68, 68, 0.35);
+}
+
+@media (max-width: 768px) {
+    .admin-layout .admin-notification {
+        top: 12px;
+    }
+}
+
+/* --- STATUS BADGES (Shared) --- */
+.admin-layout .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.admin-layout .status-badge.success {
+    background: rgba(37, 211, 102, 0.12);
+    color: #25d366;
+    border-color: rgba(37, 211, 102, 0.25);
+}
+
+.admin-layout .status-badge.warning {
+    background: rgba(250, 204, 21, 0.12);
+    color: #facc15;
+    border-color: rgba(250, 204, 21, 0.25);
+}
+
+.admin-layout .status-badge.danger {
+    background: rgba(255, 68, 68, 0.12);
+    color: #ff4444;
+    border-color: rgba(255, 68, 68, 0.25);
+}
+
+.admin-layout .status-badge.neutral {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.75);
+    border-color: rgba(255, 255, 255, 0.12);
 }

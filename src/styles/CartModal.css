@@ -188,18 +188,18 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.form-group {
+.cart-panel .form-group {
     margin-bottom: 15px;
 }
 
-.form-group label {
+.cart-panel .form-group label {
     display: block;
     margin-bottom: 6px;
     font-size: 0.85rem;
     color: #bbb;
 }
 
-.form-input {
+.cart-panel .form-input {
     width: 100%;
     padding: 12px;
     background: #252525; /* Fondo sólido */
@@ -210,13 +210,13 @@
     outline: none;
 }
 
-.form-input:focus {
+.cart-panel .form-input:focus {
     border-color: var(--accent-primary, #e63946);
     background: #2a2a2a;
 }
 
 /* Grid para RUT y Teléfono */
-.form-row {
+.cart-panel .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 15px;
@@ -226,7 +226,7 @@
     border-color: #ff4444;
 }
 
-.form-title {
+.cart-panel .form-title {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -378,7 +378,7 @@
     color: var(--accent-primary, #e63946);
 }
 
-.btn {
+.cart-panel .btn {
     padding: 12px;
     border-radius: 8px;
     font-weight: 600;
@@ -388,19 +388,19 @@
     transition: all 0.2s;
 }
 
-.btn-block { width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.cart-panel .btn-block { width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; }
 
-.btn-primary {
+.cart-panel .btn-primary {
     background: var(--accent-primary, #e63946);
     color: white;
 }
-.btn-primary:hover { opacity: 0.9; }
+.cart-panel .btn-primary:hover { opacity: 0.9; }
 
-.btn-secondary {
+.cart-panel .btn-secondary {
     background: rgba(255, 255, 255, 0.1);
     color: white;
 }
-.btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
+.cart-panel .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
 
 .payment-opt {
     justify-content: flex-start;
@@ -408,13 +408,13 @@
     text-align: left;
 }
 
-.btn-text {
+.cart-panel .btn-text {
     background: none;
     color: #aaa;
     text-decoration: underline;
     font-size: 0.9rem;
 }
-.btn-text:hover { color: white; }
+.cart-panel .btn-text:hover { color: white; }
 
 .btn-close-cart {
     background: rgba(255,255,255,0.1);
@@ -426,8 +426,8 @@
 }
 .btn-close-cart:hover { background: rgba(255,68,68,0.2); color: #ff4444; }
 
-.text-accent { color: var(--accent-primary, #e63946); }
-.flex-center { display: flex; align-items: center; gap: 10px; }
+.cart-panel .text-accent { color: var(--accent-primary, #e63946); }
+.cart-panel .flex-center { display: flex; align-items: center; gap: 10px; }
 .cart-count-badge { background: var(--accent-primary, #e63946); color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; }
 
 /* ERROR BANNER */
@@ -474,3 +474,49 @@
 }
 .summary-value { font-size: 1.1rem; font-weight: 700; color: white; }
 .success-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+
+/* EMPTY STATE (Carrito vacío) */
+.cart-panel .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    text-align: center;
+    flex: 1;
+}
+
+.cart-panel .empty-state .empty-emoji {
+    font-size: 3.5rem;
+    line-height: 1;
+}
+
+.cart-panel .empty-state h3 {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.cart-panel .empty-state .btn {
+    margin-top: 8px;
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+}
+
+/* --- 8. UTILIDADES DEL CARRITO --- */
+.cart-panel .text-center { text-align: center; }
+.cart-panel .text-white { color: white; }
+.cart-panel .text-muted { color: #aaa; }
+.cart-panel .text-xs { font-size: 0.75rem; }
+.cart-panel .mt-2 { margin-top: 8px; }
+.cart-panel .mt-4 { margin-top: 16px; }
+.cart-panel .mt-20 { margin-top: 20px; }
+.cart-panel .mb-15 { margin-bottom: 15px; }
+.cart-panel .mr-5 { margin-right: 5px; }
+.cart-panel .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(8px); }
+.cart-panel .animate-fade { animation: fadeIn 0.3s ease forwards; }
+.cart-panel .form-actions-col { display: flex; flex-direction: column; gap: 8px; }
+.cart-panel .btn-lg { padding: 14px; font-size: 1.05rem; }

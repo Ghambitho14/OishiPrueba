@@ -75,7 +75,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
     const isFormValid = () => {
         const hasItems = manualOrder.items && manualOrder.items.length > 0;
         const hasClientName = manualOrder.client_name && manualOrder.client_name.trim().length >= 3;
-        const hasPaymentType = manualOrder.payment_type !== null;
+        const hasPaymentType = !!manualOrder.payment_type;
 
         // Validación específica por tipo de pago
         let isPaymentValid = true;
@@ -83,10 +83,11 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
             isPaymentValid = !!receiptFile;
         }
 
-        const isRutValidOrEmpty = !manualOrder.client_rut || rutValid;
-        const isPhoneValidOrEmpty = !manualOrder.client_phone || phoneValid;
+        const exactRutLength = manualOrder.client_rut?.trim().length || 0;
+        const isRutRequiredAndValid = exactRutLength > 0 && rutValid;
+        const isPhoneStrictlyValid = phoneValid === true;
 
-        return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutValidOrEmpty && isPhoneValidOrEmpty;
+        return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutRequiredAndValid && isPhoneStrictlyValid;
     };
 
     return (
@@ -151,6 +152,9 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                                 products
                                     .filter(p => p.is_active && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                                     .map(p => {
+                                        const hasDiscount = Boolean(p.has_discount) && p.discount_price != null && Number(p.discount_price) > 0;
+                                        const unitPrice = hasDiscount ? Number(p.discount_price) : Number(p.price);
+
                                         const handleAddClick = (e) => {
                                             e.stopPropagation();
                                             try {
@@ -166,7 +170,25 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                                                 className="manual-order-product-card"
                                                 onClick={() => addItem(p)}
                                             >
-                                                {/* Badge removed as requested */}
+                                                {hasDiscount && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '10px',
+                                                        left: '10px',
+                                                        background: 'rgba(230,57,70,0.95)',
+                                                        color: '#fff',
+                                                        fontSize: '10px',
+                                                        fontWeight: '800',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '999px',
+                                                        letterSpacing: '1px',
+                                                        textTransform: 'uppercase',
+                                                        boxShadow: '0 8px 20px rgba(230,57,70,0.25)',
+                                                        zIndex: 2
+                                                    }}>
+                                                        Oferta
+                                                    </div>
+                                                )}
 
                                                 {/* Imagen del producto */}
                                                 <div className="manual-order-image-wrapper">
@@ -192,9 +214,28 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                                                     </h3>
                                                     <div className="manual-order-card-footer-row">
                                                         <div className="manual-order-card-price">
-                                                            {formatCurrency(p.price)}
+                                                            {hasDiscount ? (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+                                                                    <span style={{
+                                                                        fontSize: '11px',
+                                                                        opacity: 0.65,
+                                                                        textDecoration: 'line-through'
+                                                                    }}>
+                                                                        {formatCurrency(Number(p.price))}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '14px',
+                                                                        fontWeight: '900',
+                                                                        color: '#e63946'
+                                                                    }}>
+                                                                        {formatCurrency(unitPrice)}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                formatCurrency(Number(p.price))
+                                                            )}
                                                         </div>
-                                                        <div className="manual-order-stepper-container">
+                                                        <div className={`manual-order-stepper-container ${getQty(p.id) > 0 ? 'active' : ''}`}>
                                                             {getQty(p.id) === 0 ? (
                                                                 <button
                                                                     className="manual-order-add-btn"
@@ -203,7 +244,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                                                                     <Plus size={18} />
                                                                 </button>
                                                             ) : (
-                                                                <div className="manual-order-stepper" onClick={(e) => e.stopPropagation()}>
+                                                                <div className="manual-order-stepper animate-fade-in" onClick={(e) => e.stopPropagation()}>
                                                                     <button
                                                                         className="mo-step-btn minus"
                                                                         onClick={(e) => {
@@ -262,7 +303,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                                 <div className="manual-order-input-wrapper">
                                     <input
                                         type="text"
-                                        placeholder="RUT"
+                                        placeholder="RUT *"
                                         className="manual-order-input"
                                         value={manualOrder.client_rut}
                                         onChange={handleRutChange}
@@ -345,125 +386,214 @@ const ManualOrderModal = ({ isOpen, onClose, products, onOrderSaved, showNotify,
                                 RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
                             </div>
 
-                            {/* Carrito - VERSIÓN SIMPLE */}
+                            {/* Carrito - VERSIÓN PREMIUM GLASSMORPHIC */}
                             <div style={{
                                 flex: 1,
                                 padding: '0 16px 16px',
-                                overflowY: 'auto',
-                                backgroundColor: '#0a0a0a'
+                                overflowY: 'auto'
                             }}>
                                 {manualOrder.items.length === 0 ? (
                                     <div style={{
                                         textAlign: 'center',
-                                        padding: '40px 20px',
-                                        color: '#666'
+                                        padding: '50px 20px',
+                                        color: '#555',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        background: 'rgba(255,255,255,0.02)',
+                                        borderRadius: '12px',
+                                        marginTop: '16px'
                                     }}>
-                                        <ShoppingBag size={48} strokeWidth={1} />
-                                        <div style={{ marginTop: '10px' }}>CARRITO VACÍO</div>
+                                        <ShoppingBag size={42} strokeWidth={1} style={{ opacity: 0.5 }} />
+                                        <div style={{ fontSize: '0.85rem', letterSpacing: '2px', fontWeight: '600' }}>CARRITO VACÍO</div>
                                     </div>
                                 ) : (
-                                    <div>
+                                    <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {manualOrder.items.map(item => (
                                             <div
                                                 key={item.id}
+                                                className="animate-slide-up"
                                                 style={{
-                                                    backgroundColor: '#141414',
-                                                    border: '1px solid #222',
-                                                    borderRadius: '8px',
-                                                    padding: '12px',
-                                                    marginBottom: '12px',
+                                                    background: 'rgba(255, 255, 255, 0.03)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                    borderRadius: '12px',
+                                                    padding: '10px 12px',
                                                     display: 'flex',
                                                     gap: '12px',
-                                                    alignItems: 'center'
+                                                    alignItems: 'center',
+                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                                                    position: 'relative',
+                                                    overflow: 'hidden'
                                                 }}
                                             >
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    left: 0, top: 0, bottom: 0, width: '4px',
+                                                    background: 'var(--accent-red)'
+                                                }} />
+
                                                 <img
                                                     src={item.image_url || logo}
                                                     alt={item.name}
                                                     style={{
-                                                        width: '50px',
-                                                        height: '50px',
-                                                        borderRadius: '6px',
-                                                        objectFit: 'cover'
+                                                        width: '46px',
+                                                        height: '46px',
+                                                        borderRadius: '8px',
+                                                        objectFit: 'cover',
+                                                        background: '#000'
                                                     }}
                                                     onError={(e) => { e.target.src = logo }}
                                                 />
-                                                <div style={{ flex: 1 }}>
+                                                
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <div style={{
-                                                        color: 'white',
-                                                        fontSize: '14px',
+                                                        color: '#eee',
+                                                        fontSize: '0.85rem',
                                                         fontWeight: '600',
-                                                        marginBottom: '4px'
+                                                        marginBottom: '2px',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
                                                     }}>
                                                         {item.name}
                                                     </div>
+
                                                     <div style={{
                                                         color: '#e63946',
-                                                        fontSize: '13px',
-                                                        fontWeight: '700'
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: '800'
                                                     }}>
-                                                        {formatCurrency(item.price * item.quantity)}
+                                                        {(() => {
+                                                            const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
+                                                            const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
+                                                            const subtotal = unit * Number(item.quantity || 1);
+                                                            return (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                    {hasDiscount && (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                            <span style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: '900',
+                                                                                color: '#fff',
+                                                                                background: 'rgba(230,57,70,0.9)',
+                                                                                padding: '2px 6px',
+                                                                                borderRadius: '999px',
+                                                                                letterSpacing: '0.8px',
+                                                                                textTransform: 'uppercase'
+                                                                            }}>
+                                                                                Oferta
+                                                                            </span>
+                                                                            <span style={{
+                                                                                fontSize: '11px',
+                                                                                opacity: 0.7,
+                                                                                textDecoration: 'line-through',
+                                                                                fontWeight: '700',
+                                                                                color: '#cfcfcf'
+                                                                            }}>
+                                                                                {formatCurrency(Number(item.price))}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
+                                                                        <span style={{
+                                                                            fontSize: '13px',
+                                                                            fontWeight: '900',
+                                                                            color: '#e63946'
+                                                                        }}>
+                                                                            {formatCurrency(subtotal)}
+                                                                        </span>
+                                                                        <span style={{
+                                                                            fontSize: '11px',
+                                                                            opacity: 0.75,
+                                                                            color: '#cfcfcf',
+                                                                            fontWeight: '600'
+                                                                        }}>
+                                                                            {formatCurrency(unit)} c/u
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <div style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
-                                                    backgroundColor: '#0a0a0a',
-                                                    padding: '4px 8px',
-                                                    borderRadius: '6px'
+                                                    gap: '6px',
+                                                    backgroundColor: 'rgba(0,0,0,0.4)',
+                                                    padding: '4px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid rgba(255,255,255,0.05)'
                                                 }}>
                                                     <button
                                                         onClick={() => updateQuantity(item.id, -1)}
                                                         style={{
-                                                            background: 'none',
+                                                            background: 'transparent',
                                                             border: 'none',
-                                                            color: 'white',
+                                                            color: '#ccc',
                                                             cursor: 'pointer',
                                                             padding: '4px',
                                                             display: 'flex',
-                                                            alignItems: 'center'
+                                                            alignItems: 'center',
+                                                            transition: 'color 0.2s'
                                                         }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = '#ccc'}
                                                     >
                                                         <Minus size={14} />
                                                     </button>
                                                     <span style={{
                                                         color: 'white',
-                                                        minWidth: '20px',
+                                                        minWidth: '16px',
                                                         textAlign: 'center',
-                                                        fontSize: '14px',
-                                                        fontWeight: '600'
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: '700'
                                                     }}>
                                                         {item.quantity}
                                                     </span>
                                                     <button
                                                         onClick={() => updateQuantity(item.id, 1)}
                                                         style={{
-                                                            background: 'none',
+                                                            background: 'transparent',
                                                             border: 'none',
-                                                            color: 'white',
+                                                            color: '#ccc',
                                                             cursor: 'pointer',
                                                             padding: '4px',
                                                             display: 'flex',
-                                                            alignItems: 'center'
+                                                            alignItems: 'center',
+                                                            transition: 'color 0.2s'
                                                         }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = '#ccc'}
                                                     >
                                                         <Plus size={14} />
                                                     </button>
                                                 </div>
                                                 <button
                                                     onClick={() => removeItem(item.id)}
+                                                    title="Eliminar ítem"
                                                     style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        color: '#666',
+                                                        background: 'rgba(230,57,70,0.1)',
+                                                        border: '1px solid rgba(230,57,70,0.2)',
+                                                        color: '#e63946',
                                                         cursor: 'pointer',
-                                                        padding: '4px',
+                                                        padding: '6px',
+                                                        borderRadius: '6px',
                                                         display: 'flex',
-                                                        alignItems: 'center'
+                                                        alignItems: 'center',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = '#e63946';
+                                                        e.currentTarget.style.color = '#fff';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = 'rgba(230,57,70,0.1)';
+                                                        e.currentTarget.style.color = '#e63946';
                                                     }}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} />
                                                 </button>
                                             </div>
                                         ))}

@@ -1,25 +1,27 @@
 /* ADMIN SETTINGS STYLES */
 
-.settings-container {
+.admin-layout .settings-container {
     padding: 20px;
     max-width: 900px;
     margin: 0 auto;
 }
 
-.settings-header {
+.admin-layout .settings-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 30px;
+    gap: 16px;
+    flex-wrap: wrap;
 }
 
-.settings-header h1 {
+.admin-layout .settings-header h1 {
     font-size: 1.8rem;
     color: white;
     margin: 0;
 }
 
-.settings-section {
+.admin-layout .settings-section {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 16px;
@@ -27,7 +29,7 @@
     margin-bottom: 25px;
 }
 
-.section-title {
+.settings-container .section-title {
     font-size: 1.1rem;
     color: #f59e0b;
     margin-bottom: 20px;
@@ -36,24 +38,26 @@
     gap: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding-bottom: 15px;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
-.form-grid {
+.admin-layout .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
 }
 
-.full-width {
+.admin-layout .full-width {
     grid-column: 1 / -1;
 }
 
-.form-group {
+.settings-container .form-group {
     display: flex;
     flex-direction: column;
 }
 
-.form-group label {
+.settings-container .form-group label {
     display: block;
     font-size: 0.9rem;
     color: #9ca3af;
@@ -61,7 +65,8 @@
     font-weight: 500;
 }
 
-.form-input, .form-textarea {
+.settings-container .form-input, 
+.settings-container .form-textarea {
     width: 100%;
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -73,26 +78,27 @@
     transition: all 0.2s;
 }
 
-.form-input:focus, .form-textarea:focus {
+.settings-container .form-input:focus, 
+.settings-container .form-textarea:focus {
     border-color: #f59e0b;
     background: rgba(0, 0, 0, 0.4);
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
 }
 
-.form-textarea {
+.settings-container .form-textarea {
     resize: vertical;
     min-height: 80px;
     font-family: inherit;
     line-height: 1.5;
 }
 
-.input-icon-wrapper {
+.admin-layout .input-icon-wrapper {
     position: relative;
     display: flex;
     align-items: center;
 }
 
-.input-icon {
+.settings-container .input-icon {
     position: absolute;
     left: 15px;
     color: #9ca3af;
@@ -110,4 +116,23 @@
 
 .with-icon {
     padding-left: 45px;
+}
+
+@media (max-width: 768px) {
+    .admin-layout .settings-container {
+        padding: 10px;
+    }
+
+    .admin-layout .settings-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-layout .settings-section {
+        padding: 16px;
+    }
+
+    .admin-layout .form-grid {
+        grid-template-columns: 1fr;
+    }
 }

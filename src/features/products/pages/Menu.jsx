@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Navbar from '../../../shared/components/Navbar';
 import ProductCard from '../components/ProductCard';
@@ -14,56 +14,38 @@ import { useLocation } from '../../../context/useLocation';
 const Menu = () => {
   const navigate = useNavigate();
   const { selectedBranch, selectBranch, isLocationModalOpen, setIsLocationModalOpen } = useLocation();
-  const [categories, setCategories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [branches, setBranches] = useState([]); // Dynamic branches
+  
+  // Agrupamos estados relacionados para evitar renders innecesarios
+  const [data, setData] = useState({ categories: [], products: [], branches: [] });
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchExpanded, setSearchExpanded] = useState(false);
+  
   const searchInputRef = useRef(null);
-
-  // Load selected branch from context or local storage
-  // (Handled by LocationContext)
-
-  const handleBranchSelect = (branch) => {
-      selectBranch(branch);
-  };
-
-  // Referencia para bloquear el Scroll Spy durante el desplazamiento manual
   const isManualScrolling = useRef(false);
 
   const FIRE_ICON = "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif";
 
+  // 1. Carga de datos optimizada (Paralela)
   useEffect(() => {
     const loadData = async () => {
       try {
-        const { data: categoriesData } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('is_active', true)
-          .order('order', { ascending: true });
+        const [catsResponse, prodsResponse, branchesResponse] = await Promise.all([
+          supabase.from('categories').select('*').eq('is_active', true).order('order', { ascending: true }),
+          supabase.from('products').select('*').eq('is_active', true).order('name', { ascending: true }),
+          supabase.from('branches').select('*').eq('is_active', true).order('name', { ascending: true })
+        ]);
 
-        const { data: productsData } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_active', true)
-          .order('name', { ascending: true });
-
-        // Fetch Branches
-        const { data: branchesData } = await supabase
-            .from('branches')
-            .select('*')
-            .eq('is_active', true)
-            .order('name', { ascending: true });
+        const categoriesData = catsResponse.data || [];
+        const productsData = prodsResponse.data || [];
+        const branchesData = branchesResponse.data || [];
         
-        setCategories(categoriesData || []);
-        setProducts(productsData || []);
-        setBranches(branchesData || []);
+        setData({ categories: categoriesData, products: productsData, branches: branchesData });
 
-        const hasSpecial = (productsData || []).some(p => p.is_special);
-        if (hasSpecial) setActiveCategory('special');
-        else if (categoriesData?.length > 0) setActiveCategory(categoriesData[0].id);
+        // Lógica de categoría inicial
+        const hasSpecial = productsData.some(p => p.is_special);
+        setActiveCategory(hasSpecial ? 'special' : categoriesData[0]?.id || null);
 
       } catch (error) {
         console.error('Error cargando datos:', error);
@@ -72,98 +54,65 @@ const Menu = () => {
       }
     };
     loadData();
-  }, []);
-
-  // Forzar apertura del selector de sucursal al entrar en la página /menu
-  useEffect(() => {
-    // Siempre mostrar modal de local al montar Menu (el usuario desea elegir)
     setIsLocationModalOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setIsLocationModalOpen]);
 
+  // 2. Filtrado memoizado para rendimiento
+  const { specialProducts, filteredBySearch, query } = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return {
+      specialProducts: data.products.filter(p => p.is_special),
+      filteredBySearch: q ? data.products.filter(p => p.name?.toLowerCase().includes(q)) : [],
+      query: q
+    };
+  }, [data.products, searchQuery]);
 
-
-  // Función de scroll mejorada: Usa scrollIntoView nativo + scrollMarginTop CSS
-  const scrollToCategory = (id) => {
+  // 3. Función de scroll memoizada
+  const scrollToCategory = useCallback((id) => {
     isManualScrolling.current = true;
     setActiveCategory(id);
 
     const element = document.getElementById(`section-${id}`);
     if (element) {
-      // scrollMarginTop en CSS (180px) asegura que no quede tapado
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-      // Bloquear el spy un poco más de tiempo para permitir que la animación termine
-      setTimeout(() => {
-        isManualScrolling.current = false;
-      }, 1000);
+      setTimeout(() => { isManualScrolling.current = false; }, 1000);
     }
-  };
+  }, []);
 
+  // 4. Scroll Spy (Intersection Observer) optimizado
   useEffect(() => {
-    if (loading) return;
+    if (loading || query) return;
 
     const observerOptions = {
-      root: null, 
-      // Offset negativo superior grande para compensar el header fijo (~130px - 180px)
-      // Esto hace que la línea de "intersección" esté más abajo, justo donde el usuario mira.
-      rootMargin: '-140px 0px -70% 0px', 
+      root: null,
+      rootMargin: '-140px 0px -70% 0px',
       threshold: 0
     };
 
     const observerCallback = (entries) => {
       if (isManualScrolling.current) return;
-
-      const visibleSections = entries.filter(entry => entry.isIntersecting);
-
-      if (visibleSections.length > 0) {
-        // Preferir la sección que está más cerca de la parte superior (menor top bounding rect)
-        // o la que tiene mayor intersectionRatio.
-        
-        // Ordenar por cercanía al "corte" superior
-        visibleSections.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        
-        // La primera visible es la candidata principal
-        const bestCandidate = visibleSections[0];
-        
-        if (bestCandidate && bestCandidate.target.id) {
-           const id = bestCandidate.target.id.replace('section-', '');
-           setActiveCategory(id);
-        }
+      
+      const visible = entries.find(entry => entry.isIntersecting);
+      if (visible) {
+        const id = visible.target.id.replace('section-', '');
+        setActiveCategory(id);
       }
     };
 
     const observer = new IntersectionObserver(observerCallback, observerOptions);
-
-    const specialSection = document.getElementById('section-special');
-    if (specialSection) observer.observe(specialSection);
-
-    categories.forEach(cat => {
-      const el = document.getElementById(`section-${cat.id}`);
-      if (el) observer.observe(el);
-    });
+    const sections = document.querySelectorAll('.category-section');
+    sections.forEach(section => observer.observe(section));
 
     return () => observer.disconnect();
-  }, [categories, products, loading]);
+  }, [loading, query, data.categories]);
 
-  // Bloquear scroll del body cuando el modal está abierto
+  // 5. Gestión limpia del scroll del body
   useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
     if (isLocationModalOpen) {
       document.body.style.overflow = 'hidden';
-      // También intentar bloquear el wrapper si existe
-      const appWrapper = document.querySelector('.app-wrapper');
-      if (appWrapper) appWrapper.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      const appWrapper = document.querySelector('.app-wrapper');
-      if (appWrapper) appWrapper.style.overflow = '';
     }
-    
-    return () => {
-      document.body.style.overflow = '';
-      const appWrapper = document.querySelector('.app-wrapper');
-      if (appWrapper) appWrapper.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = originalStyle; };
   }, [isLocationModalOpen]);
 
   if (loading) {
@@ -174,20 +123,10 @@ const Menu = () => {
     );
   }
 
-  const specialProducts = products.filter(p => p.is_special);
-  const query = (searchQuery || '').trim().toLowerCase();
-  const filteredBySearch = query
-    ? products.filter(p => p.name?.toLowerCase().includes(query))
-    : [];
-
   return (
     <div className="page-wrapper">
-      {/* Portal del Header Fijo (Lo enviamos a la capa de UI fuera del scroll) */}
-      {/* Condicional: Solo mostrar Navbar y contenido si NO está el modal bloqueando, 
-          O usar z-index superior para el modal. Usaremos z-index superior. */}
-      
       {document.getElementById('navbar-portal-root') && createPortal(
-        <header className="navbar-sticky" style={{ zIndex: isLocationModalOpen ? 0 : 100 }}> {/* Bajar z-index si modal activo */}
+        <header className="navbar-sticky" style={{ zIndex: isLocationModalOpen ? 0 : 100 }}>
           <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px' }}>
             <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0 }}>
               <ChevronLeft size={28} />
@@ -198,9 +137,12 @@ const Menu = () => {
                 <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'white' }}>Oishi Sushi</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
-                     <span style={{ fontSize: '0.65rem', color: 'white', opacity: 0.9, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '6px', marginLeft: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }} onClick={() => setIsLocationModalOpen(true)}>
-                       <MapPin size={10} /> {selectedBranch ? selectedBranch.name : 'Seleccionar Sucursal'}
-                     </span>
+                  <span 
+                    style={{ fontSize: '0.65rem', color: 'white', opacity: 0.9, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '6px', marginLeft: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }} 
+                    onClick={() => setIsLocationModalOpen(true)}
+                  >
+                    <MapPin size={10} /> {selectedBranch ? selectedBranch.name : 'Seleccionar Sucursal'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -250,7 +192,7 @@ const Menu = () => {
                   </div>
                 )
               }] : []),
-              ...categories
+              ...data.categories
             ]}
             activeCategory={activeCategory}
             onCategoryClick={scrollToCategory}
@@ -259,16 +201,12 @@ const Menu = () => {
         document.getElementById('navbar-portal-root')
       )}
 
-      {/* Espaciador (Spacer) para empujar el contenido debajo del header fijo */}
       <div style={{ height: 'var(--menu-header-height)', width: '100%' }}></div>
 
       <main className="container">
-        {/* BÚSQUEDA: resultados filtrados */}
         {query && (
           <section id="section-search" className="category-section">
-            <h2 className="category-title">
-              Resultados para &quot;{searchQuery.trim()}&quot;
-            </h2>
+            <h2 className="category-title">Resultados para &quot;{searchQuery.trim()}&quot;</h2>
             {filteredBySearch.length > 0 ? (
               <div className="product-grid">
                 {filteredBySearch.map(product => (
@@ -281,7 +219,6 @@ const Menu = () => {
           </section>
         )}
 
-        {/* SECCIÓN ESPECIAL (sin búsqueda activa) */}
         {!query && specialProducts.length > 0 && (
           <section id="section-special" className="category-section">
             <h2 className="category-title">
@@ -296,16 +233,13 @@ const Menu = () => {
           </section>
         )}
 
-        {/* CATEGORÍAS NORMALES (sin búsqueda activa) */}
-        {!query && categories.map((cat) => {
-          const catProducts = products.filter(p => p.category_id === cat.id);
+        {!query && data.categories.map((cat) => {
+          const catProducts = data.products.filter(p => p.category_id === cat.id);
           if (catProducts.length === 0) return null;
 
           return (
             <section key={cat.id} id={`section-${cat.id}`} className="category-section">
-              <h2 className="category-title">
-                {cat.name}
-              </h2>
+              <h2 className="category-title">{cat.name}</h2>
               <div className="product-grid">
                 {catProducts.map(product => (
                   <ProductCard key={product.id} product={product} />
@@ -315,15 +249,13 @@ const Menu = () => {
           );
         })}
       </main>
-      
 
-      
       <BranchSelectorModal
         isOpen={isLocationModalOpen}
-        onClose={() => {}} // No permitir cerrar
-        branches={branches}
-        onSelectBranch={handleBranchSelect}
-        allowClose={false} // Obligatorio seleccionar
+        onClose={() => {}} 
+        branches={data.branches}
+        onSelectBranch={selectBranch}
+        allowClose={false} 
       />
     </div>
   );

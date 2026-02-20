@@ -25,7 +25,7 @@ export const CartProvider = ({ children }) => {
         const ids = cart.map(item => item.id);
         const { data: freshProducts, error } = await supabase
           .from('products')
-          .select('id, price, has_discount, discount_price, name, is_active')
+          .select('id, price, has_discount, discount_price, name, is_active, description')
           .in('id', ids);
 
         if (error || !freshProducts) return;
@@ -42,7 +42,8 @@ export const CartProvider = ({ children }) => {
                 has_discount: freshItem.has_discount,
                 discount_price: freshItem.discount_price,
                 name: freshItem.name, // Actualizar nombre por si cambió
-                is_active: freshItem.is_active
+                is_active: freshItem.is_active,
+                description: freshItem.description
               };
             }
             return cartItem;
@@ -127,6 +128,9 @@ export const CartProvider = ({ children }) => {
       
       // Formato simple: 2 x NOMBRE
       message += `+ ${item.quantity} x ${item.name.toUpperCase()}\n`;
+      if (item.description) {
+        message += `   (Hacer: ${item.description})\n`;
+      }
       message += `   Subtotal: $${subtotal.toLocaleString('es-CL')}\n`;
       message += '--------------------------------\n';
     });

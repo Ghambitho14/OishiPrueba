@@ -237,7 +237,7 @@
   max-width: 460px;
 }
 
-.btn {
+.home-container .btn {
   position: relative;
   display: flex;
   align-items: center;
@@ -257,7 +257,7 @@
 }
 
 /* Efecto Brillo (Shine) al pasar el mouse */
-.btn::after {
+.home-container .btn::after {
   content: '';
   position: absolute;
   top: 0;
@@ -267,12 +267,12 @@
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
   transition: 0.5s;
 }
-.btn:hover::after {
+.home-container .btn:hover::after {
   left: 100%;
 }
 
 /* Primario */
-.btn-primary {
+.home-container .btn-primary {
   grid-column: 1 / -1;
   height: 70px;
   font-size: 1.1rem;
@@ -281,20 +281,20 @@
   box-shadow: 0 10px 25px rgba(183, 28, 28, 0.4);
   border: 1px solid rgba(255,255,255,0.1);
 }
-.btn-primary:hover {
+.home-container .btn-primary:hover {
   transform: translateY(-3px);
   box-shadow: 0 15px 35px rgba(183, 28, 28, 0.6);
 }
 
 /* Secundarios */
-.btn-secondary {
+.home-container .btn-secondary {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255,255,255,0.9);
   font-size: 4px;
 }
 
-.btn-secondary:hover {
+.home-container .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-3px);

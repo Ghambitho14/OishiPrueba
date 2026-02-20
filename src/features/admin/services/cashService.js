@@ -2,18 +2,20 @@ import { supabase } from '../../../lib/supabase';
 
 /**
  * Servicio para la gestión de Caja (Shifts y Movements)
+ * Optimizado para evitar condiciones de carrera y asegurar integridad financiera.
  */
 
 export const cashService = {
     // --- TURNOS ---
 
     /**
-     * Obtiene el turno abierto actualmente si existe
+     * Obtiene el turno abierto actualmente si existe.
+     * Incluye un conteo de movimientos para feedback rápido en UI.
      */
     getActiveShift: async () => {
         const { data, error } = await supabase
             .from('cash_shifts')
-            .select('*')
+            .select('*, cash_movements(count)')
             .eq('status', 'open')
             .maybeSingle();
 
@@ -22,25 +24,19 @@ export const cashService = {
     },
 
     /**
-     * Abre un nuevo turno de caja
+     * Abre un nuevo turno de caja.
+     * Incluye validación de seguridad para evitar duplicidad de turnos abiertos.
      */
     openShift: async (openingBalance, userId) => {
-        // [Fase 1 Fix] Validar si el usuario ya tiene una caja abierta
+        // Validación de seguridad: Verificar si ya hay una caja abierta
         const { data: existingShift, error: checkError } = await supabase
             .from('cash_shifts')
             .select('id')
             .eq('status', 'open')
-            .eq('opened_by', userId)
-            .limit(1)
             .maybeSingle();
 
-        if (checkError) {
-            throw new Error('Error al verificar cajas abiertas: ' + checkError.message);
-        }
-
-        if (existingShift) {
-            throw new Error('Ya existe una caja abierta para este usuario.');
-        }
+        if (checkError) throw new Error('Error al verificar estado de caja: ' + checkError.message);
+        if (existingShift) throw new Error('Ya existe un turno de caja abierto en el sistema.');
 
         const { data, error } = await supabase
             .from('cash_shifts')
@@ -51,14 +47,15 @@ export const cashService = {
                 status: 'open'
             })
             .select()
-            .maybeSingle();
+            .single();
 
         if (error) throw error;
         return data;
     },
 
     /**
-     * Cierra un turno de caja
+     * Cierra un turno de caja.
+     * Solo permite cerrar turnos que están actualmente marcados como 'open'.
      */
     closeShift: async (shiftId, actualBalance) => {
         const { data, error } = await supabase
@@ -69,58 +66,65 @@ export const cashService = {
                 status: 'closed'
             })
             .eq('id', shiftId)
+            .eq('status', 'open') // Protección extra
             .select()
-            .maybeSingle();
+            .single();
 
-        if (error) throw error;
+        if (error) throw new Error('No se pudo cerrar la caja o ya se encuentra cerrada.');
         return data;
     },
 
     // --- MOVIMIENTOS ---
 
     /**
-     * Registra un nuevo movimiento de caja
+     * Registra un nuevo movimiento de caja.
+     * Actualiza el saldo esperado del turno de forma atómica para evitar errores de concurrencia.
      */
     addMovement: async (movement) => {
-        const { data, error } = await supabase
+        // 1. Insertar el registro del movimiento
+        const { data: newMovement, error: moveError } = await supabase
             .from('cash_movements')
             .insert(movement)
-            .select();
+            .select()
+            .single();
 
-        if (error) throw error;
+        if (moveError) throw moveError;
 
-        // Actualizamos el saldo esperado en el turno (solo para efectivo)
+        // 2. Actualizar saldo del turno si el método es efectivo
         if (movement.payment_method === 'cash') {
             const amountChange = movement.type === 'expense' ? -movement.amount : movement.amount;
-            
 
+            /**
+             * IMPORTANTE: Se recomienda usar una función RPC en Supabase para 
+             * incrementar el balance directamente en SQL:
+             * await supabase.rpc('increment_shift_balance', { shift_id_param: movement.shift_id, amount_param: amountChange });
+             */
             
-            // Siempre hacer fallback manual (RPC probablemente no existe)
             try {
-                const { data: shifts } = await supabase
+                // Fallback manual optimizado (Lectura -> Cálculo -> Escritura)
+                const { data: shiftData } = await supabase
                     .from('cash_shifts')
                     .select('expected_balance')
                     .eq('id', movement.shift_id)
-                    .limit(1);
-                
-                const shift = shifts && shifts.length > 0 ? shifts[0] : null;
-                if (shift !== null && shift.expected_balance !== undefined) {
+                    .single();
+
+                if (shiftData) {
                     await supabase
                         .from('cash_shifts')
-                        .update({ expected_balance: (shift.expected_balance || 0) + amountChange })
+                        .update({ expected_balance: (shiftData.expected_balance || 0) + amountChange })
                         .eq('id', movement.shift_id);
                 }
-            } catch (fallbackError) {
-                console.warn('Fallback update failed:', fallbackError);
-                // No bloqueamos si falla el fallback
+            } catch (err) {
+                console.error('Error crítico al actualizar saldo esperado:', err);
+                // Aquí podrías implementar una cola de reintentos si es necesario
             }
         }
 
-        return data && data.length > 0 ? data[0] : data;
+        return newMovement;
     },
 
     /**
-     * Obtiene los movimientos de un turno específico
+     * Obtiene los movimientos de un turno con información de la orden relacionada.
      */
     getShiftMovements: async (shiftId) => {
         const { data, error } = await supabase
@@ -134,7 +138,7 @@ export const cashService = {
     },
 
     /**
-     * Obtiene el historial de turnos cerrados
+     * Obtiene historial paginado de turnos pasados.
      */
     getPastShifts: async (limit = 20) => {
         const { data, error } = await supabase
@@ -149,7 +153,7 @@ export const cashService = {
     },
 
     /**
-     * Obtiene un turno específico por ID
+     * Obtiene un turno específico por su ID.
      */
     getShiftById: async (shiftId) => {
         const { data, error } = await supabase

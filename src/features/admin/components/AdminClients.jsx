@@ -20,34 +20,40 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
             // Optimización: Crear mapa de conteo de ordenes por cliente primero
             // Pero por ahora map directo si no son miles.
             
-            const clientOrders = orders ? orders.filter(o => o.client_id === client.id) : [];
-            const totalOrders = clientOrders.length; // O usar client.orders_count si existe
+            const clientOrders = orders ? orders.filter(o => o.client_id === client.id && o.status !== 'cancelled') : [];
+            const totalOrders = clientOrders.length;
+            const totalSpent = clientOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+            const fidelityPoints = Math.floor(totalSpent / 1000); // 1 punto por cada $1000
             
             // Segmento
             let segment = 'none';
-            if (totalOrders > 20) segment = 'elite';
-            else if (totalOrders > 10) segment = 'top';
-            else if (totalOrders > 5) segment = 'frequent';
+            if (totalOrders >= 20) segment = 'elite';
+            else if (totalOrders >= 10) segment = 'top';
+            else if (totalOrders >= 5) segment = 'frequent';
             else if (totalOrders > 0) segment = 'buyer';
 
             // Estado
+            const lastDate = clientOrders.length > 0 
+                ? Math.max(...clientOrders.map(o => new Date(o.created_at).getTime()))
+                : (client.last_order_at ? new Date(client.last_order_at).getTime() : null);
+                
             let status = 'inactive';
-            if (client.last_order_at) {
-                const daysDiff = (new Date() - new Date(client.last_order_at)) / (1000 * 60 * 60 * 24);
+            if (lastDate) {
+                const daysDiff = (new Date().getTime() - lastDate) / (1000 * 60 * 60 * 24);
                 if (daysDiff < 30) status = 'active';
                 else if (daysDiff < 60) status = 'risk';
                 else if (daysDiff < 90) status = 'sleeping';
                 else status = 'inactive';
-            } else {
-                status = 'inactive'; // Sin pedidos
             }
 
             return {
                 ...client,
                 totalOrders,
+                total_orders: totalOrders, // Patter para Detalles
+                total_spent: totalSpent,
+                fidelityPoints,
                 segment,
                 status,
-                // Si la DB no trae total_spent actualizado, se podría recalcular aquí
             };
         });
     }, [clients, orders]);
@@ -96,6 +102,40 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         }
     };
 
+    const handleExportCSV = () => {
+        if (filteredClients.length === 0) {
+            showNotify('No hay clientes para exportar', 'info');
+            return;
+        }
+
+        const headers = ['Nombre', 'Teléfono', 'Email', 'RUT', 'Total Pedidos', 'Total Gastado ($)', 'Puntos Fidelity', 'Segmento', 'Estado'];
+        const rows = filteredClients.map(c => [
+            c.name || 'Sin Nombre',
+            c.phone || '',
+            c.email || '',
+            c.rut || '',
+            c.totalOrders || 0,
+            c.total_spent || 0,
+            c.fidelityPoints || 0,
+            c.segment || 'none',
+            c.status || 'inactive'
+        ]);
+
+        const csvContent = "\uFEFF" + [
+            headers.join(','),
+            ...rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `Clientes_CRM_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showNotify('Base de clientes exportada', 'success');
+    };
+
     return (
         <div className="clients-container animate-fade">
             
@@ -116,8 +156,8 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                         />
                     </div>
                     
-                    <button className="btn-icon-text btn-white">
-                        <Download size={18} /> Importar/ Exportar
+                    <button className="btn-icon-text btn-white" onClick={handleExportCSV}>
+                        <Download size={18} /> Exportar CSV
                     </button>
                     
                     <button className="btn btn-primary btn-icon-text" onClick={() => setIsFormOpen(true)}>
@@ -185,16 +225,20 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                                     </div>
                                 </td>
                                 <td>
-                                    {/* Simulado o real si tenemos source */}
-                                    {client.source === 'pos' ? 'PDV' : 'Menú digital'}
+                                    <span style={{ fontWeight: '500' }}>
+                                        {client.source === 'pos' ? 'PDV' : 'Menú digital'}
+                                    </span>
                                 </td>
                                 <td>
-                                    <span className="points-badge">
-                                        0 {/* Placeholder */}
+                                    <span className="points-badge" style={{ background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', padding: '4px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                        ⭐ {client.fidelityPoints}
                                     </span>
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
-                                    {client.totalOrders}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{client.totalOrders}</span>
+                                        <span style={{ fontSize: '0.75rem', color: '#10b981' }}>${client.total_spent.toLocaleString('es-CL')}</span>
+                                    </div>
                                 </td>
                                 <td>
                                     {getSegmentBadge(client.segment)}

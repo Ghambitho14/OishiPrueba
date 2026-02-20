@@ -28,6 +28,7 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
 
   // --- 1. GESTIÓN DE APERTURA / CIERRE ---
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (isOpen) {
       if (product) {
         setFormData({
@@ -52,6 +53,7 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
       // Auto-foco accesible
       setTimeout(() => nameInputRef.current?.focus(), 100);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [isOpen, product, categories]);
 
   // Lógica centralizada de cierre seguro

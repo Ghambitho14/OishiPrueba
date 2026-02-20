@@ -88,7 +88,7 @@ const ClientDetailsPanel = ({
     };
 
     return (
-        <div className="modal-overlay" onClick={() => setSelectedClient(null)}>
+        <div className="admin-panel-overlay" onClick={() => setSelectedClient(null)}>
             <div 
                 className="admin-side-panel glass animate-slide-in-right" 
                 onClick={e => e.stopPropagation()}

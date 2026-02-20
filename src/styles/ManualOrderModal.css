@@ -3,7 +3,7 @@
    ============================================ */
 
 /* === CSS CUSTOM PROPERTIES === */
-:root {
+.manual-order-overlay {
     --modal-bg: linear-gradient(145deg, #0d0d0d 0%, #0a0a0a 100%);
     --modal-border: #1a1a1a;
     --section-border: #1a1a1a;
@@ -397,7 +397,6 @@
     transform: scale(1.05);
 }
 
-/* === BOTONES Y STEPPER === */
 .manual-order-card-footer-row {
     margin-top: auto;
     padding-top: 8px;
@@ -407,15 +406,14 @@
 }
 
 .manual-order-stepper-container {
-    /* Removed absolute positioning */
     display: flex;
     justify-content: flex-end;
 }
 
 .manual-order-add-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 50px;
     background: var(--accent-red);
     color: white;
     border: none;
@@ -423,12 +421,12 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease, background 0.2s ease;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.4);
+    transition: transform 0.2s ease, background 0.2s ease, width 0.3s ease;
 }
 
 .manual-order-add-btn:hover {
-    transform: scale(1.1);
+    transform: scale(1.05);
     background: #ff4d5a;
 }
 
@@ -518,6 +516,7 @@
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -532,10 +531,6 @@
 
 /* Mobile adjustments */
 @media (max-width: 767px) {
-    .manual-order-stepper-container {
-        /* No specific positioning needed anymore */
-    }
-
     .manual-order-add-btn {
         width: 30px;
         /* Smaller touch target */
@@ -564,27 +559,28 @@
 /* === COLUMNA DERECHA: SIDEBAR === */
 .manual-order-sidebar {
     width: 100%;
-    background: linear-gradient(145deg, #0f0f0f 0%, #0a0a0a 100%);
+    background: linear-gradient(145deg, #121212 0%, #0d0d0d 100%);
     border-left: 1px solid var(--modal-border);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     max-height: 100%;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.5);
 }
 
 /* Desktop: Sidebar fijo */
 @media (min-width: 1025px) {
     .manual-order-sidebar {
-        width: 500px;
-        min-width: 500px;
+        width: 420px;
+        min-width: 420px;
     }
 }
 
 /* Tablets / Desktop pequeño: Sidebar más estrecho */
 @media (min-width: 768px) and (max-width: 1024px) {
     .manual-order-sidebar {
-        width: 380px;
-        min-width: 380px;
+        width: 360px;
+        min-width: 360px;
     }
 }
 

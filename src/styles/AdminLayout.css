@@ -7,6 +7,8 @@
     min-height: 100vh;
     background-color: var(--bg-primary);
     background-image: radial-gradient(circle at 50% 0%, #1a0505 0%, #0a0a0a 60%);
+    width: 100%;
+    overflow-x: hidden;
 }
 
 .admin-content {
@@ -14,6 +16,8 @@
     padding: 30px 40px;
     overflow-y: auto;
     max-width: 100vw;
+    overflow-x: hidden;
+    margin-left: 72px;
 }
 
 /* Header Content */
@@ -38,6 +42,8 @@
     display: flex;
     gap: 12px;
     align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .header-actions button {
@@ -103,8 +109,8 @@
         padding: 15px;
         padding-bottom: 90px; /* Espacio para el Bottom Sidebar */
         overflow-x: hidden;
-        /* Prevent horizontal scroll from children */
         width: 100%;
+        margin-left: 0;
     }
 
     .content-header {
@@ -115,6 +121,23 @@
 
     .header-actions {
         width: 100%;
-        justify-content: space-between;
+        justify-content: flex-start;
+    }
+
+    .header-actions button {
+        flex: 1;
+        justify-content: center;
+        min-width: 140px;
+    }
+
+    .btn-icon-refresh {
+        flex: 0 0 auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-actions button {
+        width: 100%;
+        flex: 1 1 100%;
     }
 }
