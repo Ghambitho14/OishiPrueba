@@ -1,449 +1,677 @@
 /* =========================================
-   ADMIN ANALYTICS (NUEVO DISEÑO GRID)
+   ADMIN REPORTS - REDESIGNED
    ========================================= */
 
-.admin-layout .admin-analytics-container {
-    padding-bottom: 40px;
-    max-width: 1400px;
+.admin-layout .rpt-container {
+    padding: clamp(1rem, 5vw, 2.5rem);
+    max-width: 1440px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.25rem, 3vw, 2rem);
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
 /* --- HEADER --- */
-.admin-layout .analytics-header {
+.admin-layout .rpt-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
-    border-radius: 12px;
-    margin-bottom: 24px;
     flex-wrap: wrap;
-    gap: 15px;
-}
-
-.admin-layout .header-left h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: white;
-}
-
-.admin-layout .header-controls {
-    display: flex;
-    align-items: center;
     gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 1.5rem;
 }
 
-.admin-layout .select-wrapper {
-    position: relative;
+.admin-layout .rpt-title {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 900;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.03em;
+}
+
+.admin-layout .rpt-subtitle {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.admin-layout .rpt-period-select {
     display: flex;
     align-items: center;
-    background: rgba(255, 255, 255, 0.05); /* Dark theme input bg */
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    padding: 0 10px;
-    height: 40px;
-    color: var(--text-secondary);
+    gap: 8px;
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 8px 14px;
+    color: #94a3b8;
 }
 
-.admin-layout .select-wrapper select {
-    background: transparent !important;
-    border: none !important;
-    color: white !important;
-    padding: 0 10px 0 5px !important;
-    font-size: 0.9rem;
+.admin-layout .rpt-period-select select {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
     cursor: pointer;
     outline: none;
 }
 
-.admin-layout .btn-report {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 40px;
-    padding: 0 20px;
-    border-radius: 8px;
-    font-weight: 600;
-    background: #25d366; /* WhatsApp Green styled */
-    color: #000;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
+.admin-layout .rpt-period-select select option {
+    background: #1a1a1a;
+    color: #fff;
 }
 
-.admin-layout .btn-report:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
-
-/* --- MAIN GRID (CHART + KPIs) --- */
-.admin-layout .analytics-grid {
+/* --- KPI ROW --- */
+.admin-layout .rpt-kpi-row {
     display: grid;
-    grid-template-columns: 3fr 1fr; /* Gráfico ancho, KPIs columna */
-    gap: 24px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
 }
 
-/* CHART SECTION */
-.admin-layout .chart-section {
-    padding: 24px;
+.admin-layout .rpt-kpi {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
+    padding: 18px;
     display: flex;
-    flex-direction: column;
-    min-height: 400px;
-}
-
-.admin-layout .chart-header-row {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 15px;
+    gap: 14px;
+    transition: all 0.25s ease;
 }
 
-.admin-layout .chart-header-row h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: white;
+.admin-layout .rpt-kpi:hover {
+    border-color: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    transform: translateY(-2px);
 }
 
-.admin-layout .chart-tabs {
+.admin-layout .rpt-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     display: flex;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 4px;
-    border-radius: 8px;
-    border: 1px solid var(--glass-border);
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
-.admin-layout .chart-tab {
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
+.admin-layout .rpt-kpi-icon.sales { background: rgba(230,57,70,0.12); color: #e63946; }
+.admin-layout .rpt-kpi-icon.orders { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.admin-layout .rpt-kpi-icon.ticket { background: rgba(34,197,94,0.12); color: #22c55e; }
+.admin-layout .rpt-kpi-icon.clients { background: rgba(168,85,247,0.12); color: #a855f7; }
 
-.admin-layout .chart-tab.active {
-    background: rgba(59, 130, 246, 0.2); /* Blue tint */
-    color: #60a5fa;
-    font-weight: 600;
-}
-
-.admin-layout .chart-wrapper {
+.admin-layout .rpt-kpi-body {
     flex: 1;
-    position: relative;
-    width: 100%;
-    min-height: 300px;
-}
-
-/* KPI COLUMN */
-.admin-layout .kpi-column {
+    min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: 2px;
+}
+
+.admin-layout .rpt-kpi-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-layout .rpt-kpi-value {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.admin-layout .rpt-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.admin-layout .rpt-trend.positive { color: #22c55e; background: rgba(34,197,94,0.1); }
+.admin-layout .rpt-trend.negative { color: #ef4444; background: rgba(239,68,68,0.1); }
+.admin-layout .rpt-trend.neutral { color: #94a3b8; background: rgba(148,163,184,0.1); }
+
+/* --- MAIN GRID (Chart + Sidebar) --- */
+.admin-layout .rpt-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
     gap: 16px;
 }
 
-.admin-layout .kpi-card-modern {
-    padding: 20px;
+/* Chart Card */
+.admin-layout .rpt-chart-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    min-height: 120px;
-    position: relative;
-    border: 1px solid var(--glass-border);
-    transition: transform 0.2s, border-color 0.2s;
+    min-height: 380px;
+    min-width: 0;
+    overflow: hidden;
 }
 
-.admin-layout .kpi-card-modern:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-.admin-layout .kpi-row-top {
+.admin-layout .rpt-chart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
-.admin-layout .kpi-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
-
-.admin-layout .info-icon {
-    color: var(--text-muted);
-    cursor: help;
-}
-
-.admin-layout .kpi-row-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-}
-
-.admin-layout .kpi-value {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: white;
-    line-height: 1;
-}
-
-.admin-layout .kpi-trend {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 20px;
-}
-
-.admin-layout .kpi-trend.positive {
-    color: #25d366;
-    background: rgba(37, 211, 102, 0.1);
-}
-
-.admin-layout .kpi-trend.negative {
-    color: #ff4444;
-    background: rgba(255, 68, 68, 0.1);
-}
-
-.admin-layout .kpi-link {
-    font-size: 0.8rem;
-    color: #3b82f6;
-    margin-top: 10px;
-    cursor: pointer;
-    text-align: right;
-}
-
-.admin-layout .kpi-value-group {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-}
-
-.admin-layout .currency {
+.admin-layout .rpt-chart-header h3 {
+    margin: 0;
     font-size: 1rem;
-    color: var(--text-secondary);
-}
-
-/* --- BOTTOM GRID (PRODUCTS & CLIENTS) --- */
-.admin-layout .bottom-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-}
-
-.admin-layout .bottom-card {
-    padding: 24px;
-    border-radius: 16px;
-    min-height: 200px;
-}
-
-.admin-layout .bottom-card h3 {
-    margin: 0 0 20px 0;
-    font-size: 1.1rem;
-    color: white;
-}
-
-/* Product Highlight */
-.admin-layout .product-highlight {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 20px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 12px;
-}
-
-.admin-layout .highlight-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-}
-
-.admin-layout .highlight-value {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 20px;
-}
-
-.admin-layout .btn-small-primary {
-    padding: 8px 16px;
-    background: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.admin-layout .btn-small-primary:hover {
-    background: #2563eb;
-}
-
-/* Clients Styles */
-.admin-layout .clients-stats-row {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    height: 100%;
-}
-
-.admin-layout .client-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-}
-
-.admin-layout .stat-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.admin-layout .stat-num {
-    font-size: 2rem;
     font-weight: 800;
-    color: white;
+    color: #fff;
 }
 
-.admin-layout .stat-trend {
-    font-size: 0.8rem;
+.admin-layout .rpt-chart-tabs {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.admin-layout .rpt-tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.78rem;
     font-weight: 600;
+    color: #94a3b8;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.admin-layout .client-rating {
+.admin-layout .rpt-tab.active {
+    background: rgba(230,57,70,0.15);
+    color: #e63946;
+}
+
+.admin-layout .rpt-tab:hover:not(.active) {
+    color: #fff;
+}
+
+.admin-layout .rpt-chart-wrapper {
+    flex: 1;
+    position: relative;
+    min-height: 280px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.admin-layout .rpt-chart-wrapper canvas {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Sidebar */
+.admin-layout .rpt-sidebar {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding-left: 30px;
-    border-left: 1px solid var(--glass-border);
+    gap: 12px;
 }
 
-.admin-layout .rating-toggle {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 6px 12px;
-    border-radius: 20px;
+.admin-layout .rpt-side-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.admin-layout .rpt-side-card h4 {
+    margin: 0 0 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Payment Breakdown */
+.admin-layout .rpt-payment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.admin-layout .rpt-payment-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.admin-layout .rpt-payment-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #e2e8f0;
+}
+
+.admin-layout .rpt-payment-icon {
+    display: flex;
+    align-items: center;
+}
+
+.admin-layout .rpt-payment-bar-wrap {
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.admin-layout .rpt-payment-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    min-width: 2px;
+}
+
+.admin-layout .rpt-payment-values {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+}
+
+.admin-layout .rpt-payment-values strong {
+    color: #fff;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .rpt-payment-values span {
+    color: #94a3b8;
+}
+
+/* Peak Hour */
+.admin-layout .rpt-peak-value {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.admin-layout .rpt-peak-sub {
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+/* Quick Stats */
+.admin-layout .rpt-quick-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-layout .rpt-quick-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-layout .rpt-quick-label {
+    font-size: 0.82rem;
+    color: #94a3b8;
+}
+
+.admin-layout .rpt-quick-value {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- TOP PRODUCTS --- */
+.admin-layout .rpt-products-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.admin-layout .rpt-products-card h3 {
+    margin: 0 0 16px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-layout .rpt-products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-layout .rpt-product-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.admin-layout .rpt-product-row:last-child {
+    border-bottom: none;
+}
+
+.admin-layout .rpt-product-rank {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #e63946;
+    min-width: 28px;
+}
+
+.admin-layout .rpt-product-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.admin-layout .rpt-product-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-layout .rpt-product-bar-wrap {
+    height: 5px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.admin-layout .rpt-product-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #e63946, #ff6b6b);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.admin-layout .rpt-product-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.admin-layout .rpt-product-qty {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.admin-layout .rpt-product-rev {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Empty */
+.admin-layout .rpt-empty {
+    text-align: center;
+    padding: 30px;
+    color: #94a3b8;
     font-size: 0.9rem;
-    cursor: pointer;
-    color: var(--text-primary);
 }
 
 /* =========================================
-   RESPONSIVE DESIGN
+   RESPONSIVE
    ========================================= */
-
-/* Tablet Grande */
-@media (max-width: 1200px) {
-    .admin-layout .analytics-grid {
-        grid-template-columns: 2fr 1fr; /* Ajustar proporción */
-        gap: 20px;
-    }
-    
-    .admin-layout .bottom-grid {
-        gap: 20px;
-    }
-}
 
 /* Tablet */
 @media (max-width: 1024px) {
-    .admin-layout .analytics-grid {
-        grid-template-columns: 1fr; /* Stack Chart and KPIs */
+    .admin-layout .rpt-main-grid {
+        grid-template-columns: 1fr;
     }
 
-    .admin-layout .kpi-column {
+    .admin-layout .rpt-sidebar {
         display: grid;
-        grid-template-columns: repeat(3, 1fr); /* 3 columnas de KPIs */
-        gap: 16px;
-    }
-
-    .admin-layout .bottom-grid {
-        grid-template-columns: 1fr; /* Stack Products and Clients */
-    }
-    
-    .admin-layout .chart-section {
-        min-height: 350px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
     }
 }
 
-/* Móvil */
+/* Mobile */
 @media (max-width: 768px) {
-    .admin-layout .admin-analytics-container {
-        padding-bottom: 20px;
+    .admin-layout .rpt-container {
+        padding: 14px;
+        gap: 14px;
     }
 
-    .admin-layout .kpi-column {
-        grid-template-columns: 1fr; /* Stack KPIs verticalmente en móvil */
-    }
-    
-    .admin-layout .chart-section {
-        padding: 15px;
-        min-height: 300px;
-    }
-    
-    .admin-layout .analytics-header {
+    /* Header */
+    .admin-layout .rpt-header {
         flex-direction: column;
         align-items: flex-start;
-        padding: 12px 15px;
+        gap: 10px;
+        padding-bottom: 14px;
     }
-    
-    .admin-layout .header-controls {
+
+    .admin-layout .rpt-header-actions {
         width: 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
     }
-    
-    .admin-layout .bottom-card {
-        padding: 16px;
+
+    .admin-layout .rpt-period-select {
+        width: 100%;
     }
-    
-    .admin-layout .chart-header-row {
+
+    .admin-layout .rpt-period-select select {
+        width: 100%;
+    }
+
+    .admin-layout .rpt-subtitle {
+        font-size: 0.78rem;
+    }
+
+    /* KPI Row: 2 columns, compact */
+    .admin-layout .rpt-kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .admin-layout .rpt-kpi {
+        padding: 12px;
+        border-radius: 12px;
+        gap: 0;
         flex-direction: column;
         align-items: flex-start;
     }
-    
-    .admin-layout .chart-tabs {
-        width: 100%;
-        justify-content: space-between;
+
+    .admin-layout .rpt-kpi-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        margin-bottom: 8px;
     }
-    
-    .admin-layout .chart-tab {
+
+    .admin-layout .rpt-kpi-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .admin-layout .rpt-kpi-label {
+        font-size: 0.65rem;
+    }
+
+    .admin-layout .rpt-kpi-value {
+        font-size: 1.1rem;
+        word-break: break-all;
+    }
+
+    .admin-layout .rpt-trend {
+        font-size: 0.68rem;
+        padding: 2px 6px;
+        margin-top: 6px;
+    }
+
+    /* Chart */
+    .admin-layout .rpt-chart-card {
+        padding: 12px;
+        min-height: 260px;
+        border-radius: 12px;
+    }
+
+    .admin-layout .rpt-chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .admin-layout .rpt-chart-header h3 {
+        font-size: 0.9rem;
+    }
+
+    .admin-layout .rpt-chart-tabs {
+        width: 100%;
+    }
+
+    .admin-layout .rpt-tab {
         flex: 1;
         text-align: center;
+        padding: 6px 8px;
+        font-size: 0.72rem;
+    }
+
+    .admin-layout .rpt-chart-wrapper {
+        min-height: 200px;
+    }
+
+    /* Sidebar */
+    .admin-layout .rpt-sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-layout .rpt-side-card {
+        padding: 14px;
+        border-radius: 12px;
+    }
+
+    .admin-layout .rpt-side-card h4 {
+        font-size: 0.78rem;
+        margin-bottom: 10px;
+    }
+
+    .admin-layout .rpt-payment-info {
+        font-size: 0.78rem;
+    }
+
+    .admin-layout .rpt-payment-values {
+        font-size: 0.72rem;
+    }
+
+    .admin-layout .rpt-peak-value {
+        font-size: 1.1rem;
+    }
+
+    .admin-layout .rpt-peak-sub {
+        font-size: 0.72rem;
+    }
+
+    .admin-layout .rpt-quick-label {
+        font-size: 0.78rem;
+    }
+
+    .admin-layout .rpt-quick-value {
+        font-size: 0.9rem;
+    }
+
+    /* Products */
+    .admin-layout .rpt-products-card {
+        padding: 14px;
+        border-radius: 12px;
+    }
+
+    .admin-layout .rpt-products-card h3 {
+        font-size: 0.9rem;
+        margin-bottom: 12px;
+    }
+
+    .admin-layout .rpt-product-row {
+        gap: 10px;
+        padding: 8px 0;
+    }
+
+    .admin-layout .rpt-product-rank {
+        font-size: 0.75rem;
+        min-width: 22px;
+    }
+
+    .admin-layout .rpt-product-name {
+        font-size: 0.8rem;
+    }
+
+    .admin-layout .rpt-product-qty {
+        font-size: 0.7rem;
+    }
+
+    .admin-layout .rpt-product-rev {
+        font-size: 0.78rem;
+    }
+
+    .admin-layout .rpt-product-stats {
+        min-width: 60px;
     }
 }
 
-/* Móvil Pequeño */
-@media (max-width: 480px) {
-    .admin-layout .header-left h2 {
+/* Small mobile */
+@media (max-width: 400px) {
+    .admin-layout .rpt-container {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .admin-layout .rpt-title {
         font-size: 1.2rem;
     }
-    
-    .admin-layout .kpi-value {
-        font-size: 1.5rem;
+
+    .admin-layout .rpt-kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
     }
-    
-    .admin-layout .stat-num {
-        font-size: 1.5rem;
+
+    .admin-layout .rpt-kpi {
+        padding: 10px;
     }
-    
-    .admin-layout .btn-report {
-        width: 100%;
-        justify-content: center;
+
+    .admin-layout .rpt-kpi-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
     }
-    
-    .admin-layout .select-wrapper {
-        flex: 1;
+
+    .admin-layout .rpt-kpi-value {
+        font-size: 0.95rem;
+    }
+
+    .admin-layout .rpt-chart-wrapper {
+        min-height: 180px;
     }
 }

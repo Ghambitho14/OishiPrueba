@@ -1,15 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     Unlock, Lock, Plus, Minus, History, 
-    Settings, Calendar, Info, Search,
-    AlertCircle, CheckCircle2, ChevronRight, DollarSign
+    Clock, Calendar, TrendingUp, TrendingDown,
+    ArrowUpCircle, ArrowDownCircle, Eye,
+    DollarSign, CreditCard, Smartphone, ChevronRight
 } from 'lucide-react';
 import { useCashSystem } from '../../hooks/useCashSystem';
 import CashShiftModal from './CashShiftModal';
 import CashMovementModal from './CashMovementModal';
 import CashShiftDetailModal from './CashShiftDetailModal';
+import { formatCurrency } from '../../../../shared/utils/formatters';
 import '../../styles/CashSystem.css';
 import cashIcon from '../../../../assets/cash.svg';
+
+const fmt = (n) => {
+    try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
+};
+
+const ElapsedTime = ({ since }) => {
+    const [elapsed, setElapsed] = useState('');
+    useEffect(() => {
+        const calc = () => {
+            const diff = Date.now() - new Date(since).getTime();
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            setElapsed(h > 0 ? `${h}h ${m}m` : `${m}m`);
+        };
+        calc();
+        const id = setInterval(calc, 60000);
+        return () => clearInterval(id);
+    }, [since]);
+    return <span>{elapsed}</span>;
+};
 
 const CashManager = ({ showNotify }) => {
     const { 
@@ -24,243 +46,253 @@ const CashManager = ({ showNotify }) => {
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
     const [movementType, setMovementType] = useState('income');
-    
-    // Filtros (simulados por ahora)
-    const [filterPeriod, setFilterPeriod] = useState('30'); 
+    const [filterPeriod, setFilterPeriod] = useState('30');
 
     const loadHistory = useCallback(async () => {
-        console.log('CashManager: loadHistory start');
         setLoadingHistory(true);
         try {
-            console.log('CashManager: calling getPastShifts');
             const data = await getPastShifts();
-            console.log('CashManager: getPastShifts result:', data);
             setPastShifts(data || []);
         } catch (err) {
-            console.error('CashManager: loadHistory error:', err);
+            console.error('loadHistory error:', err);
             showNotify('Error al cargar historial', 'error');
         } finally {
             setLoadingHistory(false);
         }
     }, [getPastShifts, showNotify]);
 
-    // Cargar historial al montar
-    useEffect(() => {
-        loadHistory();
-    }, [loadHistory]);
+    useEffect(() => { loadHistory(); }, [loadHistory]);
+
+    const totals = useMemo(() => getTotals(movements), [movements, getTotals]);
+
+    const salesCount = useMemo(() => movements.filter(m => m.type === 'sale').length, [movements]);
+    const movementCount = movements.length;
+
+    const filteredShifts = useMemo(() => {
+        const days = parseInt(filterPeriod);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        return pastShifts.filter(s => new Date(s.closed_at) >= cutoff);
+    }, [pastShifts, filterPeriod]);
+
+    const recentMovements = useMemo(() => movements.slice(0, 5), [movements]);
 
     if (loadingSystem) return (
-        <div className="flex-center" style={{ height: '50vh' }}>
-            <div className="animate-spin" style={{ width: 30, height: 30, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--accent-primary)', borderRadius: '50%' }}></div>
+        <div className="cash-loading">
+            <div className="cash-spinner" />
+            <span>Cargando caja...</span>
         </div>
     );
 
     return (
         <div className="cash-container animate-fade">
-            {/* HEADER PRINCIPAL */}
+            {/* HEADER */}
             <header className="cash-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <img 
-                        src={cashIcon} 
-                        alt="Cajas" 
-                        style={{ 
-                            width: 32, 
-                            height: 32, 
-                            filter: 'brightness(0) invert(1)' 
-                        }} 
-                    />
-                    <h1 style={{ lineHeight: 1 }}>Cajas</h1>
+                <div className="cash-header-left">
+                    <img src={cashIcon} alt="Cajas" className="cash-header-icon" />
+                    <div>
+                        <h1>Caja</h1>
+                        {activeShift && (
+                            <div className="cash-header-status">
+                                <span className="cash-pulse" />
+                                Turno activo · <ElapsedTime since={activeShift.opened_at} />
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div className="cash-header-actions">
-                    {/* Botón Nuevo Gasto/Ingreso solo si hay caja abierta */}
-                    {activeShift && (
-                        <button 
-                            className="btn btn-secondary" 
-                            onClick={() => { setMovementType('income'); setIsMovementModalOpen(true); }}
-                        >
-                            <Plus size={16} /> Nuevo ingreso/gasto
+                    {activeShift ? (
+                        <>
+                            <button className="btn btn-income" onClick={() => { setMovementType('income'); setIsMovementModalOpen(true); }}>
+                                <ArrowUpCircle size={16} /> Ingreso
+                            </button>
+                            <button className="btn btn-expense" onClick={() => { setMovementType('expense'); setIsMovementModalOpen(true); }}>
+                                <ArrowDownCircle size={16} /> Egreso
+                            </button>
+                            <button className="btn btn-danger" onClick={() => setIsShiftModalOpen(true)}>
+                                <Lock size={16} /> Cerrar caja
+                            </button>
+                        </>
+                    ) : (
+                        <button className="btn btn-primary btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
+                            <Unlock size={18} /> Abrir caja
                         </button>
                     )}
-                    
-                    {/* Botón Abrir Caja Destacado si cerrada */}
-                    {!activeShift && (
-                        <button className="btn btn-primary" onClick={() => setIsShiftModalOpen(true)}>
-                            + Abrir caja
-                        </button>
-                    )}
-
-
                 </div>
             </header>
 
-            {/* SECCIÓN ABIERTAS */}
-            <section className="cash-section">
-                <h3 className="cash-section-title">Abiertas</h3>
-                <div className="cash-table-container">
-                    <table className="cash-table">
-                        <thead>
-                            <tr>
-                                <th>FECHA DE APERTURA <Info size={14} className="info-icon" /></th>
-                                <th>CAJA <Info size={14} className="info-icon" /></th>
-                                <th>INFORMACIÓN DEL SISTEMA <Info size={14} className="info-icon" /></th>
-                                <th>CONTEO MANUAL <Info size={14} className="info-icon" /></th>
-                                <th>DIFERENCIA <Info size={14} className="info-icon" /></th>
-                                <th>ESTADO <Info size={14} className="info-icon" /></th>
-                                <th>ACCIÓN</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {activeShift ? (
-                                <tr>
-                                    <td>
-                                        {new Date(activeShift.opened_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        <br/>
-                                        <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                                            {new Date(activeShift.opened_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+            {/* TURNO ACTIVO: KPI DASHBOARD */}
+            {activeShift ? (
+                <section className="cash-section">
+                    <div className="cash-kpi-grid">
+                        <div className="cash-kpi balance">
+                            <div className="cash-kpi-header">
+                                <DollarSign size={18} />
+                                <span>Balance Esperado</span>
+                            </div>
+                            <div className="cash-kpi-value">{fmt(activeShift.expected_balance ?? activeShift.opening_balance ?? 0)}</div>
+                            <div className="cash-kpi-sub">Base: {fmt(activeShift.opening_balance || 0)}</div>
+                        </div>
+
+                        <div className="cash-kpi income">
+                            <div className="cash-kpi-header">
+                                <TrendingUp size={18} />
+                                <span>Ingresos</span>
+                            </div>
+                            <div className="cash-kpi-value">{fmt(totals.income)}</div>
+                            <div className="cash-kpi-sub">{salesCount} ventas · {movementCount - salesCount > 0 ? `${movements.filter(m => m.type === 'income').length} manuales` : 'sin manuales'}</div>
+                        </div>
+
+                        <div className="cash-kpi expense">
+                            <div className="cash-kpi-header">
+                                <TrendingDown size={18} />
+                                <span>Egresos</span>
+                            </div>
+                            <div className="cash-kpi-value">{fmt(totals.expenses)}</div>
+                            <div className="cash-kpi-sub">{movements.filter(m => m.type === 'expense').length} movimientos</div>
+                        </div>
+
+                        <div className="cash-kpi methods">
+                            <div className="cash-kpi-header">
+                                <CreditCard size={18} />
+                                <span>Por Método</span>
+                            </div>
+                            <div className="cash-methods-grid">
+                                <div className="cash-method-row">
+                                    <DollarSign size={14} />
+                                    <span>Efectivo</span>
+                                    <strong>{fmt(totals.cash)}</strong>
+                                </div>
+                                <div className="cash-method-row">
+                                    <CreditCard size={14} />
+                                    <span>Tarjeta</span>
+                                    <strong>{fmt(totals.card)}</strong>
+                                </div>
+                                <div className="cash-method-row">
+                                    <Smartphone size={14} />
+                                    <span>Transf.</span>
+                                    <strong>{fmt(totals.online)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ÚLTIMOS MOVIMIENTOS */}
+                    {recentMovements.length > 0 && (
+                        <div className="cash-recent">
+                            <div className="cash-recent-header">
+                                <h4><Clock size={16} /> Últimos movimientos</h4>
+                                <button className="btn-text" onClick={() => setViewingShift(activeShift)}>
+                                    Ver todos <ChevronRight size={14} />
+                                </button>
+                            </div>
+                            <div className="cash-recent-list">
+                                {recentMovements.map(m => (
+                                    <div key={m.id} className="cash-recent-item">
+                                        <div className={`cash-recent-icon ${m.type}`}>
+                                            {m.type === 'expense' ? <ArrowDownCircle size={16} /> : <ArrowUpCircle size={16} />}
+                                        </div>
+                                        <div className="cash-recent-info">
+                                            <span className="cash-recent-desc">{m.description || (m.type === 'sale' ? 'Venta' : m.type === 'income' ? 'Ingreso' : 'Egreso')}</span>
+                                            <span className="cash-recent-time">
+                                                {new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                                {' · '}
+                                                {m.payment_method === 'cash' ? 'Efectivo' : m.payment_method === 'card' ? 'Tarjeta' : 'Transf.'}
+                                            </span>
+                                        </div>
+                                        <span className={`cash-recent-amount ${m.type === 'expense' ? 'negative' : 'positive'}`}>
+                                            {m.type === 'expense' ? '-' : '+'}{fmt(m.amount)}
                                         </span>
-                                    </td>
-                                    <td>Caja Principal</td>
-                                    <td>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                            <div style={{ fontWeight: 600, fontSize: '1rem' }}>
-                                                ${(activeShift.expected_balance ?? activeShift.opening_balance ?? 0).toLocaleString('es-CL')}
-                                            </div>
-                                            
-                                            {/* Desglose simplificado */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: '0.75rem' }}>
-                                                <div style={{ color: 'var(--text-secondary)' }}>
-                                                    💵 ${(getTotals(movements).cash || 0).toLocaleString('es-CL')}
-                                                </div>
-                                                <div style={{ color: 'var(--text-secondary)' }}>
-                                                    💳 ${(getTotals(movements).card || 0).toLocaleString('es-CL')}
-                                                </div>
-                                                <div style={{ color: 'var(--text-secondary)' }}>
-                                                    📲 ${(getTotals(movements).online || 0).toLocaleString('es-CL')}
-                                                </div>
-                                                <div style={{ color: '#ef4444' }}>
-                                                    📤 -${(getTotals(movements).expenses || 0).toLocaleString('es-CL')}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>-</td>
-                                    <td style={{ textAlign: 'center' }}>-</td>
-                                    <td>
-                                        <span className="status-badge open">Abierta</span>
-                                    </td>
-                                    <td>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <button 
-                                                className="btn-table-action"
-                                                onClick={() => setIsShiftModalOpen(true)}
-                                            >
-                                                Cerrar caja
-                                            </button>
-                                            <button 
-                                                className="btn-text" 
-                                                onClick={() => { setViewingShift(activeShift); }}
-                                            >
-                                                Ver detalles
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                <tr>
-                                    <td colSpan="7">
-                                        <div className="table-empty-state">
-                                            <span>No hay cajas abiertas actualmente.</span>
-                                            <button className="btn btn-primary" onClick={() => setIsShiftModalOpen(true)}>
-                                                + Abrir caja
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </section>
+            ) : (
+                <section className="cash-empty-state">
+                    <div className="cash-empty-icon">
+                        <Lock size={48} />
+                    </div>
+                    <h3>Caja cerrada</h3>
+                    <p>Abre un turno para comenzar a registrar ventas e ingresos.</p>
+                    <button className="btn btn-primary" onClick={() => setIsShiftModalOpen(true)}>
+                        <Unlock size={18} /> Abrir caja
+                    </button>
+                </section>
+            )}
 
-            {/* SECCIÓN CERRADAS */}
+            {/* HISTORIAL DE TURNOS */}
             <section className="cash-section">
-                <h3 className="cash-section-title">Cerradas</h3>
-                
-                {/* Filtros */}
-                <div className="cash-filters-bar">
-                    <div className="filter-input-group">
-                        <Calendar size={16} style={{ marginRight: 8, color: '#6b7280' }} />
-                        <select 
-                            value={filterPeriod}
-                            onChange={(e) => setFilterPeriod(e.target.value)}
-                        >
-                            <option value="7">Últimos 7 días</option>
-                            <option value="30">Últimos 30 días</option>
-                            <option value="90">Últimos 3 meses</option>
-                        </select>
-                    </div>
-                    
-                    <div className="filter-input-group">
-                        <select>
-                            <option value="all">Todas las cajas</option>
-                            <option value="main">Caja Principal</option>
+                <div className="cash-section-header">
+                    <h3 className="cash-section-title"><History size={18} /> Historial de turnos</h3>
+                    <div className="cash-filters-inline">
+                        <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)}>
+                            <option value="7">7 días</option>
+                            <option value="30">30 días</option>
+                            <option value="90">3 meses</option>
+                            <option value="365">1 año</option>
                         </select>
                     </div>
                 </div>
 
-                <div className="cash-table-container">
-                    <table className="cash-table">
-                        <thead>
-                            <tr>
-                                <th>FECHA DE APERTURA <Info size={14} className="info-icon" /></th>
-                                <th>FECHA DE CIERRE <Info size={14} className="info-icon" /></th>
-                                <th>CAJA <Info size={14} className="info-icon" /></th>
-                                <th>INFORMACIÓN DEL SISTEMA <Info size={14} className="info-icon" /></th>
-                                <th>CONTEO MANUAL <Info size={14} className="info-icon" /></th>
-                                <th>DIFERENCIA <Info size={14} className="info-icon" /></th>
-                                <th>ESTADO <Info size={14} className="info-icon" /></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loadingHistory ? (
-                                <tr><td colSpan="7" style={{ textAlign: 'center', padding: 30 }}>Cargando historial...</td></tr>
-                            ) : pastShifts.length === 0 ? (
-                                <tr><td colSpan="7" style={{ textAlign: 'center', padding: 30 }}>No hay historial disponible.</td></tr>
-                            ) : (
-                                pastShifts.map(shift => {
-                                    const diff = shift.difference || (shift.actual_balance - shift.expected_balance);
-                                    return (
-                                        <tr key={shift.id} onClick={() => setViewingShift(shift)} style={{ cursor: 'pointer' }} className="hover:bg-gray-50">
-                                            <td>
-                                                {new Date(shift.opened_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })} {' '}
-                                                <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                                                    {new Date(shift.opened_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {new Date(shift.closed_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })} {' '}
-                                                <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                                                    {new Date(shift.closed_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </td>
-                                            <td>Caja Principal</td>
-                                            <td>${shift.expected_balance?.toLocaleString('es-CL')}</td>
-                                            <td>${shift.actual_balance?.toLocaleString('es-CL')}</td>
-                                            <td>
-                                                <span className={diff >= 0 ? 'diff-positive' : 'diff-negative'}>
-                                                    {diff >= 0 ? '+' : ''}${diff?.toLocaleString('es-CL')}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span className="status-badge closed">Cerrada</span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                {loadingHistory ? (
+                    <div className="cash-history-loading">Cargando historial...</div>
+                ) : filteredShifts.length === 0 ? (
+                    <div className="cash-history-empty">
+                        <Calendar size={32} />
+                        <span>No hay turnos cerrados en este período.</span>
+                    </div>
+                ) : (
+                    <div className="cash-history-list">
+                        {filteredShifts.map(shift => {
+                            const diff = shift.difference ?? ((shift.actual_balance || 0) - (shift.expected_balance || 0));
+                            const duration = shift.closed_at && shift.opened_at
+                                ? Math.round((new Date(shift.closed_at) - new Date(shift.opened_at)) / 60000)
+                                : 0;
+                            const durationStr = duration >= 60 ? `${Math.floor(duration / 60)}h ${duration % 60}m` : `${duration}m`;
+
+                            return (
+                                <div key={shift.id} className="cash-history-card" onClick={() => setViewingShift(shift)}>
+                                    <div className="cash-history-date">
+                                        <span className="cash-history-day">
+                                            {new Date(shift.opened_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+                                        </span>
+                                        <span className="cash-history-hours">
+                                            {new Date(shift.opened_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                            {' → '}
+                                            {new Date(shift.closed_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        <span className="cash-history-duration">
+                                            <Clock size={12} /> {durationStr}
+                                        </span>
+                                    </div>
+
+                                    <div className="cash-history-amounts">
+                                        <div className="cash-history-col">
+                                            <label>Sistema</label>
+                                            <span>{fmt(shift.expected_balance)}</span>
+                                        </div>
+                                        <div className="cash-history-col">
+                                            <label>Conteo</label>
+                                            <span>{fmt(shift.actual_balance)}</span>
+                                        </div>
+                                        <div className="cash-history-col">
+                                            <label>Diferencia</label>
+                                            <span className={diff >= 0 ? 'diff-positive' : 'diff-negative'}>
+                                                {diff >= 0 ? '+' : ''}{fmt(Math.abs(diff))}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="cash-history-arrow">
+                                        <Eye size={16} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </section>
 
             {/* MODALES */}
@@ -283,7 +315,7 @@ const CashManager = ({ showNotify }) => {
                 isOpen={!!viewingShift}
                 onClose={() => setViewingShift(null)}
                 shift={viewingShift}
-                getTotals={getTotals} // Pasamos getTotals por si se necesita recalcular
+                getTotals={getTotals}
             />
         </div>
     );

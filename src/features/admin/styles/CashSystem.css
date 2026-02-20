@@ -557,7 +557,464 @@
 }
 
 /* ===========================================
-   9. RESPONSIVE MOBILE
+   9. NEW COMPONENT STYLES
+   =========================================== */
+
+/* --- Header Left --- */
+.admin-layout .cash-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.admin-layout .cash-header-icon {
+    width: 32px;
+    height: 32px;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
+.admin-layout .cash-header-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--c-income);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.admin-layout .cash-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c-income);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+/* --- Income / Expense Buttons --- */
+.admin-layout .cash-container .btn-income {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--c-income);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.admin-layout .cash-container .btn-income:hover {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
+    transform: translateY(-1px);
+}
+
+.admin-layout .cash-container .btn-expense {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--c-expense);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.admin-layout .cash-container .btn-expense:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: translateY(-1px);
+}
+
+.admin-layout .cash-container .btn-open-shift {
+    padding: 12px 28px;
+    font-size: 1rem;
+}
+
+/* --- Loading State --- */
+.admin-layout .cash-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 50vh;
+    color: var(--c-text-muted);
+    font-size: 0.9rem;
+}
+
+.admin-layout .cash-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    border-top-color: var(--c-balance);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- KPI Grid --- */
+.admin-layout .cash-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.admin-layout .cash-kpi {
+    background: var(--cash-surface);
+    border: 1px solid var(--cash-border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.25s ease;
+}
+
+.admin-layout .cash-kpi:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--cash-surface-hover);
+    transform: translateY(-2px);
+}
+
+.admin-layout .cash-kpi-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--c-text-muted);
+}
+
+.admin-layout .cash-kpi.balance .cash-kpi-header { color: var(--c-balance); }
+.admin-layout .cash-kpi.income .cash-kpi-header { color: var(--c-income); }
+.admin-layout .cash-kpi.expense .cash-kpi-header { color: var(--c-expense); }
+
+.admin-layout .cash-kpi .cash-kpi-value {
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.admin-layout .cash-kpi-sub {
+    font-size: 0.75rem;
+    color: var(--c-text-muted);
+    font-weight: 500;
+}
+
+/* --- Methods Grid inside KPI --- */
+.admin-layout .cash-methods-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.admin-layout .cash-method-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--c-text-muted);
+}
+
+.admin-layout .cash-method-row strong {
+    margin-left: auto;
+    color: #fff;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Recent Movements Feed --- */
+.admin-layout .cash-recent {
+    background: var(--cash-surface);
+    border: 1px solid var(--cash-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.admin-layout .cash-recent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--cash-border);
+}
+
+.admin-layout .cash-recent-header h4 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-layout .cash-recent-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-layout .cash-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.15s ease;
+}
+
+.admin-layout .cash-recent-item:last-child {
+    border-bottom: none;
+}
+
+.admin-layout .cash-recent-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-layout .cash-recent-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.admin-layout .cash-recent-icon.sale,
+.admin-layout .cash-recent-icon.income {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--c-income);
+}
+
+.admin-layout .cash-recent-icon.expense {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--c-expense);
+}
+
+.admin-layout .cash-recent-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-layout .cash-recent-desc {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-layout .cash-recent-time {
+    font-size: 0.72rem;
+    color: var(--c-text-muted);
+}
+
+.admin-layout .cash-recent-amount {
+    font-size: 0.9rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.admin-layout .cash-recent-amount.positive { color: var(--c-income); }
+.admin-layout .cash-recent-amount.negative { color: var(--c-expense); }
+
+/* --- Empty State --- */
+.admin-layout .cash-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+    gap: 16px;
+    background: var(--cash-surface);
+    border: 1px dashed var(--cash-border);
+    border-radius: 20px;
+}
+
+.admin-layout .cash-empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-text-muted);
+}
+
+.admin-layout .cash-empty-state h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.admin-layout .cash-empty-state p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--c-text-muted);
+    max-width: 300px;
+}
+
+/* --- Section Header with inline filter --- */
+.admin-layout .cash-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.admin-layout .cash-filters-inline select {
+    background: #1a1a1a;
+    border: 1px solid var(--cash-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    color: #fff;
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.admin-layout .cash-filters-inline select:focus {
+    outline: none;
+    border-color: var(--c-balance);
+}
+
+.admin-layout .cash-filters-inline select option {
+    background: #1a1a1a;
+    color: #fff;
+}
+
+/* --- History Card List --- */
+.admin-layout .cash-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-layout .cash-history-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--cash-surface);
+    border: 1px solid var(--cash-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-layout .cash-history-card:hover {
+    background: var(--cash-surface-hover);
+    border-color: rgba(255, 255, 255, 0.12);
+    transform: translateX(4px);
+}
+
+.admin-layout .cash-history-date {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 100px;
+}
+
+.admin-layout .cash-history-day {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.admin-layout .cash-history-hours {
+    font-size: 0.72rem;
+    color: var(--c-text-muted);
+}
+
+.admin-layout .cash-history-duration {
+    font-size: 0.7rem;
+    color: var(--c-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.admin-layout .cash-history-amounts {
+    flex: 1;
+    display: flex;
+    gap: 24px;
+}
+
+.admin-layout .cash-history-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-layout .cash-history-col label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--c-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-layout .cash-history-col span {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .cash-history-arrow {
+    color: var(--c-text-muted);
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+}
+
+.admin-layout .cash-history-card:hover .cash-history-arrow {
+    opacity: 1;
+    color: var(--c-balance);
+}
+
+/* --- History Loading & Empty --- */
+.admin-layout .cash-history-loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--c-text-muted);
+    font-size: 0.9rem;
+}
+
+.admin-layout .cash-history-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 20px;
+    color: var(--c-text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+    background: var(--cash-surface);
+    border: 1px dashed var(--cash-border);
+    border-radius: 14px;
+}
+
+/* ===========================================
+   10. RESPONSIVE MOBILE
    =========================================== */
 @media (max-width: 768px) {
     .admin-layout .cash-container {
@@ -574,48 +1031,117 @@
 
     .admin-layout .cash-header-actions {
         width: 100%;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
     }
 
     .admin-layout .cash-header-actions .btn {
         width: 100%;
         justify-content: center;
+        padding: 10px 12px;
+        font-size: 0.82rem;
     }
 
-    .admin-layout .cash-stats-grid {
-        grid-template-columns: 1fr;
+    .admin-layout .cash-header-actions .btn-danger {
+        grid-column: 1 / -1;
     }
 
-    .admin-layout .cash-filters-bar {
+    .admin-layout .cash-header-actions .btn-open-shift {
+        grid-column: 1 / -1;
+    }
+
+    /* KPI Grid */
+    .admin-layout .cash-kpi-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .admin-layout .cash-kpi {
+        padding: 14px;
+        border-radius: 12px;
+    }
+
+    .admin-layout .cash-kpi .cash-kpi-value {
+        font-size: 1.2rem;
+    }
+
+    .admin-layout .cash-kpi-header {
+        font-size: 0.68rem;
+    }
+
+    .admin-layout .cash-kpi-sub {
+        font-size: 0.68rem;
+    }
+
+    .admin-layout .cash-kpi.methods {
+        grid-column: 1 / -1;
+    }
+
+    /* Recent movements */
+    .admin-layout .cash-recent-item {
+        padding: 10px 14px;
+        gap: 10px;
+    }
+
+    .admin-layout .cash-recent-desc {
+        font-size: 0.8rem;
+    }
+
+    .admin-layout .cash-recent-amount {
+        font-size: 0.82rem;
+    }
+
+    .admin-layout .cash-recent-icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    /* History cards */
+    .admin-layout .cash-history-card {
         flex-direction: column;
-        padding: 10px;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px;
     }
 
-    .admin-layout .filter-input-group {
+    .admin-layout .cash-history-date {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
         min-width: unset;
         width: 100%;
     }
 
-    /* Table: allow horizontal scroll with hint */
-    .admin-layout .cash-table-container {
-        border-radius: 12px;
-        margin: 0 -4px;
+    .admin-layout .cash-history-amounts {
+        width: 100%;
+        justify-content: space-between;
     }
 
-    .admin-layout .cash-table {
-        min-width: 600px;
+    .admin-layout .cash-history-arrow {
+        display: none;
     }
 
-    .admin-layout .cash-table th {
-        padding: 10px 12px;
-        font-size: 0.62rem;
+    /* Empty state */
+    .admin-layout .cash-empty-state {
+        padding: 40px 16px;
     }
 
-    .admin-layout .cash-table td {
-        padding: 10px 12px;
-        font-size: 0.82rem;
+    .admin-layout .cash-empty-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+    }
+
+    /* Section header */
+    .admin-layout .cash-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .admin-layout .cash-filters-inline select {
+        width: 100%;
     }
 
     /* Modal responsive */
@@ -651,6 +1177,19 @@
 
     .admin-layout .cash-section-title {
         font-size: 0.9rem;
+    }
+
+    .admin-layout .cash-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-layout .cash-history-amounts {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .admin-layout .cash-history-col {
+        min-width: 70px;
     }
 }
 
