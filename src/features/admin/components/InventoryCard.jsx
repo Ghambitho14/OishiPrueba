@@ -4,7 +4,7 @@ import logo from '../../../assets/logo.png';
 import '../../../styles/InventoryCard.css';
 
 // Usamos memo para que SOLO se re-renderice si cambian las props de ESTE producto
-const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, setIsModalOpen, deleteProduct }) => {
+const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, setIsModalOpen, deleteProduct, viewMode = 'grid' }) => {
 
     // Manejadores de eventos limpios para evitar lógica en el JSX
     const handleEditClick = () => {
@@ -37,13 +37,14 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
 
     return (
         <div 
-            className={`inventory-card glass ${!product.is_active ? 'inactive' : ''}`}
+            className={`inventory-card glass ${!product.is_active ? 'inactive' : ''} ${viewMode === 'list' ? 'list-view' : ''}`}
             onClick={handleEditClick}
             onKeyDown={handleKeyDown}
             role="button"
             tabIndex={0} // Hace que el div sea "enfocable" con Tab
             aria-label={`Editar producto ${product.name}`}
         >
+            {/* --- IMAGEN --- */}
             <div className="inv-img-wrapper">
                 <img 
                     src={product.image_url || logo} 
@@ -52,21 +53,23 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                     loading="lazy" // Mejora rendimiento en listas largas
                 />
                 
-                {/* Botón Flotante de Estado */}
-                <button 
-                    className={`inv-status-toggle ${product.is_active ? 'on' : 'off'}`} 
-                    onClick={handleToggleClick}
-                    title={product.is_active ? "Pausar venta" : "Activar venta"}
-                >
-                    {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
+                {/* Botón Flotante de Estado (Solo en Grid) */}
+                {viewMode === 'grid' && (
+                    <button 
+                        className={`inv-status-toggle ${product.is_active ? 'on' : 'off'}`} 
+                        onClick={handleToggleClick}
+                        title={product.is_active ? "Pausar venta" : "Activar venta"}
+                    >
+                        {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
+                )}
             </div>
 
             <div className="inv-info">
                 <div className="inv-header">
                     <div className="inv-title-row">
                         <h4>{product.name}</h4>
-                        {product.is_special && <span className="badge-special">⭐</span>}
+                        {product.is_special && <span className="badge-special">⭐ Especial</span>}
                     </div>
                     
                     <div className="price-container">
@@ -82,9 +85,23 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                 </div>
 
                 <div className="inv-actions">
-                    <span className={`status-badge ${product.is_active ? 'active' : 'paused'}`}>
-                        {product.is_active ? 'Disponible' : 'Pausado'}
-                    </span>
+                    {/* En modo lista, el toggle está aquí abajo */}
+                    {viewMode === 'list' && (
+                         <button 
+                            className={`btn-icon-sm ${product.is_active ? 'text-success' : 'text-muted'}`} 
+                            onClick={handleToggleClick}
+                            title={product.is_active ? "Pausar" : "Activar"}
+                            style={{ marginRight: 8 }}
+                        >
+                            {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </button>
+                    )}
+
+                    {viewMode === 'grid' && (
+                        <span className={`status-badge ${product.is_active ? 'active' : 'paused'}`}>
+                            {product.is_active ? 'Disponible' : 'Pausado'}
+                        </span>
+                    )}
                     
                     <div className="action-buttons">
                         {/* Botón visual de editar (ayuda UX) */}

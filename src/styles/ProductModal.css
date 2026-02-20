@@ -319,6 +319,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  position: relative;
 }
 
 .custom-switch:hover {
@@ -339,6 +340,7 @@
   position: relative;
   transition: .3s;
   flex-shrink: 0;
+  display: block;
 }
 
 .slider:before {

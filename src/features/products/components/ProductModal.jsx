@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Save, Upload, Image as ImageIcon, AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import { X, Save, Upload, Image as ImageIcon, AlertCircle, Loader2, Trash2, DollarSign } from 'lucide-react';
 import '../../../styles/Modals.css';
 import '../../../styles/ProductModal.css';
 
@@ -18,63 +18,44 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
   const fileInputRef = useRef();
   const nameInputRef = useRef();
 
-  const [formData, setFormData] = useState(INITIAL_STATE);
+  // Al renderizarse condicionalmente en el padre, esto corre solo una vez al abrir.
+  const [formData, setFormData] = useState(() => {
+    if (product) {
+      return {
+        name: product.name || '',
+        price: product.price || '',
+        description: product.description || '',
+        category_id: product.category_id || (categories?.[0]?.id || ''),
+        is_special: product.is_special || false,
+        has_discount: product.has_discount || false,
+        discount_price: product.discount_price || '',
+        image_url: product.image_url || ''
+      };
+    }
+    return { ...INITIAL_STATE, category_id: categories?.[0]?.id || '' };
+  });
+
   const [localFile, setLocalFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewUrl, setPreviewUrl] = useState(() => product?.image_url || '');
   
-  const [isDirty, setIsDirty] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // --- 1. GESTIÓN DE APERTURA / CIERRE ---
+  // Auto-foco al montar
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    if (isOpen) {
-      if (product) {
-        setFormData({
-          name: product.name || '',
-          price: product.price || '',
-          description: product.description || '',
-          category_id: product.category_id || (categories[0]?.id || ''),
-          is_special: product.is_special || false,
-          has_discount: product.has_discount || false,
-          discount_price: product.discount_price || '',
-          image_url: product.image_url || ''
-        });
-        setPreviewUrl(product.image_url || '');
-      } else {
-        setFormData({ ...INITIAL_STATE, category_id: categories[0]?.id || '' });
-        setPreviewUrl('');
-      }
-      setLocalFile(null);
-      setErrors({});
-      setIsDirty(false);
+    setTimeout(() => nameInputRef.current?.focus(), 100);
+  }, []);
 
-      // Auto-foco accesible
-      setTimeout(() => nameInputRef.current?.focus(), 100);
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [isOpen, product, categories]);
-
-  // Lógica centralizada de cierre seguro
   const handleSafeClose = useCallback(() => {
     if (isDirty && !saving) {
-      if (window.confirm('Tienes cambios sin guardar. ¿Descartar y cerrar?')) {
+      if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
         onClose();
       }
     } else {
       onClose();
     }
   }, [isDirty, saving, onClose]);
-
-  // Cerrar con ESC
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') handleSafeClose(); };
-    if (isOpen) window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isOpen, handleSafeClose]);
-
-  if (!isOpen) return null;
 
   // --- 2. MANEJADORES DE FORMULARIO ---
   const handleChange = (e) => {
@@ -83,9 +64,6 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
-    // Limpiar error específico si el usuario escribe
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
     setIsDirty(true);
   };
 
@@ -279,7 +257,6 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
                   checked={formData.is_special} 
                   onChange={handleChange} 
                 />
-                <span className="slider"></span>
                 <div className="switch-content">
                   <span className="switch-title">Destacar como Especial</span>
                   <span className="switch-desc">Aparecerá con una estrella en el menú</span>
@@ -294,7 +271,6 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
                   checked={formData.has_discount} 
                   onChange={handleChange} 
                 />
-                <span className="slider"></span>
                 <div className="switch-content">
                   <span className="switch-title">Activar Oferta</span>
                   <span className="switch-desc">Mostrará un precio rebajado</span>
@@ -338,10 +314,5 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
     </div>
   );
 });
-
-// Icono auxiliar para input descuento (si no lo tienes importado arriba)
-const DollarSign = ({ size, className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-);
 
 export default ProductModal;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
   Package, DollarSign, Star, Trophy, PieChart,
-  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users, List, ShoppingBag, Tag
+  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ProductModal from '../../products/components/ProductModal';
@@ -70,6 +70,9 @@ const Admin = () => {
   const [mobileTab, setMobileTab] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all'); // all, active, paused
+  const [viewMode, setViewMode] = useState('grid'); // grid, list
+  const [sortOrder, setSortOrder] = useState('name-asc'); // name-asc, price-asc, price-desc
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
@@ -417,6 +420,31 @@ const Admin = () => {
     history: orders.filter(o => o.status === 'picked_up' || o.status === 'cancelled')
   }), [orders]);
 
+  // --- LÓGICA DE FILTRADO Y ORDENAMIENTO DE PRODUCTOS ---
+  const processedProducts = useMemo(() => {
+    let result = products.filter(p => 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      (filterCategory === 'all' || p.category_id === filterCategory) &&
+      (filterStatus === 'all' || (filterStatus === 'active' ? p.is_active : !p.is_active))
+    );
+
+    return result.sort((a, b) => {
+      if (sortOrder === 'name-asc') return a.name.localeCompare(b.name);
+      if (sortOrder === 'price-asc') return a.price - b.price;
+      if (sortOrder === 'price-desc') return b.price - a.price;
+      return 0;
+    });
+  }, [products, searchQuery, filterCategory, filterStatus, sortOrder]);
+
+  // Estadísticas rápidas de productos
+  const productStats = useMemo(() => {
+    return {
+      total: products.length,
+      active: products.filter(p => p.is_active).length,
+      paused: products.filter(p => !p.is_active).length
+    };
+  }, [products]);
+
   if (loading && !refreshing && products.length === 0 && orders.length === 0) return (
     <div className="admin-layout flex-center" style={{ height: '100vh', background: '#0a0a0a', flexDirection: 'column', gap: 20 }}>
       <Loader2 className="animate-spin" size={60} color="#e63946" />
@@ -500,27 +528,74 @@ const Admin = () => {
         {/* 2. INVENTARIO */}
         {activeTab === 'products' && (
           <div className="products-view animate-fade">
-            <div className="admin-toolbar glass">
-              <div className="search-box">
-                <Search size={18} />
-                <input placeholder="Buscar plato..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            
+            {/* BARRA DE ESTADÍSTICAS */}
+            <div className="stats-bar glass" style={{ display: 'flex', gap: 20, padding: '15px 20px', marginBottom: 20, borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: 'rgba(255,255,255,0.1)', padding: 8, borderRadius: 8 }}><Package size={18} /></div>
+                <div><span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>Total Platos</span><strong style={{ fontSize: '1.1rem' }}>{productStats.total}</strong></div>
               </div>
-              <div className="filter-box">
-                <Filter size={18} />
-                <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                  <option value="all">Todas las categorías</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+              <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: 'rgba(37, 211, 102, 0.1)', color: '#25d366', padding: 8, borderRadius: 8 }}><Eye size={18} /></div>
+                <div><span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>Activos</span><strong style={{ fontSize: '1.1rem', color: '#25d366' }}>{productStats.active}</strong></div>
+              </div>
+              <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: 8, borderRadius: 8 }}><EyeOff size={18} /></div>
+                <div><span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>Pausados</span><strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>{productStats.paused}</strong></div>
               </div>
             </div>
-            <div className="inventory-grid">
-              {products
-                .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .filter(p => filterCategory === 'all' || p.category_id === filterCategory)
-                .map(p => (
+
+            <div className="admin-toolbar glass">
+              <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+                <div className="search-box" style={{ flex: 1 }}>
+                  <Search size={18} />
+                  <input placeholder="Buscar plato..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                </div>
+                
+                <div className="filter-box">
+                  <Filter size={18} />
+                  <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                    <option value="all">Todas las categorías</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="filter-box">
+                  <Eye size={18} />
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                    <option value="all">Todos los estados</option>
+                    <option value="active">Solo Activos</option>
+                    <option value="paused">Solo Pausados</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 10 }}>
+                 <div className="filter-box" style={{ minWidth: 'auto' }}>
+                    <ArrowUpDown size={18} />
+                    <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+                      <option value="name-asc">Nombre (A-Z)</option>
+                      <option value="price-asc">Precio (Menor a Mayor)</option>
+                      <option value="price-desc">Precio (Mayor a Menor)</option>
+                    </select>
+                 </div>
+                 <button className={`btn-icon-toggle ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} title="Vista Grilla">
+                    <LayoutGrid size={18} />
+                 </button>
+                 <button className={`btn-icon-toggle ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vista Lista">
+                    <List size={18} />
+                 </button>
+              </div>
+            </div>
+            
+            <div className={`inventory-grid ${viewMode === 'list' ? 'list-mode' : ''}`}>
+              {processedProducts.map(p => (
                   <InventoryCard
                     key={p.id}
                     product={p}
+                    viewMode={viewMode}
                     toggleProductActive={toggleProductActive}
                     setEditingProduct={setEditingProduct}
                     setIsModalOpen={setIsModalOpen}
@@ -778,7 +853,16 @@ const Admin = () => {
         registerSale={registerSale}
       />
 
-      <ProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveProduct} product={editingProduct} categories={categories} />
+      {isModalOpen && (
+        <ProductModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={handleSaveProduct} 
+          product={editingProduct} 
+          categories={categories} 
+          saving={refreshing}
+        />
+      )}
       <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} onSave={handleSaveCategory} category={editingCategory} />
     </div>
   );
