@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash } from 'lucide-react';
+import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash, ChevronDown } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import "../styles/AdminSettings.css";
 
-const AdminSettings = ({ showNotify }) => {
+const AdminSettings = ({ showNotify, isMobile }) => {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -14,11 +14,14 @@ const AdminSettings = ({ showNotify }) => {
         account_type: '',
         account_number: '',
         account_rut: '',
-        account_email: ''
+        account_email: '',
+        account_holder: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [dataId, setDataId] = useState(null); // ID de la fila para update
+
+    const [expandedSection, setExpandedSection] = useState(() => (isMobile ? 'basic' : null));
 
     const loadSettings = React.useCallback(async () => {
         setLoading(true);
@@ -42,7 +45,8 @@ const AdminSettings = ({ showNotify }) => {
                     account_type: data.account_type || '',
                     account_number: data.account_number || '',
                     account_rut: data.account_rut || '',
-                    account_email: data.account_email || ''
+                    account_email: data.account_email || '',
+                    account_holder: data.account_holder || ''
                 });
                 setDataId(data.id);
             }
@@ -110,7 +114,22 @@ const AdminSettings = ({ showNotify }) => {
                 
                 {/* Info Básica */}
                 <section className="settings-section">
-                    <h3 className="section-title"><Building size={20} className="text-secondary" /> Información Básica</h3>
+                    {isMobile ? (
+                        <button
+                            type="button"
+                            onClick={() => setExpandedSection(prev => prev === 'basic' ? null : 'basic')}
+                            className="section-title"
+                            style={{ width: '100%', justifyContent: 'space-between', background: 'transparent', border: 'none', paddingBottom: 15, cursor: 'pointer' }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Building size={20} className="text-secondary" /> Información Básica
+                            </span>
+                            <ChevronDown size={18} style={{ transform: expandedSection === 'basic' ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                        </button>
+                    ) : (
+                        <h3 className="section-title"><Building size={20} className="text-secondary" /> Información Básica</h3>
+                    )}
+                    {(!isMobile || expandedSection === 'basic') && (
                     <div className="form-grid">
                         <div className="form-group">
                             <label>Nombre del Negocio</label>
@@ -137,11 +156,27 @@ const AdminSettings = ({ showNotify }) => {
                             </div>
                         </div>
                     </div>
+                    )}
                 </section>
 
                 {/* Ubicación y Redes */}
                 <section className="settings-section">
-                    <h3 className="section-title"><MapPin size={20} className="text-secondary" /> Ubicación y Redes</h3>
+                    {isMobile ? (
+                        <button
+                            type="button"
+                            onClick={() => setExpandedSection(prev => prev === 'location' ? null : 'location')}
+                            className="section-title"
+                            style={{ width: '100%', justifyContent: 'space-between', background: 'transparent', border: 'none', paddingBottom: 15, cursor: 'pointer' }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <MapPin size={20} className="text-secondary" /> Ubicación y Redes
+                            </span>
+                            <ChevronDown size={18} style={{ transform: expandedSection === 'location' ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                        </button>
+                    ) : (
+                        <h3 className="section-title"><MapPin size={20} className="text-secondary" /> Ubicación y Redes</h3>
+                    )}
+                    {(!isMobile || expandedSection === 'location') && (
                     <div className="form-grid">
                         <div className="form-group full-width">
                             <label>Dirección Completa</label>
@@ -168,11 +203,27 @@ const AdminSettings = ({ showNotify }) => {
                             </div>
                         </div>
                     </div>
+                    )}
                 </section>
 
                 {/* Horarios y Pagos */}
                 <section className="settings-section">
-                    <h3 className="section-title"><Clock size={20} className="text-secondary" /> Horarios y Pagos</h3>
+                    {isMobile ? (
+                        <button
+                            type="button"
+                            onClick={() => setExpandedSection(prev => prev === 'schedule' ? null : 'schedule')}
+                            className="section-title"
+                            style={{ width: '100%', justifyContent: 'space-between', background: 'transparent', border: 'none', paddingBottom: 15, cursor: 'pointer' }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Clock size={20} className="text-secondary" /> Horarios y Pagos
+                            </span>
+                            <ChevronDown size={18} style={{ transform: expandedSection === 'schedule' ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                        </button>
+                    ) : (
+                        <h3 className="section-title"><Clock size={20} className="text-secondary" /> Horarios y Pagos</h3>
+                    )}
+                    {(!isMobile || expandedSection === 'schedule') && (
                     <div className="form-grid">
                         <div className="form-group full-width">
                             <label>Horarios de Atención</label>
@@ -185,11 +236,28 @@ const AdminSettings = ({ showNotify }) => {
                             />
                         </div>
                     </div>
+                    )}
                 </section>
 
                 {/* Datos Bancarios */}
                 <section className="settings-section">
-                    <h3 className="section-title"><CreditCard size={20} className="text-secondary" /> Datos de Transferencia</h3>
+                    {isMobile ? (
+                        <button
+                            type="button"
+                            onClick={() => setExpandedSection(prev => prev === 'bank' ? null : 'bank')}
+                            className="section-title"
+                            style={{ width: '100%', justifyContent: 'space-between', background: 'transparent', border: 'none', paddingBottom: 15, cursor: 'pointer' }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <CreditCard size={20} className="text-secondary" /> Datos de Transferencia
+                            </span>
+                            <ChevronDown size={18} style={{ transform: expandedSection === 'bank' ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                        </button>
+                    ) : (
+                        <h3 className="section-title"><CreditCard size={20} className="text-secondary" /> Datos de Transferencia</h3>
+                    )}
+                    {(!isMobile || expandedSection === 'bank') && (
+                    <>
                     <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: 20 }}>
                         Estos datos se mostrarán cuando el cliente elija "Pagar con Transferencia"
                     </p>
@@ -261,13 +329,15 @@ const AdminSettings = ({ showNotify }) => {
                                 <User size={16} className="input-icon" />
                                 <input 
                                     className="form-input with-icon"
-                                    value={formData.name}
-                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                    value={formData.account_holder}
+                                    onChange={e => setFormData({...formData, account_holder: e.target.value})}
                                     placeholder="Ej. Juan Pérez"
                                 />
                             </div>
                         </div>
                     </div>
+                    </>
+                    )}
                 </section>
 
             </form>

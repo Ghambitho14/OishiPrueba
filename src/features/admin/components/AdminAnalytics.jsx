@@ -21,9 +21,23 @@ const fmt = (n) => {
 
 const AdminAnalytics = ({ orders, products, clients }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
+    const [selectedMonth, setSelectedMonth] = useState('');
     const [chartTab, setChartTab] = useState('all');
 
     const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
+
+    const getMonthRangeUtc = (yyyyMm) => {
+        const [yearStr, monthStr] = String(yyyyMm || '').split('-');
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
+        const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+        return { start, end, startIso: start.toISOString(), endIso: end.toISOString(), year, month };
+    };
+
+    const isMonthMode = Boolean(selectedMonth);
+    const monthRange = useMemo(() => (isMonthMode ? getMonthRangeUtc(selectedMonth) : null), [selectedMonth, isMonthMode]);
 
     // --- CORE DATA ---
     const { chartData, kpis, trends, paymentBreakdown } = useMemo(() => {
@@ -36,6 +50,7 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             };
         }
         const now = new Date();
+
         const cutoff = new Date(); cutoff.setDate(now.getDate() - days);
         const prevCutoff = new Date(); prevCutoff.setDate(cutoff.getDate() - days);
 
@@ -47,22 +62,43 @@ const AdminAnalytics = ({ orders, products, clients }) => {
         };
 
         const valid = orders.filter(o => o.status !== 'cancelled');
+
         const current = valid.filter(o => {
             const d = new Date(o.created_at);
-            return (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
+            if (!filterByTab(o)) return false;
+            if (isMonthMode && monthRange) return d >= monthRange.start && d < monthRange.end;
+            return (filterPeriod === 'all' ? true : d >= cutoff);
         });
+
         const prev = valid.filter(o => {
             const d = new Date(o.created_at);
-            return filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff) && filterByTab(o);
+            if (!filterByTab(o)) return false;
+            if (isMonthMode && monthRange) {
+                const prevStart = new Date(Date.UTC(monthRange.year, monthRange.month - 2, 1, 0, 0, 0, 0));
+                const prevEnd = new Date(Date.UTC(monthRange.year, monthRange.month - 1, 1, 0, 0, 0, 0));
+                return d >= prevStart && d < prevEnd;
+            }
+            return filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff);
         });
 
         const salesByDate = {};
         const labels = [];
-        for (let i = days - 1; i >= 0; i--) {
-            const d = new Date(); d.setDate(now.getDate() - i);
-            const key = d.toISOString().split('T')[0];
-            labels.push(d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }));
-            salesByDate[key] = 0;
+
+        if (isMonthMode && monthRange) {
+            const daysInMonth = Math.round((monthRange.end.getTime() - monthRange.start.getTime()) / (24 * 60 * 60 * 1000));
+            for (let i = 0; i < daysInMonth; i++) {
+                const d = new Date(monthRange.start.getTime() + i * 24 * 60 * 60 * 1000);
+                const key = d.toISOString().split('T')[0];
+                labels.push(d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }));
+                salesByDate[key] = 0;
+            }
+        } else {
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date(); d.setDate(now.getDate() - i);
+                const key = d.toISOString().split('T')[0];
+                labels.push(d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }));
+                salesByDate[key] = 0;
+            }
         }
         current.forEach(o => {
             const key = new Date(o.created_at).toISOString().split('T')[0];
@@ -92,7 +128,9 @@ const AdminAnalytics = ({ orders, products, clients }) => {
                     backgroundColor: 'rgba(230, 57, 70, 0.08)',
                     tension: 0.4, fill: true,
                     pointBackgroundColor: '#fff', pointBorderColor: '#e63946',
-                    pointBorderWidth: 2, pointRadius: days > 30 ? 0 : 3, pointHoverRadius: 5,
+                    pointBorderWidth: 2,
+                    pointRadius: (isMonthMode ? labels.length : days) > 30 ? 0 : 3,
+                    pointHoverRadius: 5,
                 }],
             },
             kpis: { total: totalSales, count, ticket },
@@ -102,16 +140,27 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             },
             paymentBreakdown: pb,
         };
-    }, [orders, filterPeriod, chartTab, days]);
+    }, [orders, filterPeriod, chartTab, days, isMonthMode, monthRange]);
 
     // --- NEW CLIENTS ---
     const newClientsInfo = useMemo(() => {
         if (!clients) return { count: 0, trend: 0, total: 0 };
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
         const prevCutoff = new Date(); prevCutoff.setDate(cutoff.getDate() - days);
-        const currentNew = clients.filter(c => new Date(c.created_at || new Date()) >= cutoff).length;
-        const prevNew = filterPeriod === 'all' ? 0 : clients.filter(c => {
+
+        const currentNew = clients.filter(c => {
             const d = new Date(c.created_at || new Date());
+            if (isMonthMode && monthRange) return d >= monthRange.start && d < monthRange.end;
+            return d >= cutoff;
+        }).length;
+
+        const prevNew = (filterPeriod === 'all' && !isMonthMode) ? 0 : clients.filter(c => {
+            const d = new Date(c.created_at || new Date());
+            if (isMonthMode && monthRange) {
+                const prevStart = new Date(Date.UTC(monthRange.year, monthRange.month - 2, 1, 0, 0, 0, 0));
+                const prevEnd = new Date(Date.UTC(monthRange.year, monthRange.month - 1, 1, 0, 0, 0, 0));
+                return d >= prevStart && d < prevEnd;
+            }
             return d >= prevCutoff && d < cutoff;
         }).length;
         return {
@@ -119,13 +168,18 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             trend: prevNew === 0 ? (currentNew > 0 ? 100 : 0) : Math.round(((currentNew - prevNew) / prevNew) * 100),
             total: clients.length,
         };
-    }, [clients, filterPeriod, days]);
+    }, [clients, filterPeriod, days, isMonthMode, monthRange]);
 
     // --- TOP 5 PRODUCTS ---
     const topProducts = useMemo(() => {
         if (!orders) return [];
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-        const filtered = orders.filter(o => o.status !== 'cancelled' && (filterPeriod === 'all' || new Date(o.created_at) >= cutoff));
+        const filtered = orders.filter(o => {
+            if (o.status === 'cancelled') return false;
+            const d = new Date(o.created_at);
+            if (isMonthMode && monthRange) return d >= monthRange.start && d < monthRange.end;
+            return (filterPeriod === 'all' ? true : d >= cutoff);
+        });
         const counts = {};
         const revenue = {};
         filtered.forEach(o => {
@@ -141,23 +195,27 @@ const AdminAnalytics = ({ orders, products, clients }) => {
             .sort(([, a], [, b]) => b - a)
             .slice(0, 5)
             .map(([name, qty]) => ({ name, qty, revenue: revenue[name] || 0 }));
-    }, [orders, filterPeriod, days]);
+    }, [orders, filterPeriod, days, isMonthMode, monthRange]);
 
     // --- PEAK HOUR ---
     const peakHour = useMemo(() => {
         if (!orders || orders.length === 0) return null;
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
         const hourCounts = {};
-        orders.filter(o => o.status !== 'cancelled' && (filterPeriod === 'all' || new Date(o.created_at) >= cutoff))
-            .forEach(o => {
-                const h = new Date(o.created_at).getHours();
-                hourCounts[h] = (hourCounts[h] || 0) + 1;
-            });
+        orders.filter(o => {
+            if (o.status === 'cancelled') return false;
+            const d = new Date(o.created_at);
+            if (isMonthMode && monthRange) return d >= monthRange.start && d < monthRange.end;
+            return (filterPeriod === 'all' ? true : d >= cutoff);
+        }).forEach(o => {
+            const h = new Date(o.created_at).getHours();
+            hourCounts[h] = (hourCounts[h] || 0) + 1;
+        });
         const sorted = Object.entries(hourCounts).sort(([, a], [, b]) => b - a);
         if (sorted.length === 0) return null;
         const h = parseInt(sorted[0][0]);
         return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
-    }, [orders, filterPeriod, days]);
+    }, [orders, filterPeriod, days, isMonthMode, monthRange]);
 
     const TrendBadge = ({ value }) => {
         if (value === 0) return <span className="rpt-trend neutral">0%</span>;
@@ -217,6 +275,27 @@ const AdminAnalytics = ({ orders, products, clients }) => {
                             <option value="90">3 meses</option>
                             <option value="all">Todo</option>
                         </select>
+                    </div>
+
+                    <div className="rpt-period-select">
+                        <Calendar size={15} />
+                        <span className="rpt-month-label">Mes</span>
+                        <input
+                            type="month"
+                            value={selectedMonth}
+                            onChange={e => setSelectedMonth(e.target.value)}
+                            className="rpt-month-input"
+                        />
+                        {selectedMonth && (
+                            <button
+                                type="button"
+                                className="rpt-month-clear"
+                                onClick={() => setSelectedMonth('')}
+                                aria-label="Limpiar mes"
+                            >
+                                ×
+                            </button>
+                        )}
                     </div>
                 </div>
             </header>

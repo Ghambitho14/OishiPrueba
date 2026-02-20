@@ -553,7 +553,7 @@ const Admin = () => {
         {/* 6. HERRAMIENTAS */}
         {activeTab === 'settings' && (
           <div className="settings-view animate-fade">
-             <AdminSettings showNotify={showNotify} />
+             <AdminSettings showNotify={showNotify} isMobile={isMobile} />
 
              {/* ZONA DE PELIGRO (FUNCIONES AVANZADAS) */}
              <AdminDangerZone 

@@ -65,6 +65,54 @@
     color: #fff;
 }
 
+.admin-layout .rpt-month-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.admin-layout .rpt-month-input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: inherit;
+    outline: none;
+    min-width: 150px;
+}
+
+.admin-layout .rpt-month-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.85;
+    cursor: pointer;
+}
+
+.admin-layout .rpt-month-clear {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    transition: all 0.2s ease;
+}
+
+.admin-layout .rpt-month-clear:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
 /* --- KPI ROW --- */
 .admin-layout .rpt-kpi-row {
     display: grid;
@@ -478,8 +526,19 @@
         width: 100%;
     }
 
+    .admin-layout .rpt-header-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
     .admin-layout .rpt-period-select {
         width: 100%;
+    }
+
+    .admin-layout .rpt-month-input {
+        width: 100%;
+        min-width: 0;
     }
 
     .admin-layout .rpt-period-select select {
