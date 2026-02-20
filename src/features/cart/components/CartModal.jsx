@@ -10,6 +10,7 @@ import { ordersService } from '../../orders/services/orders';
 import { cashService } from '../../admin/services/cashService';
 import { useBusiness } from '../../../context/useBusiness';
 import { useLocation } from '../../../context/useLocation';
+import { useCash } from '../../../context/CashContext';
 import { formatRut, validateRut } from '../../../shared/utils/formatters';
 
 import '../../../styles/CartModal.css';
@@ -41,6 +42,7 @@ const CartModal = React.memo(() => {
   const navigate = useNavigate();
   const { businessInfo } = useBusiness();
   const { selectedBranch } = useLocation();
+  const { isShiftActive, isShiftLoading } = useCash();
 
   const {
     cart, isCartOpen, toggleCart,
@@ -149,6 +151,13 @@ const CartModal = React.memo(() => {
   // PROCESO DE COMPRA
   const handleSendOrder = async (e) => {
     e.preventDefault();
+
+    if (!isShiftActive) {
+      const scheduleMessage = businessInfo.schedule ? `Nuestro horario es: ${businessInfo.schedule}` : 'No se pueden recibir pedidos en este momento.';
+      setViewState(v => ({ ...v, isSaving: false, error: `La caja está cerrada. ${scheduleMessage}` }));
+      return;
+    }
+
     if (viewState.isSaving) return;
 
     if (!validation.isReady) {
@@ -187,22 +196,6 @@ const CartModal = React.memo(() => {
       };
 
       const { receiptUploadFailed } = await ordersService.createOrder(orderPayload, formData.receiptFile);
-
-      try {
-        const activeShift = await cashService.getActiveShift();
-        if (activeShift) {
-          await cashService.addMovement({
-            shift_id: activeShift.id,
-            type: 'sale',
-            amount: cartTotal,
-            description: `Venta Web - ${formData.name}`,
-            payment_method: paymentType === 'online' ? 'online' : 'cash',
-            order_id: null 
-          });
-        }
-      } catch (err) {
-        console.warn("Error registrando caja:", err);
-      }
 
       setViewState(v => ({ ...v, showSuccess: true, isSaving: false, receiptUploadFailed: receiptUploadFailed ?? false }));
 
@@ -297,9 +290,22 @@ const CartModal = React.memo(() => {
                 {!viewState.showPaymentInfo ? (
                   <>
                     <div className="total-row"><span>Total</span><span className="total-price">${cartTotal.toLocaleString('es-CL')}</span></div>
-                    <button onClick={() => setViewState(v => ({ ...v, showPaymentInfo: true }))} className="btn btn-primary btn-block btn-lg">
-                      Ir a Pagar
-                    </button>
+                    
+                    {isShiftLoading ? (
+                      <button className="btn btn-primary btn-block btn-lg" disabled>Cargando...</button>
+                    ) : isShiftActive ? (
+                      <button onClick={() => setViewState(v => ({ ...v, showPaymentInfo: true }))} className="btn btn-primary btn-block btn-lg">
+                        Ir a Pagar
+                      </button>
+                    ) : (
+                      <div className="cash-closed-banner">
+                        <AlertCircle size={16} />
+                        <span>
+                          Caja cerrada.
+                          {businessInfo.schedule && ` Horario: ${businessInfo.schedule}`}
+                        </span>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <PaymentFlow

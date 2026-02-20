@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
   Package, DollarSign, Star, Trophy, PieChart,
-  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users
+  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users, List, ShoppingBag, Tag
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ProductModal from '../../products/components/ProductModal';
@@ -204,25 +204,42 @@ const Admin = () => {
     }
   }, [showNotify]);
 
+  const handleClientRealtimeEvent = useCallback((payload) => {
+    console.log('🔔 Client Realtime Event:', payload);
+    if (payload.eventType === 'INSERT') {
+      setClients(prev => [payload.new, ...prev]);
+    } else if (payload.eventType === 'UPDATE') {
+      setClients(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
+    } else if (payload.eventType === 'DELETE') {
+      setClients(prev => prev.filter(c => c.id !== payload.old.id));
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
 
-    // Configurar Realtime
-    const channel = supabase
-      .channel('table-db-changes')
+    // Configurar Realtime para Pedidos
+    const ordersChannel = supabase
+      .channel('orders-db-changes')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-        },
+        { event: '*', schema: 'public', table: 'orders' },
         handleRealtimeEvent
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Suscrito a cambios en tiempo real');
-        }
+        if (status === 'SUBSCRIBED') console.log('✅ Suscrito a cambios en Pedidos');
+      });
+
+    // Configurar Realtime para Clientes
+    const clientsChannel = supabase
+      .channel('clients-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clients' },
+        handleClientRealtimeEvent
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.log('✅ Suscrito a cambios en Clientes');
       });
 
     // Fallback: Polling cada 15 segundos (más rápido por si falla Realtime)
@@ -236,9 +253,10 @@ const Admin = () => {
 
     return () => {
       clearInterval(intervalId);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(clientsChannel);
     };
-  }, [loadData, handleRealtimeEvent, isModalOpen, editingProduct]);
+  }, [loadData, handleRealtimeEvent, handleClientRealtimeEvent, isModalOpen, editingProduct]);
 
   // --- 2. GESTIÓN DE PEDIDOS ---
   const moveOrder = async (orderId, nextStatus) => {
@@ -378,6 +396,18 @@ const Admin = () => {
       showNotify('Categoría guardada');
     } catch {
       showNotify('Error al guardar', 'error');
+    }
+  };
+
+  const toggleCategoryActive = async (category) => {
+    const newActive = !category.is_active;
+    setCategories(prev => prev.map(c => c.id === category.id ? { ...c, is_active: newActive } : c));
+    try {
+      await supabase.from('categories').update({ is_active: newActive }).eq('id', category.id);
+      showNotify(newActive ? 'Categoría activada' : 'Categoría desactivada');
+    } catch {
+      loadData(true);
+      showNotify('Error al cambiar estado', 'error');
     }
   };
 
@@ -540,13 +570,104 @@ const Admin = () => {
 
         {/* 5. CATEGORÍAS */}
         {activeTab === 'categories' && (
-          <div className="categories-list glass animate-fade">
-            {categories.map(c => (
-              <div key={c.id} className="cat-row-item">
-                <div className="cat-name-lg">{c.name}</div>
-                <button onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true) }} className="btn-icon-action"><Edit size={18} /></button>
-              </div>
-            ))}
+          <div className="cat-container">
+            <div className="cat-grid">
+              {categories.map((c, index) => {
+                const categoryProducts = products.filter(p => p.category_id === c.id);
+                const activeProducts = categoryProducts.filter(p => p.is_active);
+                const totalRevenue = categoryProducts.reduce((sum, p) => sum + (p.price || 0), 0);
+                
+                return (
+                  <div 
+                    key={c.id} 
+                    className="cat-card glass"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="cat-card-header">
+                      <div className="cat-icon-wrapper">
+                        <Tag size={24} />
+                      </div>
+                      <button
+                        className="cat-status-badge cat-status-button"
+                        onClick={() => toggleCategoryActive(c)}
+                        disabled={refreshing}
+                      >
+                        <span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`}></span>
+                        <span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
+                      </button>
+                    </div>
+                    
+                    <div className="cat-card-body">
+                      <h3 className="cat-name">{c.name}</h3>
+                      
+                      <div className="cat-stats">
+                        <div className="cat-stat">
+                          <span className="cat-stat-label">Productos</span>
+                          <span className="cat-stat-value">{categoryProducts.length}</span>
+                        </div>
+                        <div className="cat-stat">
+                          <span className="cat-stat-label">Activos</span>
+                          <span className="cat-stat-value">{activeProducts.length}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="cat-revenue">
+                        <span className="cat-revenue-label">Ingresos totales</span>
+                        <span className="cat-revenue-value">${totalRevenue.toLocaleString('es-CL')}</span>
+                      </div>
+                      
+                      <div className="cat-progress-wrapper">
+                        <div className="cat-progress-bar">
+                          <div 
+                            className="cat-progress-fill" 
+                            style={{ width: `${products.length > 0 ? (categoryProducts.length / products.length) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                        <span className="cat-progress-text">
+                          {products.length > 0 ? Math.round((categoryProducts.length / products.length) * 100) : 0}% del catálogo
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="cat-card-footer">
+                      <button 
+                        onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true) }} 
+                        className="cat-btn-edit"
+                      >
+                        <Edit size={16} />
+                        Editar
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setFilterCategory(c.id);
+                          setActiveTab('products');
+                        }}
+                        className="cat-btn-view"
+                      >
+                        <ShoppingBag size={16} />
+                        Ver productos
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {categories.length === 0 && (
+                <div className="cat-empty-state">
+                  <div className="cat-empty-icon">
+                    <List size={48} />
+                  </div>
+                  <h3 className="cat-empty-title">No hay categorías</h3>
+                  <p className="cat-empty-text">Crea tu primera categoría para organizar tus productos</p>
+                  <button 
+                    onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true) }} 
+                    className="btn btn-primary"
+                  >
+                    <Plus size={18} /> Crear Categoría
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

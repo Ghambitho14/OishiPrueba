@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { routes } from "../router";
 import { BusinessProvider } from "../../context/BusinessContext";
 import { LocationProvider } from "../../context/LocationContext";
+import { CashProvider } from "../../context/CashContext";
 
 // Assets
 import menuPattern from "../../assets/menu-pattern.webp";
@@ -162,9 +163,11 @@ function App() {
   return (
     <BusinessProvider>
       <LocationProvider>
-        <Router>
-          <InnerApp />
-        </Router>
+        <CashProvider>
+          <Router>
+            <InnerApp />
+          </Router>
+        </CashProvider>
       </LocationProvider>
     </BusinessProvider>
   );

@@ -45,7 +45,22 @@ export const useCashSystem = (showNotify) => {
     }, [showNotify, loadMovements]);
 
     useEffect(() => {
-        loadActiveShift();
+        loadActiveShift(); // Carga inicial
+
+        // Listener para cambios en la tabla de turnos (aperturas/cierres)
+        const shiftsChannel = supabase
+            .channel('cash_shifts_realtime_admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_shifts' },
+                (payload) => {
+                    console.log('Change on cash_shifts table detected', payload);
+                    loadActiveShift();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            shiftsChannel.unsubscribe();
+        };
     }, [loadActiveShift]);
 
     /**

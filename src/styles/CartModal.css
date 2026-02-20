@@ -442,6 +442,21 @@
     border-bottom: 1px solid rgba(255, 68, 68, 0.2);
 }
 
+.cash-closed-banner {
+  background-color: #a16207;
+  color: #fef08a;
+  padding: 12px 15px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 5px;
+}
+
 /* SUCCESS VIEW */
 .cart-success-view {
     text-align: center;

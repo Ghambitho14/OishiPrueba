@@ -61,7 +61,7 @@ const CashManager = ({ showNotify }) => {
         }
     }, [getPastShifts, showNotify]);
 
-    useEffect(() => { loadHistory(); }, [loadHistory]);
+    useEffect(() => { loadHistory(); }, [loadHistory, activeShift]);
 
     const totals = useMemo(() => getTotals(movements), [movements, getTotals]);
 
