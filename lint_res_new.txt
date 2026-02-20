@@ -1,8 +1,0 @@
-C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\context\LocationContext.jsx
- 3:react-refresh/only-export-components
-C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\admin\components\caja\CashMovementModal.jsx
- 14:react-hooks/set-state-in-effect
-C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\admin\components\caja\CashShiftModal.jsx
- 10:react-hooks/set-state-in-effect
-C:\Users\gabriel\Documents\GitHub\OishiPrueba\src\features\products\components\ProductModal.jsx
- 33:react-hooks/set-state-in-effect
