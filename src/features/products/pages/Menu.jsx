@@ -30,21 +30,69 @@ const Menu = () => {
   // 1. Carga de datos optimizada (Paralela)
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
       try {
-        const [catsResponse, prodsResponse, branchesResponse] = await Promise.all([
+        // 1. Cargar sucursales (siempre necesario para el modal)
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('branches')
+          .select('*')
+          .eq('is_active', true)
+          .order('name', { ascending: true });
+
+        if (branchesError) throw branchesError;
+
+        // Si no hay sucursal seleccionada, solo guardamos branches y paramos (el modal se abrirá)
+        if (!selectedBranch) {
+          setData({ categories: [], products: [], branches: branchesData || [] });
+          setLoading(false);
+          setIsLocationModalOpen(true);
+          return;
+        }
+
+        // 2. Cargar datos dependientes de la sucursal (Precios y Estado Local)
+        const [catsRes, prodsRes, pricesRes, statusRes] = await Promise.all([
           supabase.from('categories').select('*').eq('is_active', true).order('order', { ascending: true }),
-          supabase.from('products').select('*').eq('is_active', true).order('name', { ascending: true }),
-          supabase.from('branches').select('*').eq('is_active', true).order('name', { ascending: true })
+          supabase.from('products').select('*').order('name', { ascending: true }), // Traemos base global
+          supabase.from('product_prices').select('*').eq('branch_id', selectedBranch.id),
+          supabase.from('product_branch').select('*').eq('branch_id', selectedBranch.id)
         ]);
 
-        const categoriesData = catsResponse.data || [];
-        const productsData = prodsResponse.data || [];
-        const branchesData = branchesResponse.data || [];
+        if (catsRes.error) throw catsRes.error;
+        if (prodsRes.error) throw prodsRes.error;
+        if (pricesRes.error) throw pricesRes.error;
+        if (statusRes.error) throw statusRes.error;
+
+        const branchPrices = pricesRes.data || [];
+        const branchStatuses = statusRes.data || [];
+
+        // --- FUSIÓN DE DATOS ESTRICTA ---
+        const processedProducts = prodsRes.data.map(prod => {
+          const priceData = branchPrices.find(p => p.product_id === prod.id);
+          const statusData = branchStatuses.find(s => s.product_id === prod.id);
+
+          // 1. Si no tiene registro en product_branch o is_active es false, lo descartamos
+          if (!statusData || !statusData.is_active) return null;
+
+          // 2. Si no tiene precio configurado para esta sucursal (o es 0), lo descartamos
+          const price = (priceData && Number(priceData.price) > 0) ? Number(priceData.price) : 0;
+          if (price <= 0) return null;
+
+          return {
+            ...prod,
+            price: price,
+            has_discount: priceData ? priceData.has_discount : false,
+            discount_price: priceData ? Number(priceData.discount_price) : null,
+            is_active: true, // Ya filtramos los inactivos
+            is_special: statusData.is_special // Usar flag de sucursal
+          };
+        }).filter(p => p !== null);
+
+        const categoriesData = catsRes.data || [];
         
-        setData({ categories: categoriesData, products: productsData, branches: branchesData });
+        setData({ categories: categoriesData, products: processedProducts, branches: branchesData || [] });
 
         // Lógica de categoría inicial
-        const hasSpecial = productsData.some(p => p.is_special);
+        const hasSpecial = processedProducts.some(p => p.is_special);
         setActiveCategory(hasSpecial ? 'special' : categoriesData[0]?.id || null);
 
       } catch (error) {
@@ -54,8 +102,7 @@ const Menu = () => {
       }
     };
     loadData();
-    setIsLocationModalOpen(true);
-  }, [setIsLocationModalOpen]);
+  }, [selectedBranch, setIsLocationModalOpen]);
 
   // 2. Filtrado memoizado para rendimiento
   const { specialProducts, filteredBySearch, query } = useMemo(() => {

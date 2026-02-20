@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import InventoryItemModal from './InventoryItemModal';
 import '../styles/AdminInventory.css';
 
-const AdminInventory = ({ showNotify }) => {
+const AdminInventory = ({ showNotify, branchId }) => {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -12,15 +12,35 @@ const AdminInventory = ({ showNotify }) => {
     const [editingItem, setEditingItem] = useState(null);
 
     const loadItems = useCallback(async () => {
+        if (!branchId) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            // 1. Fetch all item definitions
+            const { data: allItems, error: itemsError } = await supabase
                 .from('inventory_items')
                 .select('*')
                 .order('name');
             
-            if (error) throw error;
-            setItems(data || []);
+            if (itemsError) throw itemsError;
+
+            // 2. Fetch stock for current branch
+            let branchStock = [];
+            if (branchId !== 'all') {
+                const { data, error: stockError } = await supabase
+                    .from('inventory_branch')
+                    .select('*')
+                    .eq('branch_id', branchId);
+                if (stockError) throw stockError;
+                branchStock = data || [];
+            }
+
+            // 3. Merge data
+            const mergedItems = (allItems || []).map(item => {
+                const stockEntry = branchStock?.find(s => s.inventory_item_id === item.id);
+                return { ...item, stock: stockEntry?.current_stock || 0, branch_relation_id: stockEntry?.id };
+            });
+
+            setItems(mergedItems);
         } catch (error) {
             console.error('Error loading inventory:', error);
             if (error.code === '42P01') {
@@ -31,7 +51,7 @@ const AdminInventory = ({ showNotify }) => {
         } finally {
             setLoading(false);
         }
-    }, [showNotify]);
+    }, [showNotify, branchId]);
 
     useEffect(() => {
         loadItems();
@@ -195,6 +215,7 @@ const AdminInventory = ({ showNotify }) => {
                 onItemSaved={loadItems}
                 itemToEdit={editingItem}
                 showNotify={showNotify}
+                branchId={branchId}
             />
         </div>
     );

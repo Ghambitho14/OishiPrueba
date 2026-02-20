@@ -13,14 +13,19 @@ export const ordersService = {
     async createOrder(orderData, receiptFile = null) {
         try {
             // 0. VALIDACIÓN DE CAJA (REGLA DE NEGOCIO GLOBAL)
+            if (!orderData.branch_id) {
+                throw new Error("El ID de sucursal es obligatorio para crear un pedido.");
+            }
+
             const { data: openShift } = await supabase
                 .from('cash_shifts')
                 .select('id')
                 .eq('status', 'open')
+                .eq('branch_id', orderData.branch_id)
                 .maybeSingle();
 
             if (!openShift) {
-                throw new Error("El local no está recibiendo pedidos en este momento (Caja Cerrada).");
+                throw new Error("El local no está recibiendo pedidos en este momento (Caja Cerrada). Por favor verifique el horario de atención.");
             }
 
             // [MEJORA DE SEGURIDAD] Recalcular total para evitar manipulación de precios
@@ -79,6 +84,7 @@ export const ordersService = {
                     note: finalNote,
                     status: orderData.status || 'pending',
                     branch_id: orderData.branch_id, // Add branch_id
+                    company_id: orderData.company_id, // Add company_id
                     created_at: new Date().toISOString()
                 })
                 .select()
@@ -155,7 +161,8 @@ export const ordersService = {
                     rut: rutToSave,
                     total_spent: total,
                     total_orders: 1,
-                    last_order_at: new Date().toISOString()
+                    last_order_at: new Date().toISOString(),
+                    company_id: orderData.company_id
                 }, { onConflict: 'phone' }) // Si el teléfono ya existe, actualiza
                 .select('id')
                 .single();

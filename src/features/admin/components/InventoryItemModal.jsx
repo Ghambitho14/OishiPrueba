@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
-const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, showNotify }) => {
+const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, showNotify, branchId }) => {
     const [formData, setFormData] = useState({
         name: '',
         stock: 0,
@@ -43,22 +43,39 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
         setLoading(true);
 
         try {
+            let itemId = itemToEdit?.id;
+
+            // 1. Save/Update Item Definition (Global)
+            const itemData = {
+                name: formData.name,
+                unit: formData.unit,
+                min_stock: formData.min_stock,
+                category: formData.category,
+                cost_price: formData.cost_price
+            };
+
             if (itemToEdit) {
-                // Update
-                const { error } = await supabase
-                    .from('inventory_items')
-                    .update(formData)
-                    .eq('id', itemToEdit.id);
+                const { error } = await supabase.from('inventory_items').update(itemData).eq('id', itemId);
                 if (error) throw error;
-                showNotify('Insumo actualizado', 'success');
             } else {
-                // Create
-                const { error } = await supabase
-                    .from('inventory_items')
-                    .insert([formData]);
+                const { data, error } = await supabase.from('inventory_items').insert([itemData]).select().single();
                 if (error) throw error;
-                showNotify('Insumo creado', 'success');
+                itemId = data.id;
             }
+
+            // 2. Update Stock for Branch (Local)
+            if (branchId && itemId) {
+                const { error: stockError } = await supabase.from('inventory_branch').upsert({
+                    inventory_item_id: itemId,
+                    branch_id: branchId,
+                    current_stock: formData.stock,
+                    min_stock: formData.min_stock // Optional: override min_stock per branch if needed
+                }, { onConflict: 'inventory_item_id, branch_id' });
+                
+                if (stockError) throw stockError;
+            }
+
+            showNotify(itemToEdit ? 'Insumo actualizado' : 'Insumo creado', 'success');
             onItemSaved();
             onClose();
         } catch (error) {

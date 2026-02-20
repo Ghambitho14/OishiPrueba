@@ -12,7 +12,7 @@ const initialOrderState = {
     note: ''
 };
 
-export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale) => {
+export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, branch) => {
 
     // --- ESTADOS DE DATOS ---
     // Usar lazy initialization para evitar reset
@@ -165,6 +165,11 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale) 
 
     // --- ENVÍO ---
     const submitOrder = async () => {
+        if (!branch) {
+            showNotify('Error: No hay sucursal seleccionada', 'error');
+            return;
+        }
+
         const sanitizeInput = (text) => text ? text.replace(/<[^>]*>?/gm, "").trim() : "";
 
         const digitCount = (manualOrder.client_phone || '').replace(/\D/g, '').length;
@@ -189,6 +194,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale) 
                 client_phone: sanitizeInput(manualOrder.client_phone),
                 client_rut: sanitizeInput(manualOrder.client_rut),
                 note: sanitizeInput(manualOrder.note),
+                branch_id: branch.id,
+                company_id: branch.company_id,
+                branch_name: branch.name
             };
 
             const itemsForOrder = (sanitizedOrder.items || []).map((item) => ({

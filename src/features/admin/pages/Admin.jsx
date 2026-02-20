@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
   Package, DollarSign, Star, Trophy, PieChart,
-  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff
+  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, MapPin
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ProductModal from '../../products/components/ProductModal';
@@ -26,6 +26,7 @@ import '../../../styles/AdminLayout.css';
 import '../../../styles/AdminAnalytics.css';
 import '../../../styles/AdminShared.css';
 import '../../../styles/AdminCategories.css';
+import ScopeSelectionModal from '../components/ScopeSelectionModal';
 
 
 // --- CAPA DE SANEAMIENTO (EL PORTERO) ---
@@ -55,7 +56,17 @@ const sanitizeOrder = (rawOrder) => {
   };
 };
 
-const Admin = () => {
+const AdminContext = createContext(null);
+
+const useAdmin = () => {
+  const context = useContext(AdminContext);
+  if (!context) {
+    throw new Error('useAdmin must be used within an AdminProvider');
+  }
+  return context;
+};
+
+const AdminProvider = ({ children }) => {
   const navigate = useNavigate();
 
   // --- ESTADOS DE DATOS ---
@@ -64,6 +75,8 @@ const Admin = () => {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [clients, setClients] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState(null);
 
   // --- ESTADOS DE INTERFAZ ---
   const [isHistoryView, setIsHistoryView] = useState(false);
@@ -89,6 +102,9 @@ const Admin = () => {
   const [receiptPreview, setReceiptPreview] = useState(null);
   const [isManualOrderModalOpen, setIsManualOrderModalOpen] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+
+  // --- MODAL DE ALCANCE (GLOBAL VS LOCAL) ---
+  const [scopeModal, setScopeModal] = useState({ isOpen: false, item: null, type: 'product' });
 
   // --- CRM & REPORTES ---
   const [selectedClient, setSelectedClient] = useState(null);
@@ -126,7 +142,7 @@ const Admin = () => {
   }, []);
 
   // --- SISTEMA DE CAJA ---
-  const { registerSale, registerRefund } = useCashSystem(showNotify);
+  const cashSystem = useCashSystem(showNotify, selectedBranch?.id);
 
   // --- [MEJORA SEGURIDAD] VERIFICACIÓN DE ROL ---
   useEffect(() => {
@@ -152,28 +168,104 @@ const Admin = () => {
     verifyAdminAccess();
   }, [navigate, showNotify]);
 
+  // --- CARGA DE SUCURSALES ---
+  useEffect(() => {
+    const loadBranches = async () => {
+      const { data, error } = await supabase.from('branches').select('*').order('name');
+      if (!error && data?.length > 0) {
+        setBranches(data);
+        // [FIX] Seleccionar automáticamente la primera sucursal si no hay ninguna seleccionada
+        if (!selectedBranch || selectedBranch.id === 'all') {
+          setSelectedBranch(data[0]);
+        }
+      }
+    };
+    loadBranches();
+  }, []);
+
+  // --- VALIDACIÓN DE SUCURSAL ACTIVA ---
+  // Si no estamos en Analytics, forzar selección de una sucursal real (no 'all')
+  useEffect(() => {
+    if (branches.length === 0) return;
+
+    if (activeTab !== 'analytics') {
+      // Si es 'all' o nulo, cambiar a la primera sucursal
+      if (!selectedBranch || selectedBranch.id === 'all') {
+        setSelectedBranch(branches[0]);
+      }
+    }
+  }, [activeTab, branches, selectedBranch]);
+
   // --- 1. CARGA DE DATOS ---
   const loadData = useCallback(async (isRefresh = false) => {
+    if (!selectedBranch) return;
+
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const [catsRes, prodsRes, ordsRes, cltsRes] = await Promise.all([
+      const isAllBranches = selectedBranch.id === 'all';
+
+      // 1. Cargar datos base
+      const promises = [
         supabase.from('categories').select('*').order('order'),
         supabase.from('products').select('*').order('name'),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        isAllBranches 
+          ? supabase.from('orders').select('*').order('created_at', { ascending: false })
+          : supabase.from('orders').select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }),
         supabase.from('clients').select('*').order('last_order_at', { ascending: false })
-      ]);
+      ];
+
+      if (!isAllBranches) {
+        promises.push(supabase.from('product_prices').select('*').eq('branch_id', selectedBranch.id));
+        promises.push(supabase.from('product_branch').select('*').eq('branch_id', selectedBranch.id));
+      }
+
+      const results = await Promise.all(promises);
+      const [catsRes, globalProductsRes, ordsRes, cltsRes] = results;
+      const pricesRes = !isAllBranches ? results[4] : { data: [] };
+      const branchStatusRes = !isAllBranches ? results[5] : { data: [] };
 
       if (catsRes.error) throw catsRes.error;
-      if (prodsRes.error) throw prodsRes.error;
+      if (globalProductsRes.error) throw globalProductsRes.error;
       if (ordsRes.error) throw ordsRes.error;
       if (cltsRes.error) throw cltsRes.error;
+
+      if (!isAllBranches) {
+        if (pricesRes.error) throw pricesRes.error;
+        if (branchStatusRes.error) throw branchStatusRes.error;
+      }
+
+      // 2. Fusionar productos con datos de la sucursal
+      const branchPrices = pricesRes.data || [];
+      const branchStatuses = branchStatusRes.data || [];
+      
+      const mergedProducts = (globalProductsRes.data || []).map(prod => {
+        // Si estamos viendo "Todas", usamos los datos globales directos
+        if (isAllBranches) return prod;
+
+        const priceData = branchPrices.find(p => p.product_id === prod.id);
+        const statusData = branchStatuses.find(s => s.product_id === prod.id);
+
+        return {
+          ...prod,
+          // STRICT MODE: Usar SOLO datos de la sucursal. Si no existe configuración, es 0/inactivo.
+          price: priceData ? priceData.price : 0,
+          has_discount: priceData ? priceData.has_discount : false,
+          discount_price: priceData ? priceData.discount_price : 0,
+          // Si no hay registro en product_branch, asumimos que NO está activo en esta sucursal
+          is_active: statusData ? statusData.is_active : false,
+          is_special: statusData ? statusData.is_special : false,
+          // Guardar IDs de relación para updates
+          price_id: priceData?.id,
+          branch_relation_id: statusData?.id
+        };
+      });
 
       const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
 
       setCategories(catsRes.data || []);
-      setProducts(prodsRes.data || []);
+      setProducts(mergedProducts);
       setOrders(cleanOrders);
       setClients(cltsRes.data || []);
 
@@ -184,7 +276,7 @@ const Admin = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [showNotify]);
+  }, [showNotify, selectedBranch]);
 
   const loadClientHistory = async (client) => {
     if (!client) return;
@@ -243,6 +335,7 @@ const Admin = () => {
           event: '*',
           schema: 'public',
           table: 'orders',
+          filter: selectedBranch ? `branch_id=eq.${selectedBranch.id}` : undefined
         },
         handleRealtimeEvent
       )
@@ -265,7 +358,7 @@ const Admin = () => {
       clearInterval(intervalId);
       supabase.removeChannel(channel);
     };
-  }, [loadData, handleRealtimeEvent, isModalOpen, editingProduct]);
+  }, [loadData, handleRealtimeEvent, isModalOpen, editingProduct, selectedBranch]);
 
   // --- 2. GESTIÓN DE PEDIDOS ---
   const moveOrder = async (orderId, nextStatus) => {
@@ -278,18 +371,18 @@ const Admin = () => {
       
       // [FIX] Registrar venta en caja si se completa/entrega
       if ((nextStatus === 'completed' || nextStatus === 'picked_up') && activeTab === 'orders') {
-          const targetOrder = orders.find(o => o.id === orderId);
+          const targetOrder = previousOrders.find(o => o.id === orderId);
           if (targetOrder) {
-             registerSale(targetOrder);
+             cashSystem.registerSale(targetOrder);
           }
       }
 
       // [FIX] Registrar devolución si se cancela una orden previamente completada
       if (nextStatus === 'cancelled') {
-        const targetOrder = orders.find(o => o.id === orderId);
+        const targetOrder = previousOrders.find(o => o.id === orderId);
         // Solo si estaba completada o entregada (ya sumó a caja)
         if (targetOrder && (targetOrder.status === 'completed' || targetOrder.status === 'picked_up')) {
-            registerRefund(targetOrder);
+            cashSystem.registerRefund(targetOrder);
         }
       }
 
@@ -333,6 +426,8 @@ const Admin = () => {
 
   // --- 3. GESTIÓN DE PRODUCTOS ---
   const handleSaveProduct = async (formData, localFile) => {
+    if (!selectedBranch) return;
+
     setRefreshing(true);
     try {
       let finalImageUrl = formData.image_url;
@@ -340,24 +435,78 @@ const Admin = () => {
         finalImageUrl = await uploadImage(localFile, 'menu');
       }
 
-      const payload = { 
+      const isAllBranches = selectedBranch.id === 'all';
+
+      // 1. Guardar/Actualizar Producto Global
+      const productPayload = { 
         name: formData.name,
         description: formData.description,
         category_id: formData.category_id,
         image_url: finalImageUrl,
-        price: parseInt(formData.price) || 0,
-        is_special: formData.is_special || false,
-        has_discount: formData.has_discount || false,
-        discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null
+        // MEJORA LÓGICA: Si es un producto NUEVO o estamos en "Todas",
+        // guardamos los datos base (precio/estado) en la tabla global para que sirvan de fallback.
+        ...((!editingProduct || isAllBranches) && {
+          price: parseInt(formData.price) || 0,
+          is_special: formData.is_special || false,
+          has_discount: formData.has_discount || false,
+          discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null
+        })
       };
 
-      if (editingProduct) {
-        await supabase.from('products').update(payload).eq('id', editingProduct.id);
-        showNotify("Producto actualizado");
-      } else {
-        await supabase.from('products').insert(payload);
-        showNotify("Producto creado");
+      // Si estamos en una sucursal específica, aseguramos que el producto tenga company_id si es nuevo
+      if (!isAllBranches) {
+          productPayload.company_id = selectedBranch.company_id;
       }
+      else if (branches.length > 0) {
+          // Fallback: Si es "Todas", usar el company_id de la primera sucursal real
+          productPayload.company_id = branches[0].company_id;
+      }
+
+      let productId = editingProduct?.id;
+
+      if (editingProduct) {
+        await supabase.from('products').update(productPayload).eq('id', productId);
+      } else {
+        const { data: newProd, error } = await supabase.from('products').insert(productPayload).select().single();
+        if (error) throw error;
+        productId = newProd.id;
+      }
+
+      // 2. Guardar/Actualizar Precios ESPECÍFICOS (Solo si NO es "Todas las sucursales")
+      if (!isAllBranches) {
+          const pricePayload = {
+            product_id: productId,
+            branch_id: selectedBranch.id,
+            company_id: selectedBranch.company_id,
+            price: parseInt(formData.price) || 0,
+            has_discount: formData.has_discount || false,
+            discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null,
+            is_active: true
+          };
+
+          const { error: priceError } = await supabase.from('product_prices').upsert(
+            { ...pricePayload, id: editingProduct?.price_id },
+            { onConflict: 'product_id, branch_id' }
+          );
+          if (priceError) throw priceError;
+
+          // 3. Guardar/Actualizar Estado en Sucursal
+          const branchPayload = {
+            product_id: productId,
+            branch_id: selectedBranch.id,
+            // Si estamos editando, mantener estado actual. Si es nuevo, activo por defecto.
+            is_active: editingProduct ? editingProduct.is_active : true,
+            is_special: formData.is_special || false
+          };
+
+          const { error: branchError } = await supabase.from('product_branch').upsert(
+            { ...branchPayload, id: editingProduct?.branch_relation_id },
+            { onConflict: 'product_id, branch_id' }
+          );
+          if (branchError) throw branchError;
+      }
+
+      showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
       setIsModalOpen(false);
       loadData(true);
     } catch (error) {
@@ -370,7 +519,11 @@ const Admin = () => {
   const deleteProduct = async (id) => {
     if (!window.confirm('¿Eliminar producto?')) return;
     try {
+      // MEJORA LÓGICA: Limpieza manual de relaciones para evitar errores de FK
+      await supabase.from('product_prices').delete().eq('product_id', id);
+      await supabase.from('product_branch').delete().eq('product_id', id);
       await supabase.from('products').delete().eq('id', id);
+      
       showNotify("Producto eliminado");
       loadData(true);
     } catch {
@@ -378,13 +531,46 @@ const Admin = () => {
     }
   };
 
+  // --- 3.1 TOGGLE CON CONFIRMACIÓN DE ALCANCE ---
   const toggleProductActive = async (product, e) => {
     e.stopPropagation();
-    const newActive = !product.is_active;
-    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_active: newActive } : p));
+    if (!selectedBranch) return;
+    
+    // Abrir modal para decidir alcance
+    setScopeModal({
+      isOpen: true,
+      item: product,
+      type: 'product'
+    });
+  };
+
+  const handleScopeConfirm = async (scope) => {
+    const { item, type } = scopeModal;
+    setScopeModal({ ...scopeModal, isOpen: false });
+
+    if (!item) return;
+
+    const newActive = !item.is_active;
+
+    // Actualización optimista en UI
+    if (type === 'product') {
+      setProducts(prev => prev.map(p => p.id === item.id ? { ...p, is_active: newActive } : p));
+    }
+
     try {
-      await supabase.from('products').update({ is_active: newActive }).eq('id', product.id);
-      showNotify(newActive ? 'Producto activado' : 'Producto pausado');
+      if (scope === 'global' || selectedBranch.id === 'all') {
+        // Actualizar GLOBALMENTE (Tabla products)
+        await supabase.from('products').update({ is_active: newActive }).eq('id', item.id);
+        showNotify(newActive ? 'Activado en todos los locales' : 'Desactivado en todos los locales');
+      } else {
+        // Actualizar LOCALMENTE (Tabla product_branch)
+        await supabase.from('product_branch').upsert({
+          product_id: item.id,
+          branch_id: selectedBranch.id,
+          is_active: newActive
+        }, { onConflict: 'product_id, branch_id' });
+        showNotify(newActive ? 'Activado en este local' : 'Desactivado en este local');
+      }
     } catch {
       loadData(true);
       showNotify('Error al cambiar estado', 'error');
@@ -393,18 +579,31 @@ const Admin = () => {
 
   const handleSaveCategory = async (formData) => {
     try {
-      const payload = { name: formData.name, order: parseInt(formData.order), is_active: formData.is_active };
+      const payload = { 
+        name: formData.name, 
+        order: parseInt(formData.order), 
+        is_active: formData.is_active 
+      };
+
+      // Asignar company_id (necesario por la nueva BD)
+      if (selectedBranch && selectedBranch.id !== 'all') {
+        payload.company_id = selectedBranch.company_id;
+      } else if (branches.length > 0) {
+        payload.company_id = branches[0].company_id;
+      }
+
       if (editingCategory) {
         await supabase.from('categories').update(payload).eq('id', editingCategory.id);
       } else {
-        const id = formData.name.toLowerCase().replace(/\s+/g, '-').slice(0, 20);
-        await supabase.from('categories').insert({ ...payload, id });
+        // Dejar que la base de datos genere el UUID
+        await supabase.from('categories').insert(payload);
       }
       setIsCategoryModalOpen(false);
       loadData(true);
       showNotify('Categoría guardada');
-    } catch {
-      showNotify('Error al guardar', 'error');
+    } catch (error) {
+      console.error(error);
+      showNotify('Error al guardar: ' + error.message, 'error');
     }
   };
 
@@ -444,6 +643,158 @@ const Admin = () => {
       paused: products.filter(p => !p.is_active).length
     };
   }, [products]);
+
+  const value = useMemo(() => ({
+    navigate,
+    activeTab, setActiveTab,
+    products, setProducts,
+    categories, setCategories,
+    orders, setOrders,
+    clients, setClients,
+    branches, setBranches,
+    selectedBranch, setSelectedBranch,
+    isHistoryView, setIsHistoryView,
+    mobileTab, setMobileTab,
+    searchQuery, setSearchQuery,
+    filterCategory, setFilterCategory,
+    filterStatus, setFilterStatus,
+    viewMode, setViewMode,
+    sortOrder, setSortOrder,
+    loading, setLoading,
+    refreshing, setRefreshing,
+    isMobile, setIsMobile,
+    isModalOpen, setIsModalOpen,
+    editingProduct, setEditingProduct,
+    isCategoryModalOpen, setIsCategoryModalOpen,
+    editingCategory, setEditingCategory,
+    notification, setNotification,
+    receiptModalOrder, setReceiptModalOrder,
+    receiptPreview, setReceiptPreview,
+    isManualOrderModalOpen, setIsManualOrderModalOpen,
+    uploadingReceipt, setUploadingReceipt,
+    selectedClient, setSelectedClient,
+    selectedClientOrders, setSelectedClientOrders,
+    clientHistoryLoading, setClientHistoryLoading,
+    showNotify,
+    cashSystem,
+    loadData,
+    handleSelectClient,
+    moveOrder,
+    uploadReceiptToOrder,
+    handleReceiptFileChange,
+    handleSaveProduct,
+    deleteProduct,
+    toggleProductActive,
+    scopeModal,
+    handleScopeConfirm,
+    setScopeModal,
+    handleSaveCategory,
+    kanbanColumns,
+    processedProducts,
+    productStats,
+  }), [
+    navigate,
+    activeTab,
+    products,
+    categories,
+    orders,
+    clients,
+    branches,
+    selectedBranch,
+    isHistoryView,
+    mobileTab,
+    searchQuery,
+    filterCategory,
+    filterStatus,
+    viewMode,
+    sortOrder,
+    loading,
+    refreshing,
+    isMobile,
+    isModalOpen,
+    editingProduct,
+    isCategoryModalOpen,
+    editingCategory,
+    notification,
+    receiptModalOrder,
+    receiptPreview,
+    isManualOrderModalOpen,
+    uploadingReceipt,
+    selectedClient,
+    selectedClientOrders,
+    clientHistoryLoading,
+    showNotify,
+    cashSystem, // Ahora es estable gracias al fix en useCashSystem
+    loadData,
+    handleSelectClient,
+    moveOrder,
+    uploadReceiptToOrder,
+    handleReceiptFileChange,
+    handleSaveProduct,
+    deleteProduct,
+    toggleProductActive,
+    scopeModal,
+    handleScopeConfirm,
+    setScopeModal,
+    handleSaveCategory,
+    kanbanColumns,
+    processedProducts,
+    productStats
+  ]);
+
+  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
+};
+
+const AdminComponent = () => {
+  const {
+    navigate,
+    activeTab, setActiveTab,
+    products,
+    categories,
+    orders,
+    clients,
+    branches,
+    selectedBranch, setSelectedBranch,
+    isHistoryView, setIsHistoryView,
+    mobileTab, setMobileTab,
+    searchQuery, setSearchQuery,
+    filterCategory, setFilterCategory,
+    filterStatus, setFilterStatus,
+    viewMode, setViewMode,
+    sortOrder, setSortOrder,
+    loading,
+    refreshing,
+    isMobile,
+    isModalOpen, setIsModalOpen,
+    editingProduct, setEditingProduct,
+    isCategoryModalOpen, setIsCategoryModalOpen,
+    editingCategory, setEditingCategory,
+    notification,
+    receiptModalOrder, setReceiptModalOrder,
+    receiptPreview, setReceiptPreview,
+    isManualOrderModalOpen, setIsManualOrderModalOpen,
+    uploadingReceipt,
+    selectedClient, setSelectedClient,
+    selectedClientOrders,
+    clientHistoryLoading,
+    showNotify,
+    cashSystem,
+    loadData,
+    handleSelectClient,
+    moveOrder,
+    uploadReceiptToOrder,
+    handleReceiptFileChange,
+    handleSaveProduct,
+    deleteProduct,
+    toggleProductActive,
+    scopeModal,
+    handleScopeConfirm,
+    setScopeModal,
+    handleSaveCategory,
+    kanbanColumns,
+    processedProducts,
+    productStats,
+  } = useAdmin();
 
   if (loading && !refreshing && products.length === 0 && orders.length === 0) return (
     <div className="admin-layout flex-center" style={{ height: '100vh', background: '#0a0a0a', flexDirection: 'column', gap: 20 }}>
@@ -487,6 +838,31 @@ const Admin = () => {
             <button onClick={() => loadData(true)} className="btn-icon-refresh" disabled={refreshing}>
               <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
             </button>
+
+            {/* SELECTOR DE SUCURSAL */}
+            <div className="branch-selector-wrapper" style={{ marginRight: 10 }}>
+              <div className="glass" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 8, gap: 8 }}>
+                <MapPin size={16} className="text-accent" />
+                <select 
+                  value={selectedBranch?.id || ''} 
+                  onChange={(e) => {
+                    if (e.target.value === 'all') {
+                      setSelectedBranch({ id: 'all', name: 'Todas las sucursales' });
+                    } else {
+                      const branch = branches.find(b => b.id === e.target.value);
+                      setSelectedBranch(branch);
+                    }
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  {branches.map(b => <option key={b.id} value={b.id} style={{color: 'black'}}>{b.name}</option>)}
+                  {activeTab === 'analytics' && (
+                    <option value="all" style={{color: 'black', fontWeight: 'bold'}}>Todas las sucursales</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
             {activeTab === 'orders' && (
               <>
                 <button className={`btn ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`} 
@@ -609,7 +985,7 @@ const Admin = () => {
 
         {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
         {activeTab === 'inventory' && (
-            <AdminInventory showNotify={showNotify} />
+            <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} />
         )}
 
         {/* 3. REPORTES */}
@@ -618,6 +994,7 @@ const Admin = () => {
             orders={orders} 
             products={products} 
             clients={clients} 
+            branches={branches}
           />
         )}
 
@@ -850,7 +1227,8 @@ const Admin = () => {
         onOrderSaved={() => loadData(true)}
         isMobile={isMobile}
         showNotify={showNotify}
-        registerSale={registerSale}
+        registerSale={cashSystem.registerSale}
+        branch={selectedBranch} // Pass selected branch
       />
 
       {isModalOpen && (
@@ -863,9 +1241,25 @@ const Admin = () => {
           saving={refreshing}
         />
       )}
+
+      {/* MODAL DE SELECCIÓN DE ALCANCE */}
+      <ScopeSelectionModal
+        isOpen={scopeModal.isOpen}
+        onClose={() => setScopeModal({ ...scopeModal, isOpen: false })}
+        onConfirm={handleScopeConfirm}
+        branchName={selectedBranch?.name || 'Sucursal'}
+        actionType={scopeModal.item?.is_active ? 'deactivate' : 'activate'}
+      />
+
       <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} onSave={handleSaveCategory} category={editingCategory} />
     </div>
   );
 };
+
+const Admin = () => (
+  <AdminProvider>
+    <AdminComponent />
+  </AdminProvider>
+);
 
 export default Admin;
