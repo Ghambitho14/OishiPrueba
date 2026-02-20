@@ -12,6 +12,22 @@ export const ordersService = {
      */
     async createOrder(orderData, receiptFile = null) {
         try {
+            // [MEJORA DE SEGURIDAD] Recalcular total para evitar manipulación de precios
+            const calculatedTotal = orderData.items.reduce((sum, item) => {
+                // Priorizar precio de descuento si existe y es válido
+                const price = (item.has_discount && item.discount_price && Number(item.discount_price) > 0) 
+                    ? Number(item.discount_price) 
+                    : Number(item.price || 0);
+                
+                return sum + (price * (Number(item.quantity) || 1));
+            }, 0);
+
+            // Si hay una discrepancia mayor a $50 (por posibles redondeos), corregimos forzosamente
+            if (Math.abs(calculatedTotal - orderData.total) > 50) {
+                console.warn(`⚠️ Discrepancia de precio detectada. Recibido: ${orderData.total}, Calculado: ${calculatedTotal}. Se aplicará el calculado.`);
+                orderData.total = calculatedTotal;
+            }
+
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
             let receiptUploadFailed = false;

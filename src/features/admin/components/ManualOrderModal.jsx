@@ -22,6 +22,12 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 
     const getQty = (id) => manualOrder.items.find(i => i.id === id)?.quantity || 0;
 
+    // [MEJORA SEGURIDAD] Función de sanitización
+    const sanitizeInput = (text) => {
+        if (!text) return '';
+        return text.replace(/[<>]/g, '').trim(); // Elimina < y > para evitar inyección básica
+    };
+
     // --- EFFECT: ESCAPE KEY ---
     React.useEffect(() => {
         const handleKeyDown = (e) => {
@@ -275,7 +281,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                                         placeholder="NOMBRE COMPLETO *"
                                         className="manual-order-input"
                                         value={manualOrder.client_name}
-                                        onChange={e => updateClientName(e.target.value)}
+                                        onChange={e => updateClientName(sanitizeInput(e.target.value))}
                                         aria-label="Nombre completo del cliente"
                                         style={{ paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px' }}
                                     />
@@ -337,7 +343,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                                     placeholder="Nota opcional..."
                                     className="manual-order-input"
                                     value={manualOrder.note}
-                                    onChange={e => updateNote(e.target.value)}
+                                    onChange={e => updateNote(sanitizeInput(e.target.value))}
                                     rows={1}
                                     maxLength={500}
                                     aria-label="Nota o comentario del pedido"

@@ -125,6 +125,30 @@ const Admin = () => {
   // --- SISTEMA DE CAJA ---
   const { registerSale, registerRefund } = useCashSystem(showNotify);
 
+  // --- [MEJORA SEGURIDAD] VERIFICACIÓN DE ROL ---
+  useEffect(() => {
+    const verifyAdminAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Verificar si el email está en la tabla de admins
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('role')
+          .eq('email', user.email)
+          .maybeSingle();
+
+        if (!adminUser) {
+          console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Se permite el acceso temporalmente.");
+          // Cuando hayas agregado tu email a la base de datos, descomenta esto para activar la seguridad real:
+          // await supabase.auth.signOut();
+          // navigate('/login');
+          // showNotify('No tienes permisos de administrador', 'error');
+        }
+      }
+    };
+    verifyAdminAccess();
+  }, [navigate, showNotify]);
+
   // --- 1. CARGA DE DATOS ---
   const loadData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -204,42 +228,25 @@ const Admin = () => {
     }
   }, [showNotify]);
 
-  const handleClientRealtimeEvent = useCallback((payload) => {
-    console.log('🔔 Client Realtime Event:', payload);
-    if (payload.eventType === 'INSERT') {
-      setClients(prev => [payload.new, ...prev]);
-    } else if (payload.eventType === 'UPDATE') {
-      setClients(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
-    } else if (payload.eventType === 'DELETE') {
-      setClients(prev => prev.filter(c => c.id !== payload.old.id));
-    }
-  }, []);
-
   useEffect(() => {
     loadData();
 
-    // Configurar Realtime para Pedidos
-    const ordersChannel = supabase
-      .channel('orders-db-changes')
+    // Configurar Realtime
+    const channel = supabase
+      .channel('table-db-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
         handleRealtimeEvent
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') console.log('✅ Suscrito a cambios en Pedidos');
-      });
-
-    // Configurar Realtime para Clientes
-    const clientsChannel = supabase
-      .channel('clients-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'clients' },
-        handleClientRealtimeEvent
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') console.log('✅ Suscrito a cambios en Clientes');
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscrito a cambios en tiempo real');
+        }
       });
 
     // Fallback: Polling cada 15 segundos (más rápido por si falla Realtime)
@@ -253,10 +260,9 @@ const Admin = () => {
 
     return () => {
       clearInterval(intervalId);
-      supabase.removeChannel(ordersChannel);
-      supabase.removeChannel(clientsChannel);
+      supabase.removeChannel(channel);
     };
-  }, [loadData, handleRealtimeEvent, handleClientRealtimeEvent, isModalOpen, editingProduct]);
+  }, [loadData, handleRealtimeEvent, isModalOpen, editingProduct]);
 
   // --- 2. GESTIÓN DE PEDIDOS ---
   const moveOrder = async (orderId, nextStatus) => {
@@ -396,18 +402,6 @@ const Admin = () => {
       showNotify('Categoría guardada');
     } catch {
       showNotify('Error al guardar', 'error');
-    }
-  };
-
-  const toggleCategoryActive = async (category) => {
-    const newActive = !category.is_active;
-    setCategories(prev => prev.map(c => c.id === category.id ? { ...c, is_active: newActive } : c));
-    try {
-      await supabase.from('categories').update({ is_active: newActive }).eq('id', category.id);
-      showNotify(newActive ? 'Categoría activada' : 'Categoría desactivada');
-    } catch {
-      loadData(true);
-      showNotify('Error al cambiar estado', 'error');
     }
   };
 
@@ -571,30 +565,36 @@ const Admin = () => {
         {/* 5. CATEGORÍAS */}
         {activeTab === 'categories' && (
           <div className="cat-container">
+            <div className="cat-header">
+              <div className="cat-header-left">
+                <h2 className="cat-title">Categorías</h2>
+                <p className="cat-subtitle">Gestiona tus categorías de productos</p>
+              </div>
+              <div className="cat-header-actions">
+                {categories.length > 0 && (
+                  <button onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true) }} className="btn btn-primary">
+                    <Plus size={18} /> Nueva Categoría
+                  </button>
+                )}
+              </div>
+            </div>
+            
             <div className="cat-grid">
-              {categories.map((c, index) => {
+              {categories.map(c => {
                 const categoryProducts = products.filter(p => p.category_id === c.id);
                 const activeProducts = categoryProducts.filter(p => p.is_active);
                 const totalRevenue = categoryProducts.reduce((sum, p) => sum + (p.price || 0), 0);
                 
                 return (
-                  <div 
-                    key={c.id} 
-                    className="cat-card glass"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
+                  <div key={c.id} className="cat-card glass">
                     <div className="cat-card-header">
                       <div className="cat-icon-wrapper">
                         <Tag size={24} />
                       </div>
-                      <button
-                        className="cat-status-badge cat-status-button"
-                        onClick={() => toggleCategoryActive(c)}
-                        disabled={refreshing}
-                      >
+                      <div className="cat-status-badge">
                         <span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`}></span>
                         <span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
-                      </button>
+                      </div>
                     </div>
                     
                     <div className="cat-card-body">
@@ -638,10 +638,7 @@ const Admin = () => {
                         Editar
                       </button>
                       <button 
-                        onClick={() => {
-                          setFilterCategory(c.id);
-                          setActiveTab('products');
-                        }}
+                        onClick={() => setActiveTab('products')}
                         className="cat-btn-view"
                       >
                         <ShoppingBag size={16} />
@@ -674,7 +671,7 @@ const Admin = () => {
         {/* 6. HERRAMIENTAS */}
         {activeTab === 'settings' && (
           <div className="settings-view animate-fade">
-             <AdminSettings showNotify={showNotify} isMobile={isMobile} />
+             <AdminSettings showNotify={showNotify} />
 
              {/* ZONA DE PELIGRO (FUNCIONES AVANZADAS) */}
              <AdminDangerZone 
