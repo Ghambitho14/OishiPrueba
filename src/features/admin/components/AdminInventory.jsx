@@ -5,7 +5,7 @@ import { TABLES } from '../../../lib/supabaseTables';
 import InventoryItemModal from './InventoryItemModal';
 import '../styles/AdminInventory.css';
 
-const AdminInventory = ({ showNotify, branchId }) => {
+const AdminInventory = ({ showNotify, branchId, branches }) => {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,22 +24,41 @@ const AdminInventory = ({ showNotify, branchId }) => {
             
             if (itemsError) throw itemsError;
 
-            // 2. Fetch stock for current branch
+            // 2. Fetch stock for current branch (or all branches for global view)
             let branchStock = [];
-            if (branchId !== 'all') {
-                const { data, error: stockError } = await supabase
-                    .from(TABLES.inventory_branch)
-                    .select('*')
-                    .eq('branch_id', branchId);
-                if (stockError) throw stockError;
-                branchStock = data || [];
-            }
+            const { data, error: stockError } = await supabase
+                .from(TABLES.inventory_branch)
+                .select('*')
+                .eq(branchId !== 'all' ? 'branch_id' : 'company_id', branchId !== 'all' ? branchId : allItems[0]?.company_id);
+            
+            if (stockError) throw stockError;
+            branchStock = data || [];
 
-            // 3. Merge data
-            const mergedItems = (allItems || []).map(item => {
-                const stockEntry = branchStock?.find(s => s.inventory_item_id === item.id);
-                return { ...item, stock: stockEntry?.current_stock || 0, branch_relation_id: stockEntry?.id };
+            // 3. Merge data and Filter
+            let mergedItems = (allItems || []).map(item => {
+                const itemStocks = branchStock?.filter(s => s.inventory_item_id === item.id);
+                
+                // If specific branch, find that entry. If "all", sum them up.
+                const stockEntry = branchId !== 'all' 
+                    ? itemStocks.find(s => s.branch_id === branchId)
+                    : null;
+                
+                const totalStock = branchId === 'all'
+                    ? itemStocks.reduce((sum, s) => sum + (parseFloat(s.current_stock) || 0), 0)
+                    : (parseFloat(stockEntry?.current_stock) || 0);
+
+                return { 
+                    ...item, 
+                    stock: totalStock, 
+                    branch_relation_id: stockEntry?.id,
+                    existsInBranch: !!stockEntry || branchId === 'all'
+                };
             });
+
+            // CRITICAL: Filter out items that don't belong to this branch
+            if (branchId !== 'all') {
+                mergedItems = mergedItems.filter(item => item.existsInBranch);
+            }
 
             setItems(mergedItems);
         } catch (error) {
@@ -217,6 +236,7 @@ const AdminInventory = ({ showNotify, branchId }) => {
                 itemToEdit={editingItem}
                 showNotify={showNotify}
                 branchId={branchId}
+                branches={branches}
             />
         </div>
     );

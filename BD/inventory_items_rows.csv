@@ -1,7 +1,0 @@
-id,created_at,name,stock,unit,min_stock,cost_price,category,last_restock_date
-342c481c-4971-4d48-a418-d0d46dabdc67,2026-02-17 06:27:15.117097+00,Nori,50,un,10,0,Abarrotes,
-3ec9d183-389e-4de0-a18e-b02adfe7f238,2026-02-17 06:27:15.117097+00,Queso Crema,10,un,3,0,Lácteos,
-5ace1194-3dfc-41d5-a750-120009a92d90,2026-02-17 06:27:15.117097+00,Palta,20,un,5,0,Verduras,
-f07ffcb6-3c27-4880-a65b-05a7937a2e28,2026-02-17 06:27:15.117097+00,Camarones,2,kg,1,0,Mariscos,
-fba88d2e-51e4-47da-8b23-b1cd8c7f8b94,2026-02-17 06:27:15.117097+00,Arroz Sushi,25,kg,5,0,Abarrotes,
-ff935e6e-a7f1-44d5-904a-c8c36c8cd89f,2026-02-17 06:27:15.117097+00,Salmón Fresco,3.5,kg,2,0,Pescados,

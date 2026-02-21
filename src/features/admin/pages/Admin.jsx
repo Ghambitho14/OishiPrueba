@@ -457,22 +457,14 @@ const AdminProvider = ({ children }) => {
         description: formData.description,
         category_id: formData.category_id,
         image_url: finalImageUrl,
-        // MEJORA LÓGICA: Si es un producto NUEVO o estamos en "Todas",
-        // guardamos los datos base (precio/estado) en la tabla global para que sirvan de fallback.
-        ...((!editingProduct || isAllBranches) && {
-          price: parseInt(formData.price) || 0,
-          is_special: formData.is_special || false,
-          has_discount: formData.has_discount || false,
-          discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null
-        })
+        is_special: formData.is_special || false,
+        is_active: editingProduct ? editingProduct.is_active : true
       };
 
-      // Si estamos en una sucursal específica, aseguramos que el producto tenga company_id si es nuevo
+      // Asignar company_id (requerido en la tabla products)
       if (!isAllBranches) {
           productPayload.company_id = selectedBranch.company_id;
-      }
-      else if (branches.length > 0) {
-          // Fallback: Si es "Todas", usar el company_id de la primera sucursal real
+      } else if (branches.length > 0) {
           productPayload.company_id = branches[0].company_id;
       }
 
@@ -486,12 +478,16 @@ const AdminProvider = ({ children }) => {
         productId = newProd.id;
       }
 
-      // 2. Guardar/Actualizar Precios ESPECÍFICOS (Solo si NO es "Todas las sucursales")
-      if (!isAllBranches) {
+      // 2. Guardar/Actualizar Precios y Estado en Sucursales
+      // Si estamos en "Todas", actualizamos todas. Si no, solo la seleccionada.
+      const branchesToUpdate = isAllBranches ? branches : [selectedBranch];
+
+      for (const branch of branchesToUpdate) {
+          // 2.1 Precios
           const pricePayload = {
             product_id: productId,
-            branch_id: selectedBranch.id,
-            company_id: selectedBranch.company_id,
+            branch_id: branch.id,
+            company_id: branch.company_id,
             price: parseInt(formData.price) || 0,
             has_discount: formData.has_discount || false,
             discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null,
@@ -499,22 +495,22 @@ const AdminProvider = ({ children }) => {
           };
 
           const { error: priceError } = await supabase.from(TABLES.product_prices).upsert(
-            { ...pricePayload, id: editingProduct?.price_id },
+            pricePayload,
             { onConflict: 'product_id, branch_id' }
           );
           if (priceError) throw priceError;
 
-          // 3. Guardar/Actualizar Estado en Sucursal
+          // 2.2 Estado en Sucursal
           const branchPayload = {
             product_id: productId,
-            branch_id: selectedBranch.id,
+            branch_id: branch.id,
             // Si estamos editando, mantener estado actual. Si es nuevo, activo por defecto.
             is_active: editingProduct ? editingProduct.is_active : true,
             is_special: formData.is_special || false
           };
 
           const { error: branchError } = await supabase.from(TABLES.product_branch).upsert(
-            { ...branchPayload, id: editingProduct?.branch_relation_id },
+            branchPayload,
             { onConflict: 'product_id, branch_id' }
           );
           if (branchError) throw branchError;
@@ -533,15 +529,22 @@ const AdminProvider = ({ children }) => {
   const deleteProduct = async (id) => {
     if (!window.confirm('¿Eliminar producto?')) return;
     try {
-      // MEJORA LÓGICA: Limpieza manual de relaciones para evitar errores de FK
-      await supabase.from(TABLES.product_prices).delete().eq('product_id', id);
-      await supabase.from(TABLES.product_branch).delete().eq('product_id', id);
-      await supabase.from(TABLES.products).delete().eq('id', id);
+      // 1. Eliminar precios y relaciones de sucursal
+      const { error: priceErr } = await supabase.from(TABLES.product_prices).delete().eq('product_id', id);
+      if (priceErr) throw priceErr;
+
+      const { error: relErr } = await supabase.from(TABLES.product_branch).delete().eq('product_id', id);
+      if (relErr) throw relErr;
+
+      // 2. Eliminar el producto
+      const { error: prodErr } = await supabase.from(TABLES.products).delete().eq('id', id);
+      if (prodErr) throw prodErr;
       
-      showNotify("Producto eliminado");
+      showNotify("Producto eliminado correctamente");
       loadData(true);
-    } catch {
-      showNotify("No se puede eliminar (tiene ventas asociadas)", 'error');
+    } catch (error) {
+      console.error('Delete error:', error);
+      showNotify("No se pudo eliminar: " + (error.message || 'Error desconocido'), 'error');
     }
   };
 
@@ -1014,7 +1017,7 @@ const AdminComponent = () => {
 
         {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
         {activeTab === 'inventory' && (
-            <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} />
+            <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} branches={branches} />
         )}
 
         {/* 3. REPORTES */}

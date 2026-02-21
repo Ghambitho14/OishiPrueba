@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle } from 'lucide-react';
+import { X, Save, AlertCircle, MapPin } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 
-const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, showNotify, branchId }) => {
+const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, showNotify, branchId, branches }) => {
     const [formData, setFormData] = useState({
         name: '',
         stock: 0,
         unit: 'un', // un, kg, g, lt, ml
         min_stock: 5,
         category: '',
-        cost_price: 0
+        cost_per_unit: 0
     });
+    const [selectedBranchIds, setSelectedBranchIds] = useState([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -22,8 +23,16 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                 unit: itemToEdit.unit || 'un',
                 min_stock: itemToEdit.min_stock || 0,
                 category: itemToEdit.category || '',
-                cost_price: itemToEdit.cost_price || 0
+                cost_per_unit: itemToEdit.cost_per_unit || 0
             });
+            // Al editar, marcaríamos las sucursales donde ya existe? 
+            // Por ahora, para simplificar y ver el requerimiento del usuario (crear), 
+            // marcamos la actual o todas.
+            if (branchId === 'all') {
+                setSelectedBranchIds(branches.filter(b => b.id !== 'all').map(b => b.id));
+            } else {
+                setSelectedBranchIds([branchId]);
+            }
         } else {
             // Reset
             setFormData({
@@ -32,10 +41,16 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                 unit: 'un',
                 min_stock: 5,
                 category: '',
-                cost_price: 0
+                cost_per_unit: 0
             });
+            
+            if (branchId === 'all') {
+                setSelectedBranchIds(branches.filter(b => b.id !== 'all').map(b => b.id));
+            } else {
+                setSelectedBranchIds([branchId]);
+            }
         }
-    }, [itemToEdit, isOpen]);
+    }, [itemToEdit, isOpen, branchId, branches]);
 
     if (!isOpen) return null;
 
@@ -52,8 +67,14 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                 unit: formData.unit,
                 min_stock: formData.min_stock,
                 category: formData.category,
-                cost_price: formData.cost_price
+                cost_per_unit: formData.cost_per_unit
             };
+
+            const relevantBranches = branches.filter(b => b.id !== 'all' && selectedBranchIds.includes(b.id));
+            
+            if (relevantBranches.length > 0) {
+                itemData.company_id = relevantBranches[0].company_id;
+            }
 
             if (itemToEdit) {
                 const { error } = await supabase.from(TABLES.inventory_items).update(itemData).eq('id', itemId);
@@ -65,15 +86,17 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
             }
 
             // 2. Update Stock for Branch (Local)
-            if (branchId && itemId) {
-                const { error: stockError } = await supabase.from(TABLES.inventory_branch).upsert({
-                    inventory_item_id: itemId,
-                    branch_id: branchId,
-                    current_stock: formData.stock,
-                    min_stock: formData.min_stock // Optional: override min_stock per branch if needed
-                }, { onConflict: 'inventory_item_id, branch_id' });
-                
-                if (stockError) throw stockError;
+            if (itemId && relevantBranches.length > 0) {
+                for (const branch of relevantBranches) {
+                    const { error: stockError } = await supabase.from(TABLES.inventory_branch).upsert({
+                        inventory_item_id: itemId,
+                        branch_id: branch.id,
+                        current_stock: formData.stock,
+                        min_stock: formData.min_stock 
+                    }, { onConflict: 'inventory_item_id, branch_id' });
+                    
+                    if (stockError) throw stockError;
+                }
             }
 
             showNotify(itemToEdit ? 'Insumo actualizado' : 'Insumo creado', 'success');
@@ -118,6 +141,18 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                             />
                         </div>
                         <div className="form-group">
+                            <label>Costo por Unidad ($)</label>
+                            <input 
+                                type="number"
+                                className="form-input"
+                                value={formData.cost_per_unit}
+                                onChange={e => setFormData({...formData, cost_per_unit: parseFloat(e.target.value)})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+                        <div className="form-group">
                             <label>Unidad</label>
                             <select 
                                 className="form-select"
@@ -131,18 +166,6 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                                 <option value="ml">Mililitros (ml)</option>
                             </select>
                         </div>
-                    </div>
-
-                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-                         <div className="form-group">
-                            <label>Stock Mínimo (Alerta)</label>
-                            <input 
-                                type="number"
-                                className="form-input"
-                                value={formData.min_stock}
-                                onChange={e => setFormData({...formData, min_stock: parseFloat(e.target.value)})}
-                            />
-                        </div>
                         <div className="form-group">
                             <label>Categoría</label>
                             <input 
@@ -152,6 +175,64 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                                 placeholder="Ej. Abarrotes"
                             />
                         </div>
+                    </div>
+
+                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 15 }}>
+                        <div className="form-group">
+                            <label>Stock Mínimo (Alerta)</label>
+                            <input 
+                                type="number"
+                                className="form-input"
+                                value={formData.min_stock}
+                                onChange={e => setFormData({...formData, min_stock: parseFloat(e.target.value)})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 20 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <MapPin size={16} className="text-accent" />
+                            Registrar en Sucursales:
+                        </label>
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
+                            gap: 10,
+                            padding: '12px',
+                            background: 'rgba(255,255,255,0.03)',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255,255,255,0.08)'
+                        }}>
+                            {branches.filter(b => b.id !== 'all').map(branch => (
+                                <label key={branch.id} style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: 8, 
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    color: selectedBranchIds.includes(branch.id) ? 'white' : '#9ca3af'
+                                }}>
+                                    <input 
+                                        type="checkbox"
+                                        checked={selectedBranchIds.includes(branch.id)}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedBranchIds([...selectedBranchIds, branch.id]);
+                                            } else {
+                                                setSelectedBranchIds(selectedBranchIds.filter(id => id !== branch.id));
+                                            }
+                                        }}
+                                        style={{ accentColor: 'var(--accent-color)' }}
+                                    />
+                                    {branch.name}
+                                </label>
+                            ))}
+                        </div>
+                        {selectedBranchIds.length === 0 && (
+                            <p style={{ color: '#ff4444', fontSize: '0.75rem', marginTop: 5 }}>
+                                * Debes seleccionar al menos una sucursal.
+                            </p>
+                        )}
                     </div>
 
                     <div className="modal-actions">
