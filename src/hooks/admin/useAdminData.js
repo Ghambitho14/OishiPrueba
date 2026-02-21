@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
 
 const PAGE_SIZE = 50;
 
@@ -56,8 +57,8 @@ export const useAdminData = (showNotify) => {
 
     try {
       const [catsRes, prodsRes] = await Promise.all([
-        supabase.from('categories').select('*').order('order'),
-        supabase.from('products').select('*').order('name')
+        supabase.from(TABLES.categories).select('*').order('order'),
+        supabase.from(TABLES.products).select('*').order('name')
       ]);
 
       if (catsRes.error) throw catsRes.error;
@@ -67,7 +68,7 @@ export const useAdminData = (showNotify) => {
       setProducts(prodsRes.data || []);
 
       const { data: ordsData, error: ordsError } = await supabase
-        .from('orders')
+        .from(TABLES.orders)
         .select('*')
         .order('created_at', { ascending: false })
         .range(0, PAGE_SIZE - 1);
@@ -80,7 +81,7 @@ export const useAdminData = (showNotify) => {
       setHasMoreOrders(cleanOrders.length === PAGE_SIZE);
 
       const { data: cltsData, error: cltsError } = await supabase
-        .from('clients')
+        .from(TABLES.clients)
         .select('*')
         .order('last_order_at', { ascending: false })
         .limit(100);
@@ -107,7 +108,7 @@ export const useAdminData = (showNotify) => {
       const to = from + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
-        .from('orders')
+        .from(TABLES.orders)
         .select('*')
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -145,7 +146,7 @@ export const useAdminData = (showNotify) => {
       if (!session) return; 
       
       channel = supabase.channel('admin-realtime-v2')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.orders }, (payload) => {
           if (!isMounted) return;
 
           if (payload.eventType === 'INSERT') {

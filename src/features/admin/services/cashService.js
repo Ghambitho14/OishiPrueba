@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 
 /**
  * Servicio para la gestión de Caja (Shifts y Movements)
@@ -14,8 +15,8 @@ export const cashService = {
      */
     getActiveShift: async () => {
         const { data, error } = await supabase
-            .from('cash_shifts')
-            .select('*, cash_movements(count)')
+            .from(TABLES.cash_shifts)
+            .select(`*, ${TABLES.cash_movements}(count)`)
             .eq('status', 'open')
             .maybeSingle();
 
@@ -30,8 +31,8 @@ export const cashService = {
     getActiveShiftForBranch: async (branchId) => {
         if (!branchId) return null;
         const { data, error } = await supabase
-            .from('cash_shifts')
-            .select('*, cash_movements(count)')
+            .from(TABLES.cash_shifts)
+            .select(`*, ${TABLES.cash_movements}(count)`)
             .eq('status', 'open')
             .eq('branch_id', branchId)
             .maybeSingle();
@@ -46,7 +47,7 @@ export const cashService = {
      */
     getBranchesWithOpenCaja: async () => {
         const { data, error } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .select('branch_id')
             .eq('status', 'open')
             .not('branch_id', 'is', null);
@@ -62,7 +63,7 @@ export const cashService = {
     openShift: async (openingBalance, userId) => {
         // Validación de seguridad: Verificar si ya hay una caja abierta
         const { data: existingShift, error: checkError } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .select('id')
             .eq('status', 'open')
             .maybeSingle();
@@ -71,7 +72,7 @@ export const cashService = {
         if (existingShift) throw new Error('Ya existe un turno de caja abierto en el sistema.');
 
         const { data, error } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .insert({
                 opening_balance: openingBalance,
                 expected_balance: openingBalance,
@@ -91,7 +92,7 @@ export const cashService = {
      */
     closeShift: async (shiftId, actualBalance) => {
         const { data, error } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .update({
                 actual_balance: actualBalance,
                 closed_at: new Date().toISOString(),
@@ -115,7 +116,7 @@ export const cashService = {
     addMovement: async (movement) => {
         // 1. Insertar el registro del movimiento
         const { data: newMovement, error: moveError } = await supabase
-            .from('cash_movements')
+            .from(TABLES.cash_movements)
             .insert(movement)
             .select()
             .single();
@@ -135,14 +136,14 @@ export const cashService = {
             try {
                 // Fallback manual optimizado (Lectura -> Cálculo -> Escritura)
                 const { data: shiftData } = await supabase
-                    .from('cash_shifts')
+                    .from(TABLES.cash_shifts)
                     .select('expected_balance')
                     .eq('id', movement.shift_id)
                     .single();
 
                 if (shiftData) {
                     await supabase
-                        .from('cash_shifts')
+                        .from(TABLES.cash_shifts)
                         .update({ expected_balance: (shiftData.expected_balance || 0) + amountChange })
                         .eq('id', movement.shift_id);
                 }
@@ -160,8 +161,8 @@ export const cashService = {
      */
     getShiftMovements: async (shiftId) => {
         const { data, error } = await supabase
-            .from('cash_movements')
-            .select('*, orders(*)')
+            .from(TABLES.cash_movements)
+            .select(`*, ${TABLES.orders}(*)`)
             .eq('shift_id', shiftId)
             .order('created_at', { ascending: false });
 
@@ -174,7 +175,7 @@ export const cashService = {
      */
     getPastShifts: async (limit = 20) => {
         const { data, error } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .select('*')
             .eq('status', 'closed')
             .order('closed_at', { ascending: false })
@@ -189,7 +190,7 @@ export const cashService = {
      */
     getShiftById: async (shiftId) => {
         const { data, error } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .select('*')
             .eq('id', shiftId)
             .maybeSingle();

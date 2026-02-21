@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 
 const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, showNotify, branchId }) => {
     const [formData, setFormData] = useState({
@@ -55,17 +56,17 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
             };
 
             if (itemToEdit) {
-                const { error } = await supabase.from('inventory_items').update(itemData).eq('id', itemId);
+                const { error } = await supabase.from(TABLES.inventory_items).update(itemData).eq('id', itemId);
                 if (error) throw error;
             } else {
-                const { data, error } = await supabase.from('inventory_items').insert([itemData]).select().single();
+                const { data, error } = await supabase.from(TABLES.inventory_items).insert([itemData]).select().single();
                 if (error) throw error;
                 itemId = data.id;
             }
 
             // 2. Update Stock for Branch (Local)
             if (branchId && itemId) {
-                const { error: stockError } = await supabase.from('inventory_branch').upsert({
+                const { error: stockError } = await supabase.from(TABLES.inventory_branch).upsert({
                     inventory_item_id: itemId,
                     branch_id: branchId,
                     current_stock: formData.stock,

@@ -19,6 +19,7 @@ import AdminAnalytics from '../components/AdminAnalytics';
 import AdminDangerZone from '../components/AdminDangerZone';
 import ClientDetailsPanel from '../components/ClientDetailsPanel';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 import { uploadImage } from '../../../shared/utils/cloudinary';
 import CashManager from '../components/caja/CashManager';
 import { useCashSystem } from '../hooks/useCashSystem';
@@ -151,7 +152,7 @@ const AdminProvider = ({ children }) => {
       if (user) {
         // Verificar si el email está en la tabla de admins
         const { data: adminUser } = await supabase
-          .from('admin_users')
+          .from(TABLES.admin_users)
           .select('role')
           .eq('email', user.email)
           .maybeSingle();
@@ -171,7 +172,7 @@ const AdminProvider = ({ children }) => {
   // --- CARGA DE SUCURSALES ---
   useEffect(() => {
     const loadBranches = async () => {
-      const { data, error } = await supabase.from('branches').select('*').order('name');
+      const { data, error } = await supabase.from(TABLES.branches).select('*').order('name');
       if (!error && data?.length > 0) {
         setBranches(data);
         // [FIX] Seleccionar automáticamente la primera sucursal si no hay ninguna seleccionada
@@ -208,17 +209,17 @@ const AdminProvider = ({ children }) => {
 
       // 1. Cargar datos base
       const promises = [
-        supabase.from('categories').select('*').order('order'),
-        supabase.from('products').select('*').order('name'),
+        supabase.from(TABLES.categories).select('*').order('order'),
+        supabase.from(TABLES.products).select('*').order('name'),
         isAllBranches 
-          ? supabase.from('orders').select('*').order('created_at', { ascending: false })
-          : supabase.from('orders').select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }),
-        supabase.from('clients').select('*').order('last_order_at', { ascending: false })
+          ? supabase.from(TABLES.orders).select('*').order('created_at', { ascending: false })
+          : supabase.from(TABLES.orders).select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }),
+        supabase.from(TABLES.clients).select('*').order('last_order_at', { ascending: false })
       ];
 
       if (!isAllBranches) {
-        promises.push(supabase.from('product_prices').select('*').eq('branch_id', selectedBranch.id));
-        promises.push(supabase.from('product_branch').select('*').eq('branch_id', selectedBranch.id));
+        promises.push(supabase.from(TABLES.product_prices).select('*').eq('branch_id', selectedBranch.id));
+        promises.push(supabase.from(TABLES.product_branch).select('*').eq('branch_id', selectedBranch.id));
       }
 
       const results = await Promise.all(promises);
@@ -287,7 +288,7 @@ const AdminProvider = ({ children }) => {
     setClientHistoryLoading(true);
     try {
       const { data, error } = await supabase
-        .from('orders')
+        .from(TABLES.orders)
         .select('*')
         .eq('client_id', client.id)
         .order('created_at', { ascending: false });
@@ -370,7 +371,7 @@ const AdminProvider = ({ children }) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
 
     try {
-      const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
+      const { error } = await supabase.from(TABLES.orders).update({ status: nextStatus }).eq('id', orderId);
       if (error) throw error;
       
       // [FIX] Registrar venta en caja si se completa/entrega
@@ -403,7 +404,7 @@ const AdminProvider = ({ children }) => {
     try {
       const receiptUrl = await uploadImage(file, 'receipts');
 
-      const { error } = await supabase.from('orders').update({ payment_ref: receiptUrl }).eq('id', orderId);
+      const { error } = await supabase.from(TABLES.orders).update({ payment_ref: receiptUrl }).eq('id', orderId);
       if (error) throw error;
 
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
@@ -469,9 +470,9 @@ const AdminProvider = ({ children }) => {
       let productId = editingProduct?.id;
 
       if (editingProduct) {
-        await supabase.from('products').update(productPayload).eq('id', productId);
+        await supabase.from(TABLES.products).update(productPayload).eq('id', productId);
       } else {
-        const { data: newProd, error } = await supabase.from('products').insert(productPayload).select().single();
+        const { data: newProd, error } = await supabase.from(TABLES.products).insert(productPayload).select().single();
         if (error) throw error;
         productId = newProd.id;
       }
@@ -488,7 +489,7 @@ const AdminProvider = ({ children }) => {
             is_active: true
           };
 
-          const { error: priceError } = await supabase.from('product_prices').upsert(
+          const { error: priceError } = await supabase.from(TABLES.product_prices).upsert(
             { ...pricePayload, id: editingProduct?.price_id },
             { onConflict: 'product_id, branch_id' }
           );
@@ -503,7 +504,7 @@ const AdminProvider = ({ children }) => {
             is_special: formData.is_special || false
           };
 
-          const { error: branchError } = await supabase.from('product_branch').upsert(
+          const { error: branchError } = await supabase.from(TABLES.product_branch).upsert(
             { ...branchPayload, id: editingProduct?.branch_relation_id },
             { onConflict: 'product_id, branch_id' }
           );
@@ -524,9 +525,9 @@ const AdminProvider = ({ children }) => {
     if (!window.confirm('¿Eliminar producto?')) return;
     try {
       // MEJORA LÓGICA: Limpieza manual de relaciones para evitar errores de FK
-      await supabase.from('product_prices').delete().eq('product_id', id);
-      await supabase.from('product_branch').delete().eq('product_id', id);
-      await supabase.from('products').delete().eq('id', id);
+      await supabase.from(TABLES.product_prices).delete().eq('product_id', id);
+      await supabase.from(TABLES.product_branch).delete().eq('product_id', id);
+      await supabase.from(TABLES.products).delete().eq('id', id);
       
       showNotify("Producto eliminado");
       loadData(true);
@@ -564,11 +565,11 @@ const AdminProvider = ({ children }) => {
     try {
       if (scope === 'global' || selectedBranch.id === 'all') {
         // Actualizar GLOBALMENTE (Tabla products)
-        await supabase.from('products').update({ is_active: newActive }).eq('id', item.id);
+        await supabase.from(TABLES.products).update({ is_active: newActive }).eq('id', item.id);
         showNotify(newActive ? 'Activado en todos los locales' : 'Desactivado en todos los locales');
       } else {
         // Actualizar LOCALMENTE (Tabla product_branch)
-        await supabase.from('product_branch').upsert({
+        await supabase.from(TABLES.product_branch).upsert({
           product_id: item.id,
           branch_id: selectedBranch.id,
           is_active: newActive
@@ -597,10 +598,10 @@ const AdminProvider = ({ children }) => {
       }
 
       if (editingCategory) {
-        await supabase.from('categories').update(payload).eq('id', editingCategory.id);
+        await supabase.from(TABLES.categories).update(payload).eq('id', editingCategory.id);
       } else {
         // Dejar que la base de datos genere el UUID
-        await supabase.from('categories').insert(payload);
+        await supabase.from(TABLES.categories).insert(payload);
       }
       setIsCategoryModalOpen(false);
       loadData(true);

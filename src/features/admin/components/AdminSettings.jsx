@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash, ChevronDown } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 import "../styles/AdminSettings.css";
+
+// ID fijo de la única fila de configuración (upsert por este id)
+const BUSINESS_INFO_ROW_ID = '00000000-0000-0000-0000-000000000001';
 
 const AdminSettings = ({ showNotify, isMobile }) => {
     const [formData, setFormData] = useState({
@@ -27,7 +31,7 @@ const AdminSettings = ({ showNotify, isMobile }) => {
         setLoading(true);
         try {
             const { data, error } = await supabase
-                .from('business_info')
+                .from(TABLES.business_info)
                 .select('*')
                 .limit(1)
                 .maybeSingle();
@@ -66,26 +70,32 @@ const AdminSettings = ({ showNotify, isMobile }) => {
         e.preventDefault();
         setSaving(true);
         try {
-            if (dataId) {
-                // Update
-                const { error } = await supabase
-                    .from('business_info')
-                    .update(formData)
-                    .eq('id', dataId);
-                if (error) throw error;
-                showNotify('Configuración actualizada', 'success');
-            } else {
-                // Insert (si la tabla estaba vacía)
-                const { error } = await supabase
-                    .from('business_info')
-                    .insert([formData]);
-                if (error) throw error;
-                showNotify('Configuración creada', 'success');
-                loadSettings(); // Recargar para obtener ID
-            }
+            const payload = {
+                id: BUSINESS_INFO_ROW_ID,
+                name: formData.name || null,
+                phone: formData.phone || null,
+                address: formData.address || null,
+                instagram: formData.instagram || null,
+                schedule: formData.schedule || null,
+                bank_name: formData.bank_name || null,
+                account_type: formData.account_type || null,
+                account_number: formData.account_number || null,
+                account_rut: formData.account_rut || null,
+                account_email: formData.account_email || null,
+                account_holder: formData.account_holder || null
+            };
+            const { error } = await supabase
+                .from(TABLES.business_info)
+                .upsert(payload, { onConflict: 'id' });
+            if (error) throw error;
+            setDataId(BUSINESS_INFO_ROW_ID);
+            showNotify('Configuración guardada correctamente', 'success');
         } catch (error) {
             console.error('Error saving settings:', error);
-            showNotify('Error al guardar configuración', 'error');
+            const msg = (error && typeof error === 'object' && error.message)
+                ? `${error.message}${error.code ? ` (${error.code})` : ''}`
+                : String(error || 'Error al guardar configuración');
+            showNotify(msg, 'error');
         } finally {
             setSaving(false);
         }

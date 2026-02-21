@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 import { Loader2, AlertCircle, XCircle, FileText, Trash2, Users, ChevronDown } from 'lucide-react';
 
 const AdminDangerZone = ({ orders, showNotify, loadData, isMobile }) => {
@@ -146,11 +147,11 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile }) => {
         }
 
         // 1. Borrar movimientos de caja del mes para evitar error de FK
-        const { error: cashError, data: cashData } = await supabase.from('cash_movements').delete()
+        const { error: cashError, data: cashData } = await supabase.from(TABLES.cash_movements).delete()
           .gte('created_at', range.startIso).lt('created_at', range.endIso).select();
 
         // 2. Borrar las órdenes
-        const { error, data: deletedOrders } = await supabase.from('orders').delete()
+        const { error, data: deletedOrders } = await supabase.from(TABLES.orders).delete()
           .gte('created_at', range.startIso).lt('created_at', range.endIso).select();
 
         if (cashError) throw cashError;
@@ -159,7 +160,7 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile }) => {
         showNotify(`${deletedOrders?.length || 0} registros del mes eliminados`, 'success');
 
       } else if (dangerAction === 'allClients') {
-        const { count, error, data: deletedClients } = await supabase.from('clients').delete().neq('phone', '0000').select('*', { count: 'exact' });
+        const { count, error, data: deletedClients } = await supabase.from(TABLES.clients).delete().neq('phone', '0000').select('*', { count: 'exact' });
         if (error) throw error;
         showNotify(`Base de clientes purgada (${count} registros)`, 'success');
       }

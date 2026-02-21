@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import CartContext from '../../features/cart/hooks/cart-context';
 import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
 import { useLocation } from '../../context/useLocation';
 
 export const CartProvider = ({ children }) => {
@@ -29,8 +30,8 @@ export const CartProvider = ({ children }) => {
         const ids = cart.map(item => item.id);
 
         const { data, error } = await supabase
-          .from('product_prices')
-          .select('product_id, price, has_discount, discount_price, products(id,name,is_active,description)')
+          .from(TABLES.product_prices)
+          .select(`product_id, price, has_discount, discount_price, ${TABLES.products}(id,name,is_active,description)`)
           .in('product_id', ids)
           .eq('branch_id', selectedBranch.id);
 

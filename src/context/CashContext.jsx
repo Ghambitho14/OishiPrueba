@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { cashService } from '../features/admin/services/cashService';
 import { supabase } from '../lib/supabase';
+import { TABLES } from '../lib/supabaseTables';
 
 const CashContext = createContext();
 const normId = (id) => (id != null ? String(id) : null);
@@ -43,7 +44,7 @@ export const CashProvider = ({ children }) => {
             .channel('cash_shifts_realtime')
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'cash_shifts' },
+                { event: '*', schema: 'public', table: TABLES.cash_shifts },
                 (payload) => {
                     // Actualización instantánea desde el payload (0 latencia)
                     const eventType = payload.eventType || payload.event;

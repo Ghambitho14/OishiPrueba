@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Download, Plus, Trash2, Edit, AlertTriangle, Package } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 import InventoryItemModal from './InventoryItemModal';
 import '../styles/AdminInventory.css';
 
@@ -17,7 +18,7 @@ const AdminInventory = ({ showNotify, branchId }) => {
         try {
             // 1. Fetch all item definitions
             const { data: allItems, error: itemsError } = await supabase
-                .from('inventory_items')
+                .from(TABLES.inventory_items)
                 .select('*')
                 .order('name');
             
@@ -27,7 +28,7 @@ const AdminInventory = ({ showNotify, branchId }) => {
             let branchStock = [];
             if (branchId !== 'all') {
                 const { data, error: stockError } = await supabase
-                    .from('inventory_branch')
+                    .from(TABLES.inventory_branch)
                     .select('*')
                     .eq('branch_id', branchId);
                 if (stockError) throw stockError;
@@ -61,7 +62,7 @@ const AdminInventory = ({ showNotify, branchId }) => {
         if (!window.confirm('¿Estás seguro de eliminar este insumo?')) return;
         try {
             const { error } = await supabase
-                .from('inventory_items')
+                .from(TABLES.inventory_items)
                 .delete()
                 .eq('id', id);
             

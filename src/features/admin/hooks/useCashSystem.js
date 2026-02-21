@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 
 export const useCashSystem = (showNotify, branchId) => {
     const [activeShift, setActiveShift] = useState(null);
@@ -14,8 +15,8 @@ export const useCashSystem = (showNotify, branchId) => {
         setLoadingMovements(true);
         try {
             const { data, error } = await supabase
-                .from('cash_movements')
-                .select('*, orders(*)')
+                .from(TABLES.cash_movements)
+                .select(`*, ${TABLES.orders}(*)`)
                 .eq('shift_id', shiftId)
                 .order('created_at', { ascending: false });
 
@@ -42,8 +43,8 @@ export const useCashSystem = (showNotify, branchId) => {
         setLoading(true);
         try {
             const { data: shift, error } = await supabase
-                .from('cash_shifts')
-                .select('*, cash_movements(count)')
+                .from(TABLES.cash_shifts)
+                .select(`*, ${TABLES.cash_movements}(count)`)
                 .eq('status', 'open')
                 .eq('branch_id', branchId) // FILTRO CRÍTICO POR SUCURSAL
                 .maybeSingle();
@@ -84,7 +85,7 @@ export const useCashSystem = (showNotify, branchId) => {
                 {
                     event: '*', // Escuchar INSERT, UPDATE, DELETE
                     schema: 'public',
-                    table: 'cash_movements',
+                    table: TABLES.cash_movements,
                     filter: `shift_id=eq.${activeShift.id}`
                 },
                 (payload) => {
@@ -119,7 +120,7 @@ export const useCashSystem = (showNotify, branchId) => {
         try {
             // Verificar si ya existe una caja abierta en esta sucursal
             const { data: existing } = await supabase
-                .from('cash_shifts')
+                .from(TABLES.cash_shifts)
                 .select('id')
                 .eq('status', 'open')
                 .eq('branch_id', branchId)
@@ -130,7 +131,7 @@ export const useCashSystem = (showNotify, branchId) => {
             const { data: { user } } = await supabase.auth.getUser();
             
             const { data: newShift, error } = await supabase
-                .from('cash_shifts')
+                .from(TABLES.cash_shifts)
                 .insert({
                     opening_balance: amount,
                     expected_balance: amount,
@@ -150,7 +151,12 @@ export const useCashSystem = (showNotify, branchId) => {
         } catch (error) {
             console.error('Error opening shift:', error);
             if (showNotify) {
-                const msg = error.message.includes('Ya existe') ? error.message : 'Error al abrir caja';
+                let msg = 'Error al abrir caja';
+                if (error.message?.includes('Ya existe')) {
+                    msg = error.message;
+                } else if (error.code === '42501') {
+                    msg = 'Error de permisos (RLS). Configura las políticas en Supabase.';
+                }
                 showNotify(msg, 'error');
             }
             return false;
@@ -164,7 +170,7 @@ export const useCashSystem = (showNotify, branchId) => {
         if (!activeShift) return false;
         try {
             const { error } = await supabase
-                .from('cash_shifts')
+                .from(TABLES.cash_shifts)
                 .update({
                     actual_balance: actualBalance,
                     closed_at: new Date().toISOString(),
@@ -200,7 +206,7 @@ export const useCashSystem = (showNotify, branchId) => {
                 payment_method: paymentMethod
             };
             
-            const { error } = await supabase.from('cash_movements').insert(movement);
+            const { error } = await supabase.from(TABLES.cash_movements).insert(movement);
             if (error) throw error;
 
             // Actualizar expected_balance si es efectivo
@@ -215,9 +221,9 @@ export const useCashSystem = (showNotify, branchId) => {
 
                 if (rpcError) {
                     // Fallback manual
-                    const { data: current } = await supabase.from('cash_shifts').select('expected_balance').eq('id', activeShift.id).single();
+                    const { data: current } = await supabase.from(TABLES.cash_shifts).select('expected_balance').eq('id', activeShift.id).single();
                     if (current) {
-                        await supabase.from('cash_shifts')
+                        await supabase.from(TABLES.cash_shifts)
                             .update({ expected_balance: (current.expected_balance || 0) + adjustment })
                             .eq('id', activeShift.id);
                     }
@@ -229,7 +235,13 @@ export const useCashSystem = (showNotify, branchId) => {
             return true;
         } catch (error) {
             console.error('Error adding movement:', error);
-            if (showNotify) showNotify('Error al registrar movimiento', 'error');
+            if (showNotify) {
+                if (error.code === '42501') {
+                    showNotify('Error de permisos (RLS) al registrar movimiento.', 'error');
+                } else {
+                    showNotify('Error al registrar movimiento', 'error');
+                }
+            }
             return false;
         }
     }, [activeShift, showNotify, loadActiveShift]);
@@ -241,7 +253,7 @@ export const useCashSystem = (showNotify, branchId) => {
         if (!activeShift) return;
         try {
             const { data: existing } = await supabase
-                .from('cash_movements')
+                .from(TABLES.cash_movements)
                 .select('id')
                 .eq('shift_id', activeShift.id)
                 .eq('order_id', order.id)
@@ -261,14 +273,14 @@ export const useCashSystem = (showNotify, branchId) => {
                 order_id: order.id
             };
             
-            const { error } = await supabase.from('cash_movements').insert(movement);
+            const { error } = await supabase.from(TABLES.cash_movements).insert(movement);
             if (error) throw error;
 
             // Actualizar balance si es efectivo
             if (movement.payment_method === 'cash') {
-                 const { data: current } = await supabase.from('cash_shifts').select('expected_balance').eq('id', activeShift.id).single();
+                 const { data: current } = await supabase.from(TABLES.cash_shifts).select('expected_balance').eq('id', activeShift.id).single();
                  if (current) {
-                     await supabase.from('cash_shifts')
+                     await supabase.from(TABLES.cash_shifts)
                          .update({ expected_balance: (current.expected_balance || 0) + movement.amount })
                          .eq('id', activeShift.id);
                  }
@@ -287,7 +299,7 @@ export const useCashSystem = (showNotify, branchId) => {
         if (!activeShift) return;
         try {
             const { data: existing } = await supabase
-                .from('cash_movements')
+                .from(TABLES.cash_movements)
                 .select('id, type')
                 .eq('shift_id', activeShift.id)
                 .eq('order_id', order.id)
@@ -304,13 +316,13 @@ export const useCashSystem = (showNotify, branchId) => {
                 order_id: order.id
             };
 
-            const { error } = await supabase.from('cash_movements').insert(movement);
+            const { error } = await supabase.from(TABLES.cash_movements).insert(movement);
             if (error) throw error;
 
             if (movement.payment_method === 'cash') {
-                 const { data: current } = await supabase.from('cash_shifts').select('expected_balance').eq('id', activeShift.id).single();
+                 const { data: current } = await supabase.from(TABLES.cash_shifts).select('expected_balance').eq('id', activeShift.id).single();
                  if (current) {
-                     await supabase.from('cash_shifts')
+                     await supabase.from(TABLES.cash_shifts)
                          .update({ expected_balance: (current.expected_balance || 0) - movement.amount })
                          .eq('id', activeShift.id);
                  }
@@ -327,7 +339,7 @@ export const useCashSystem = (showNotify, branchId) => {
     const getPastShifts = useCallback(async (limit = 20) => {
         if (!branchId) return [];
         const { data, error } = await supabase
-            .from('cash_shifts')
+            .from(TABLES.cash_shifts)
             .select('*')
             .eq('status', 'closed')
             .eq('branch_id', branchId) // FILTRO POR SUCURSAL
@@ -339,8 +351,8 @@ export const useCashSystem = (showNotify, branchId) => {
 
     const getShiftMovements = useCallback(async (shiftId) => {
         const { data, error } = await supabase
-            .from('cash_movements')
-            .select('*, orders(*)')
+            .from(TABLES.cash_movements)
+            .select(`*, ${TABLES.orders}(*)`)
             .eq('shift_id', shiftId)
             .order('created_at', { ascending: false });
         if (error) throw error;

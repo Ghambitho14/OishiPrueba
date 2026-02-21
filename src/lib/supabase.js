@@ -1,16 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_PRUEBA_SUPABASE_URL || '';
+// Conexión a Supabase: siempre usar la URL real del proyecto (no MCP para el cliente)
+const supabaseUrl = (import.meta.env.VITE_PRUEBA_SUPABASE_URL || '').replace(/\/$/, '');
 const supabaseAnonKey = import.meta.env.VITE_PRUEBA_SUPABASE_ANON_KEY || '';
-const useMcp = import.meta.env.VITE_SUPABASE_USE_MCP === 'true';
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_REF || '';
 
-// Construir la URL del cliente: usar MCP si está habilitado y se proporcionó project ref
-const clientUrl = (useMcp && projectRef)
-  ? `https://mcp.supabase.com/mcp?project_ref=${projectRef}`
-  : supabaseUrl;
+if (import.meta.env.DEV && (!supabaseUrl || !supabaseAnonKey)) {
+  console.warn(
+    '[Supabase] Faltan variables de entorno. Asegúrate de tener en .env.local:\n' +
+    '  VITE_PRUEBA_SUPABASE_URL=https://tu-proyecto.supabase.co\n' +
+    '  VITE_PRUEBA_SUPABASE_ANON_KEY=eyJ...'
+  );
+}
 
-export const supabase = createClient(clientUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: {
     params: {
       eventsPerSecond: 10

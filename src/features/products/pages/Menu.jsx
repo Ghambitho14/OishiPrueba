@@ -8,6 +8,7 @@ import '../../../styles/Navbar.css';
 import '../../../styles/BranchSelectorModal.css';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 import logo from '../../../assets/logo.png';
 import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
 import { useLocation } from '../../../context/useLocation';
@@ -69,7 +70,7 @@ const Menu = () => {
         let branchesData = [];
         try {
           const { data, error } = await supabase
-            .from('branches')
+            .from(TABLES.branches)
             .select('*')
             .eq('is_active', true)
             .order('name', { ascending: true });
@@ -87,10 +88,10 @@ const Menu = () => {
 
         // 2. Cargar datos dependientes de la sucursal (Precios y Estado Local)
         const [catsRes, prodsRes, pricesRes, statusRes] = await Promise.all([
-          supabase.from('categories').select('*').eq('is_active', true).order('order', { ascending: true }),
-          supabase.from('products').select('*').order('name', { ascending: true }), // Traemos base global
-          supabase.from('product_prices').select('*').eq('branch_id', selectedBranch.id),
-          supabase.from('product_branch').select('*').eq('branch_id', selectedBranch.id)
+          supabase.from(TABLES.categories).select('*').eq('is_active', true).order('order', { ascending: true }),
+          supabase.from(TABLES.products).select('*').order('name', { ascending: true }),
+          supabase.from(TABLES.product_prices).select('*').eq('branch_id', selectedBranch.id),
+          supabase.from(TABLES.product_branch).select('*').eq('branch_id', selectedBranch.id)
         ]);
 
         if (catsRes.error) throw catsRes.error;

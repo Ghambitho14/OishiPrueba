@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 import { uploadImage } from '../../../shared/utils/cloudinary';
 
 /**
@@ -18,7 +19,7 @@ export const ordersService = {
             }
 
             const { data: openShift } = await supabase
-                .from('cash_shifts')
+                .from(TABLES.cash_shifts)
                 .select('id')
                 .eq('status', 'open')
                 .eq('branch_id', orderData.branch_id)
@@ -71,7 +72,7 @@ export const ordersService = {
             }
 
             const { data: newOrder, error: orderError } = await supabase
-                .from('orders')
+                .from(TABLES.orders)
                 .insert({
                     client_id: clientId,
                     client_name: orderData.client_name,
@@ -114,7 +115,7 @@ export const ordersService = {
 
         // 2. Buscar cliente existente por Teléfono (Identificador principal)
         const { data: existingClient, error: searchError } = await supabase
-            .from('clients')
+            .from(TABLES.clients)
             .select('*')
             .eq('phone', safePhone)
             .maybeSingle(); // Usamos maybeSingle para evitar error si no existe o si hay múltiples (aunque unique lo previene)
@@ -139,7 +140,7 @@ export const ordersService = {
             }
 
             const { error: updateError } = await supabase
-                .from('clients')
+                .from(TABLES.clients)
                 .update(updateData)
                 .eq('id', existingClient.id);
 
@@ -154,7 +155,7 @@ export const ordersService = {
             
             // Usamos UPSERT por seguridad (en caso de condición de carrera con el teléfono)
             const { data: newClient, error: createError } = await supabase
-                .from('clients')
+                .from(TABLES.clients)
                 .upsert({
                     name: client_name,
                     phone: safePhone,
@@ -170,7 +171,7 @@ export const ordersService = {
             if (createError) {
                  // Si falla upsert, intentamos buscar de nuevo por si acaso fue creado milisegundos antes
                  if (createError.code === '23505') {
-                      const { data: retryClient } = await supabase.from('clients').select('id').eq('phone', safePhone).single();
+                      const { data: retryClient } = await supabase.from(TABLES.clients).select('id').eq('phone', safePhone).single();
                       if (retryClient) return retryClient.id;
                  }
                  throw createError;

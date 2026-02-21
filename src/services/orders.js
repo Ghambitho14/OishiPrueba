@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { TABLES } from '../lib/supabaseTables';
 import { uploadImage } from '../shared/utils/cloudinary';
 
 /**
@@ -23,7 +24,7 @@ export const ordersService = {
 
             // 3. Inserción del Pedido
             const { data: newOrder, error: orderError } = await supabase
-                .from('orders')
+                .from(TABLES.orders)
                 .insert({
                     client_id: clientId,
                     client_name: orderData.client_name,
@@ -58,7 +59,7 @@ export const ordersService = {
 
         if (hasValidRut) {
             // Estrategia Robusta: Buscar primero por RUT exacto
-            const { data: byRut } = await supabase.from('clients').select('*').eq('rut', client_rut);
+            const { data: byRut } = await supabase.from(TABLES.clients).select('*').eq('rut', client_rut);
             
             if (byRut && byRut.length > 0) {
                 // Existe por RUT -> Actualizar
@@ -66,7 +67,7 @@ export const ordersService = {
             }
 
             // Si no hay RUT, buscar por teléfono
-            const { data: byPhone } = await supabase.from('clients').select('*').eq('phone', client_phone);
+            const { data: byPhone } = await supabase.from(TABLES.clients).select('*').eq('phone', client_phone);
              
             if (byPhone && byPhone.length > 0) {
                  // Existe por Teléfono -> Actualizar (y quizás asignarle el RUT nuevo)
@@ -78,7 +79,7 @@ export const ordersService = {
 
         } else {
             // Si no hay RUT en el pedido, solo buscar por teléfono
-            const { data: byPhone } = await supabase.from('clients').select('*').eq('phone', client_phone);
+            const { data: byPhone } = await supabase.from(TABLES.clients).select('*').eq('phone', client_phone);
             
             if (byPhone && byPhone.length > 0) {
                 return await this._updateExistingClient(byPhone[0], orderData);
@@ -110,7 +111,7 @@ export const ordersService = {
         }
 
         const { error } = await supabase
-            .from('clients')
+            .from(TABLES.clients)
             .update(updateData)
             .eq('id', existingClient.id);
 
@@ -128,7 +129,7 @@ export const ordersService = {
         const rutToSave = hasValidRut ? client_rut : `SIN-RUT-${Date.now().toString().slice(-6)}`;
 
         const { data: newClient, error } = await supabase
-            .from('clients')
+            .from(TABLES.clients)
             .insert({
                 name: client_name,
                 phone: client_phone,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Loader2, User, Phone, Mail, FileText } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 
 const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
     const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
         try {
             // Validar teléfono duplicado
             const { data: existing } = await supabase
-                .from('clients')
+                .from(TABLES.clients)
                 .select('id')
                 .eq('phone', formData.phone)
                 .single();
@@ -36,7 +37,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
             }
 
             const { data, error } = await supabase
-                .from('clients')
+                .from(TABLES.clients)
                 .insert([{
                     name: formData.name,
                     phone: formData.phone,

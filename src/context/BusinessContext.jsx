@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { TABLES } from '../lib/supabaseTables';
 import { BusinessContext } from './BusinessContextInstance';
 
 
@@ -24,7 +25,7 @@ export const BusinessProvider = ({ children }) => {
         // Suscribirse a cambios en tiempo real
         const subscription = supabase
             .channel('business_info_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'business_info' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.business_info }, () => {
                 fetchBusinessInfo();
             })
             .subscribe();
@@ -37,7 +38,7 @@ export const BusinessProvider = ({ children }) => {
     const fetchBusinessInfo = async () => {
         try {
             const { data } = await supabase
-                .from('business_info')
+                .from(TABLES.business_info)
                 .select('*')
                 .limit(1)
                 .maybeSingle();
