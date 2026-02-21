@@ -21,6 +21,26 @@ const Menu = () => {
   const { branchesWithOpenCaja, isShiftLoading } = useCash();
   const { businessInfo } = useBusiness();
 
+  // Anti-zoom: bloquear Ctrl+Scroll y Ctrl+/-
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    };
+    const handleKeydown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('keydown', handleKeydown);
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('keydown', handleKeydown);
+    };
+  }, []);
+
   // Si la sucursal guardada ya no tiene caja abierta, abrir modal para elegir una que sí acepte pedidos
   useEffect(() => {
     if (!isShiftLoading && selectedBranch && !branchesWithOpenCaja.includes(String(selectedBranch.id ?? ''))) {
