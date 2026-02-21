@@ -4,6 +4,7 @@ import { routes } from "../router";
 import { BusinessProvider } from "../../context/BusinessContext";
 import { LocationProvider } from "../../context/LocationContext";
 import { CashProvider } from "../../context/CashContext";
+import { CartProvider } from '../providers/CartProvider';
 
 // Assets
 import menuPattern from "../../assets/menu-pattern.webp";
@@ -164,9 +165,11 @@ function App() {
     <BusinessProvider>
       <LocationProvider>
         <CashProvider>
-          <Router>
-            <InnerApp />
-          </Router>
+          <CartProvider>
+            <Router>
+              <InnerApp />
+            </Router>
+          </CartProvider>
         </CashProvider>
       </LocationProvider>
     </BusinessProvider>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import CartContext from '../../features/cart/hooks/cart-context';
 import { supabase } from '../../lib/supabase';
+import { useLocation } from '../../context/useLocation';
 
 export const CartProvider = ({ children }) => {
   // 1. ESTADO INICIAL (CON PERSISTENCIA)
@@ -16,48 +17,66 @@ export const CartProvider = ({ children }) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderNote, setOrderNote] = useState('');
 
+  const { selectedBranch } = useLocation();
+
   // 1.5. EFECTO: VALIDAR PRECIOS AL CARGAR (SEGURIDAD)
   React.useEffect(() => {
     const validatePrices = async () => {
       if (cart.length === 0) return;
+      if (!selectedBranch) return; // No consultar precios sin sucursal
 
       try {
         const ids = cart.map(item => item.id);
-        const { data: freshProducts, error } = await supabase
-          .from('products')
-          .select('id, price, has_discount, discount_price, name, is_active, description')
-          .in('id', ids);
 
-        if (error || !freshProducts) return;
+        const { data, error } = await supabase
+          .from('product_prices')
+          .select('product_id, price, has_discount, discount_price, products(id,name,is_active,description)')
+          .in('product_id', ids)
+          .eq('branch_id', selectedBranch.id);
 
-        setCart(prevCart => {
-          return prevCart.map(cartItem => {
-            const freshItem = freshProducts.find(p => p.id === cartItem.id);
-            // Si el producto ya no existe o no está activo, lo marcamos para borrar o lo dejamos (decisión de negocio)
-            // Aquí actualizamos precio y estado
-            if (freshItem) {
-              return {
-                ...cartItem,
-                price: freshItem.price,
-                has_discount: freshItem.has_discount,
-                discount_price: freshItem.discount_price,
-                name: freshItem.name, // Actualizar nombre por si cambió
-                is_active: freshItem.is_active,
-                description: freshItem.description
-              };
-            }
-            return cartItem;
-          }).filter(item => item.is_active !== false); // Remover productos desactivados
-        });
+        if (error) {
+          console.error('validatePrices supabase error', error);
+          return;
+        }
+
+        setCart(prevCart => prevCart.map(cartItem => {
+          const priceRow = data ? data.find(p => p.product_id === cartItem.id) : null;
+          const meta = priceRow?.products;
+
+          if (priceRow) {
+            return {
+              ...cartItem,
+              price: priceRow.price,
+              has_discount: priceRow.has_discount,
+              discount_price: priceRow.discount_price,
+              name: meta?.name ?? cartItem.name,
+              is_active: meta?.is_active ?? cartItem.is_active,
+              description: meta?.description ?? cartItem.description
+            };
+          }
+
+          if (meta) {
+            return {
+              ...cartItem,
+              name: meta.name,
+              is_active: meta.is_active,
+              description: meta.description
+            };
+          }
+
+          return cartItem;
+        }).filter(item => item.is_active !== false));
 
       } catch (err) {
         console.error("Error validando precios del carrito:", err);
       }
     };
 
+    // Re-ejecutar cuando cambie la sucursal o cambien los ids del carrito
+    const idsKey = cart.map(i => i.id).join(',');
     validatePrices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Solo al montar
+  }, [selectedBranch, cart.map ? cart.map(i => i.id).join(',') : cart]);
 
   // 1.6 EFECTO: GUARDAR EN LOCALSTORAGE
   React.useEffect(() => {
