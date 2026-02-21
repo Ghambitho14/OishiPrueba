@@ -118,7 +118,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                 }];
             }
             // Recalcular total
-            const newTotal = newItems.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0);
+            const newTotal = Math.round(newItems.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0));
             const newState = { ...prev, items: newItems, total: newTotal };
             return newState;
         });
@@ -139,7 +139,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                 newItems = prev.items.map(i => i.id === itemId ? { ...i, quantity: i.quantity + change } : i);
             }
 
-            const newTotal = newItems.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0);
+            const newTotal = Math.round(newItems.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0));
             return { ...prev, items: newItems, total: newTotal };
         });
     }, [getPrice]);
@@ -147,7 +147,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     const removeItem = useCallback((itemId) => {
         setManualOrder(prev => {
             const newItems = prev.items.filter(i => i.id !== itemId);
-            const newTotal = newItems.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0);
+            const newTotal = Math.round(newItems.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0));
             return { ...prev, items: newItems, total: newTotal };
         });
     }, [getPrice]);

@@ -52,14 +52,20 @@ const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
 
         const valid = orders.filter(o => o.status !== 'cancelled');
         
+        // [FIX] Crear Set de IDs válidos para filtrar órdenes huérfanas ("Sin asignar")
+        const validBranchIds = new Set((branches || []).map(b => b.id));
+        
         const current = valid.filter(o => {
             const d = new Date(o.created_at);
-            return (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
+            const matchesTime = (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
+            // Solo incluir órdenes que pertenecen a una sucursal activa/existente
+            return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
         const prev = valid.filter(o => {
             const d = new Date(o.created_at);
-            return filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff) && filterByTab(o);
+            const matchesTime = filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff) && filterByTab(o);
+            return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
         // --- CHART DATA ---
@@ -70,15 +76,21 @@ const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
         for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(now.getDate() - i);
-            const key = d.toISOString().split('T')[0];
+            // [FIX] Usar fecha LOCAL para la clave, no UTC, para alinear con lo que ve el usuario
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const key = `${year}-${month}-${day}`;
+            
             labels.push(d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }));
             salesByDate[key] = 0;
         }
 
         current.forEach(o => {
-            const key = new Date(o.created_at).toISOString().split('T')[0];
-            if (salesByDate[key] !== undefined) {
-                salesByDate[key] += Number(o.total);
+            // [FIX] Convertir created_at (UTC) a fecha local del navegador para agrupar correctamente
+            const localDate = new Date(o.created_at).toLocaleDateString('en-CA'); // YYYY-MM-DD local
+            if (salesByDate[localDate] !== undefined) {
+                salesByDate[localDate] += Number(o.total);
             }
         });
 
@@ -102,15 +114,17 @@ const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
         const bStats = {};
         const realBranches = (branches || []).filter(b => b.id && b.id !== 'all');
         realBranches.forEach(b => {
-            bStats[b.id] = { id: b.id, name: b.name, total: 0, count: 0 };
+            bStats[b.id] = { id: b.id, name: b.name || 'Sucursal sin nombre', total: 0, count: 0 };
         });
         
         current.forEach(o => {
             const bid = o.branch_id || '_sin_asignar_';
             if (!bStats[bid]) {
+                // [ROBUSTEZ] Manejo seguro de sucursales eliminadas o antiguas
+                const branchName = realBranches.find(b => b.id === bid)?.name || (bid === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada');
                 bStats[bid] = {
                     id: bid,
-                    name: bid === '_sin_asignar_' ? 'Sin asignar' : (realBranches.find(b => b.id === bid)?.name || 'Otra sucursal'),
+                    name: branchName,
                     total: 0,
                     count: 0
                 };
