@@ -247,7 +247,7 @@
   height: 60px;
   border-radius: 16px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
   border: none;
@@ -291,7 +291,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255,255,255,0.9);
-  font-size: 4px;
+  font-size: 14px;
 }
 
 .home-container .btn-secondary:hover {
