@@ -14,7 +14,6 @@ import BranchSelectorModal from '../../../shared/components/BranchSelectorModal'
 import { useLocation } from '../../../context/useLocation';
 import { useCash } from '../../../context/CashContext';
 import { useBusiness } from '../../../context/useBusiness';
-import { branches as staticBranches } from '../../../shared/data/branches';
 
 const Menu = () => {
   const navigate = useNavigate();
@@ -75,8 +74,7 @@ const Menu = () => {
             .eq('is_active', true)
             .order('name', { ascending: true });
           if (!error) branchesData = data || [];
-        } catch (_) { /* fallback abajo */ }
-        if (branchesData.length === 0) branchesData = staticBranches;
+        } catch { /* Fallback a lista vacía si falla Supabase */ }
 
         // Si no hay sucursal seleccionada, solo guardamos branches y paramos (el modal se abrirá)
         if (!selectedBranch) {
