@@ -9,7 +9,7 @@ export const cashService = {
     // --- TURNOS ---
 
     /**
-     * Obtiene el turno abierto actualmente si existe.
+     * Obtiene el turno abierto actualmente si existe (cualquier sucursal).
      * Incluye un conteo de movimientos para feedback rápido en UI.
      */
     getActiveShift: async () => {
@@ -21,6 +21,38 @@ export const cashService = {
 
         if (error) throw error;
         return data;
+    },
+
+    /**
+     * Obtiene el turno abierto para una sucursal específica.
+     * Usado para validar si una sucursal está recibiendo pedidos.
+     */
+    getActiveShiftForBranch: async (branchId) => {
+        if (!branchId) return null;
+        const { data, error } = await supabase
+            .from('cash_shifts')
+            .select('*, cash_movements(count)')
+            .eq('status', 'open')
+            .eq('branch_id', branchId)
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Obtiene los IDs de sucursales que tienen caja abierta.
+     * Usado para filtrar sucursales disponibles en carrito y pedidos manuales.
+     */
+    getBranchesWithOpenCaja: async () => {
+        const { data, error } = await supabase
+            .from('cash_shifts')
+            .select('branch_id')
+            .eq('status', 'open')
+            .not('branch_id', 'is', null);
+
+        if (error) throw error;
+        return (data || []).map(r => r.branch_id).filter(Boolean).map(id => String(id));
     },
 
     /**

@@ -19,7 +19,7 @@ const fmt = (n) => {
     try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
 };
 
-const AdminAnalytics = ({ orders, clients, branches }) => {
+const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
 
@@ -100,20 +100,28 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
 
         // --- BRANCH BREAKDOWN ---
         const bStats = {};
-        if (branches) {
-            branches.forEach(b => {
-                bStats[b.id] = { id: b.id, name: b.name, total: 0, count: 0 };
-            });
-        }
+        const realBranches = (branches || []).filter(b => b.id && b.id !== 'all');
+        realBranches.forEach(b => {
+            bStats[b.id] = { id: b.id, name: b.name, total: 0, count: 0 };
+        });
         
         current.forEach(o => {
-            const bid = o.branch_id || 'unknown';
-            if (!bStats[bid]) bStats[bid] = { id: bid, name: 'Desconocida', total: 0, count: 0 };
+            const bid = o.branch_id || '_sin_asignar_';
+            if (!bStats[bid]) {
+                bStats[bid] = {
+                    id: bid,
+                    name: bid === '_sin_asignar_' ? 'Sin asignar' : (realBranches.find(b => b.id === bid)?.name || 'Otra sucursal'),
+                    total: 0,
+                    count: 0
+                };
+            }
             bStats[bid].total += Number(o.total);
             bStats[bid].count += 1;
         });
 
-        const sortedBranches = Object.values(bStats).sort((a, b) => b.total - a.total);
+        const sortedBranches = Object.values(bStats)
+            .filter(b => b.total > 0 || b.count > 0)
+            .sort((a, b) => b.total - a.total);
 
         return {
             chartData: {

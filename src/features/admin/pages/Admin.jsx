@@ -264,10 +264,14 @@ const AdminProvider = ({ children }) => {
 
       const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
 
+      // Filtrar clientes por sucursal: solo los que tienen pedidos en la vista actual
+      const clientIdsInOrders = new Set(cleanOrders.map(o => o.client_id).filter(Boolean));
+      const filteredClients = (cltsRes.data || []).filter(c => clientIdsInOrders.has(c.id));
+
       setCategories(catsRes.data || []);
       setProducts(mergedProducts);
       setOrders(cleanOrders);
-      setClients(cltsRes.data || []);
+      setClients(filteredClients);
 
     } catch (error) {
       console.error("Error cargando datos:", error);
@@ -871,7 +875,12 @@ const AdminComponent = () => {
                 >
                   {isHistoryView ? 'Ver Tablero' : 'Ver Historial'}
                 </button>
-                <button onClick={() => setIsManualOrderModalOpen(true)} className="btn btn-primary">
+                <button
+                  onClick={() => setIsManualOrderModalOpen(true)}
+                  className="btn btn-primary"
+                  disabled={selectedBranch?.id === 'all' || !selectedBranch}
+                  title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
+                >
                   <PlusCircle size={18} /> Pedido Manual
                 </button>
               </>
@@ -994,7 +1003,8 @@ const AdminComponent = () => {
             orders={orders} 
             products={products} 
             clients={clients} 
-            branches={branches}
+            branches={branches.filter(b => b.id !== 'all')}
+            selectedBranch={selectedBranch}
           />
         )}
 
@@ -1011,7 +1021,7 @@ const AdminComponent = () => {
 
         {/* 4.5 CAJA */}
         {activeTab === 'caja' && (
-          <CashManager showNotify={showNotify} />
+          <CashManager showNotify={showNotify} selectedBranchId={selectedBranch?.id} />
         )}
 
         {/* 5. CATEGORÍAS */}

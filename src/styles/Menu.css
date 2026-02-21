@@ -96,3 +96,40 @@ section {
         height: 24px;
     }
 }
+
+/* =========================================
+   ANIMACIÓN NAV BRAND (MOBILE SEARCH)
+   ========================================= */
+.nav-brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: gap 0.3s ease;
+}
+
+.nav-brand-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Transición suave para ocultar/mostrar */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 1;
+    max-width: 200px; /* Ancho suficiente para el contenido */
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* Lógica exclusiva para móviles */
+@media (max-width: 600px) {
+    .nav-brand-wrapper.mobile-search-active {
+        gap: 0; /* Elimina el espacio entre logo y texto */
+    }
+    
+    .nav-brand-wrapper.mobile-search-active .nav-brand-info {
+        opacity: 0;
+        max-width: 0; /* Colapsa el ancho a 0 */
+        transform: translateX(-10px); /* Pequeño desplazamiento a la izquierda */
+        pointer-events: none;
+    }
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import Navbar from '../../../shared/components/Navbar';
 import ProductCard from '../components/ProductCard';
-import { Search, ChevronLeft, Loader2, X, MapPin } from 'lucide-react';
+import { Search, ChevronLeft, Loader2, X, MapPin, ChevronDown } from 'lucide-react';
 import '../../../styles/Menu.css';
 import '../../../styles/Navbar.css';
 import { useNavigate } from 'react-router-dom';
@@ -10,10 +10,22 @@ import { supabase } from '../../../lib/supabase';
 import logo from '../../../assets/logo.png';
 import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
 import { useLocation } from '../../../context/useLocation';
+import { useCash } from '../../../context/CashContext';
+import { useBusiness } from '../../../context/useBusiness';
+import { branches as staticBranches } from '../../../shared/data/branches';
 
 const Menu = () => {
   const navigate = useNavigate();
   const { selectedBranch, selectBranch, isLocationModalOpen, setIsLocationModalOpen } = useLocation();
+  const { branchesWithOpenCaja, isShiftLoading } = useCash();
+  const { businessInfo } = useBusiness();
+
+  // Si la sucursal guardada ya no tiene caja abierta, abrir modal para elegir una que sí acepte pedidos
+  useEffect(() => {
+    if (!isShiftLoading && selectedBranch && !branchesWithOpenCaja.includes(String(selectedBranch.id ?? ''))) {
+      setIsLocationModalOpen(true);
+    }
+  }, [isShiftLoading, selectedBranch, branchesWithOpenCaja, setIsLocationModalOpen]);
   
   // Agrupamos estados relacionados para evitar renders innecesarios
   const [data, setData] = useState({ categories: [], products: [], branches: [] });
@@ -33,13 +45,16 @@ const Menu = () => {
       setLoading(true);
       try {
         // 1. Cargar sucursales (siempre necesario para el modal)
-        const { data: branchesData, error: branchesError } = await supabase
-          .from('branches')
-          .select('*')
-          .eq('is_active', true)
-          .order('name', { ascending: true });
-
-        if (branchesError) throw branchesError;
+        let branchesData = [];
+        try {
+          const { data, error } = await supabase
+            .from('branches')
+            .select('*')
+            .eq('is_active', true)
+            .order('name', { ascending: true });
+          if (!error) branchesData = data || [];
+        } catch (_) { /* fallback abajo */ }
+        if (branchesData.length === 0) branchesData = staticBranches;
 
         // Si no hay sucursal seleccionada, solo guardamos branches y paramos (el modal se abrirá)
         if (!selectedBranch) {
@@ -178,19 +193,33 @@ const Menu = () => {
             <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0 }}>
               <ChevronLeft size={28} />
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className={`nav-brand-wrapper ${searchExpanded ? 'mobile-search-active' : ''}`}>
               <img src={logo} alt="Oishi Logo" style={{ height: '38px', width: 'auto', borderRadius: '6px' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1 }}>
-                <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'white' }}>Oishi Sushi</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
-                  <span 
-                    style={{ fontSize: '0.65rem', color: 'white', opacity: 0.9, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '6px', marginLeft: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }} 
-                    onClick={() => setIsLocationModalOpen(true)}
-                  >
-                    <MapPin size={10} /> {selectedBranch ? selectedBranch.name : 'Seleccionar Sucursal'}
+              <div className="nav-brand-info">
+                <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'white', lineHeight: '1.2' }}>Oishi Sushi</h2>
+                <button 
+                  onClick={() => setIsLocationModalOpen(true)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '20px',
+                    padding: '4px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    marginTop: '2px',
+                    transition: 'all 0.2s ease',
+                    backdropFilter: 'blur(4px)'
+                  }}
+                >
+                  <MapPin size={12} color="var(--accent-primary)" style={{ filter: 'drop-shadow(0 0 2px rgba(255, 71, 87, 0.5))' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'white', fontWeight: 600, letterSpacing: '0.3px' }}>
+                    {selectedBranch ? selectedBranch.name : 'Seleccionar Local'}
                   </span>
-                </div>
+                  <ChevronDown size={12} color="rgba(255,255,255,0.6)" />
+                </button>
               </div>
             </div>
             <div className="nav-search-section">
@@ -300,9 +329,51 @@ const Menu = () => {
       <BranchSelectorModal
         isOpen={isLocationModalOpen}
         onClose={() => {}} 
-        branches={data.branches}
-        onSelectBranch={selectBranch}
-        allowClose={false} 
+        branches={[...data.branches]
+          .sort((a, b) => {
+            const aOpen = branchesWithOpenCaja.includes(String(a?.id ?? ''));
+            const bOpen = branchesWithOpenCaja.includes(String(b?.id ?? ''));
+            if (aOpen === bOpen) return 0;
+            return aOpen ? -1 : 1;
+          })
+          .map(b => {
+            const isOpen = branchesWithOpenCaja.includes(String(b?.id ?? ''));
+            return {
+              ...b,
+              name: (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <span style={{ fontWeight: 600 }}>{b.name}</span>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '4px 12px',
+                    borderRadius: '999px',
+                    backgroundColor: isOpen ? 'rgba(34, 197, 94, 0.15)' : 'rgba(107, 114, 128, 0.1)',
+                    color: isOpen ? '#22c55e' : '#9ca3af',
+                    border: `1px solid ${isOpen ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {isOpen && <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', boxShadow: '0 0 8px currentColor' }} />}
+                    {isOpen ? 'ABIERTO' : 'CERRADO'}
+                  </span>
+                </div>
+              ),
+              disabled: !isOpen
+            };
+          })}
+        allBranches={data.branches}
+        isLoadingCaja={isShiftLoading}
+        onSelectBranch={(branch) => {
+          const original = data.branches.find(b => b.id === branch.id);
+          if (original && branchesWithOpenCaja.includes(String(original.id ?? ''))) {
+            selectBranch(original);
+          }
+        }}
+        allowClose={false}
+        schedule={businessInfo?.schedule}
       />
     </div>
   );

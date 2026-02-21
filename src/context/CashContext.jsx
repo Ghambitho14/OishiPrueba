@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { cashService } from '../features/admin/services/cashService';
 import { supabase } from '../lib/supabase';
 
 const CashContext = createContext();
+const normId = (id) => (id != null ? String(id) : null);
 
 export const useCash = () => {
     const context = useContext(CashContext);
@@ -14,34 +15,69 @@ export const useCash = () => {
 
 export const CashProvider = ({ children }) => {
     const [activeShift, setActiveShift] = useState(null);
+    const [branchesWithOpenCaja, setBranchesWithOpenCaja] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const checkActiveShift = async () => {
+    const refreshAll = useCallback(async () => {
         try {
             setLoading(true);
-            const shift = await cashService.getActiveShift();
+            const [shift, branchIds] = await Promise.all([
+                cashService.getActiveShift(),
+                cashService.getBranchesWithOpenCaja()
+            ]);
             setActiveShift(shift);
+            setBranchesWithOpenCaja((branchIds || []).map(normId).filter(Boolean));
         } catch (error) {
-            console.error('Error fetching active shift:', error);
+            console.error('Error refreshing cash state:', error);
             setActiveShift(null);
+            setBranchesWithOpenCaja([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        checkActiveShift();
+        refreshAll();
 
-        // Listen for realtime changes on cash_shifts table
         const channel = supabase
             .channel('cash_shifts_realtime')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'cash_shifts' },
                 (payload) => {
-                    console.log('Change detected in cash_shifts, reloading shift state.', payload);
-                    // Reload active shift on any change in the shifts table
-                    checkActiveShift();
+                    // Actualización instantánea desde el payload (0 latencia)
+                    const eventType = payload.eventType || payload.event;
+                    const newRow = payload.new || payload.newRecord;
+                    const oldRow = payload.old || payload.oldRecord;
+
+                    setBranchesWithOpenCaja((prev) => {
+                        const add = (id) => {
+                            const n = normId(id);
+                            if (n && !prev.includes(n)) return [...prev, n];
+                            return prev;
+                        };
+                        const remove = (id) => {
+                            const n = normId(id);
+                            if (n) return prev.filter((b) => b !== n);
+                            return prev;
+                        };
+
+                        if (eventType === 'INSERT' && newRow?.status === 'open') return add(newRow.branch_id);
+                        if (eventType === 'UPDATE' && newRow) {
+                            if (oldRow?.status === 'open' && newRow.status !== 'open') return remove(oldRow.branch_id);
+                            if (newRow.status === 'open') return add(newRow.branch_id);
+                        }
+                        if (eventType === 'DELETE' && oldRow?.status === 'open') return remove(oldRow.branch_id);
+                        return prev;
+                    });
+
+                    setActiveShift((prev) => {
+                        if (eventType === 'INSERT' && newRow?.status === 'open') return newRow;
+                        if (eventType === 'UPDATE' && newRow?.status === 'open') return newRow;
+                        if (eventType === 'UPDATE' && newRow?.status !== 'open') return null;
+                        if (eventType === 'DELETE') return null;
+                        return prev;
+                    });
                 }
             )
             .subscribe();
@@ -49,13 +85,20 @@ export const CashProvider = ({ children }) => {
         return () => {
             channel.unsubscribe();
         };
-    }, []);
+    }, [refreshAll]);
+
+    const isShiftActiveForBranch = useCallback((branchId) => {
+        if (!branchId) return false;
+        return branchesWithOpenCaja.includes(normId(branchId));
+    }, [branchesWithOpenCaja]);
 
     const value = {
         activeShift,
+        branchesWithOpenCaja,
         isShiftLoading: loading,
         isShiftActive: !!activeShift,
-        refreshShift: checkActiveShift,
+        isShiftActiveForBranch,
+        refreshShift: refreshAll,
     };
 
     return <CashContext.Provider value={value}>{children}</CashContext.Provider>;

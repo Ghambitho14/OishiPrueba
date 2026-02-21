@@ -197,8 +197,7 @@ export const useCashSystem = (showNotify, branchId) => {
                 type,
                 amount,
                 description,
-                payment_method: paymentMethod,
-                company_id: activeShift.company_id // Opcional
+                payment_method: paymentMethod
             };
             
             const { error } = await supabase.from('cash_movements').insert(movement);

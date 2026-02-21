@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useCart } from '../hooks/useCart';
 import { ordersService } from '../../orders/services/orders';
-import { cashService } from '../../admin/services/cashService';
 import { useBusiness } from '../../../context/useBusiness';
 import { useLocation } from '../../../context/useLocation';
 import { useCash } from '../../../context/CashContext';
@@ -42,7 +41,8 @@ const CartModal = React.memo(() => {
   const navigate = useNavigate();
   const { businessInfo } = useBusiness();
   const { selectedBranch } = useLocation();
-  const { isShiftActive, isShiftLoading } = useCash();
+  const { isShiftActiveForBranch, isShiftLoading } = useCash();
+  const canCheckout = isShiftActiveForBranch(selectedBranch?.id);
 
   const {
     cart, isCartOpen, toggleCart,
@@ -152,9 +152,11 @@ const CartModal = React.memo(() => {
   const handleSendOrder = async (e) => {
     e.preventDefault();
 
-    if (!isShiftActive) {
-      const scheduleMessage = businessInfo.schedule ? `Nuestro horario es: ${businessInfo.schedule}` : 'No se pueden recibir pedidos en este momento.';
-      setViewState(v => ({ ...v, isSaving: false, error: `La caja está cerrada. ${scheduleMessage}` }));
+    if (!canCheckout) {
+      const msg = selectedBranch
+        ? `Esta sucursal (${selectedBranch.name}) no está recibiendo pedidos. Abre la caja en el admin para habilitar compras.`
+        : (businessInfo.schedule ? `Nuestro horario es: ${businessInfo.schedule}` : 'No se pueden recibir pedidos en este momento.');
+      setViewState(v => ({ ...v, isSaving: false, error: msg }));
       return;
     }
 
@@ -293,7 +295,7 @@ const CartModal = React.memo(() => {
                     
                     {isShiftLoading ? (
                       <button className="btn btn-primary btn-block btn-lg" disabled>Cargando...</button>
-                    ) : isShiftActive ? (
+                    ) : canCheckout ? (
                       <button onClick={() => setViewState(v => ({ ...v, showPaymentInfo: true }))} className="btn btn-primary btn-block btn-lg">
                         Ir a Pagar
                       </button>
@@ -301,8 +303,9 @@ const CartModal = React.memo(() => {
                       <div className="cash-closed-banner">
                         <AlertCircle size={16} />
                         <span>
-                          Caja cerrada.
-                          {businessInfo.schedule && ` Horario: ${businessInfo.schedule}`}
+                          {selectedBranch
+                            ? `Esta sucursal no está recibiendo pedidos. Abre la caja en ${selectedBranch.name} para habilitar compras.`
+                            : `Caja cerrada.${businessInfo.schedule ? ` Horario: ${businessInfo.schedule}` : ''}`}
                         </span>
                       </div>
                     )}

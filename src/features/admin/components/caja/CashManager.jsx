@@ -3,7 +3,8 @@ import {
     Unlock, Lock, Plus, Minus, History, 
     Clock, Calendar, TrendingUp, TrendingDown,
     ArrowUpCircle, ArrowDownCircle, Eye,
-    DollarSign, CreditCard, Smartphone, ChevronRight
+    DollarSign, CreditCard, Smartphone, ChevronRight,
+    MapPin
 } from 'lucide-react';
 import { useCashSystem } from '../../hooks/useCashSystem';
 import CashShiftModal from './CashShiftModal';
@@ -33,12 +34,12 @@ const ElapsedTime = ({ since }) => {
     return <span>{elapsed}</span>;
 };
 
-const CashManager = ({ showNotify }) => {
+const CashManager = ({ showNotify, selectedBranchId }) => {
     const { 
         activeShift, loading: loadingSystem, movements,
         openShift, closeShift, addManualMovement, 
         getPastShifts, getTotals
-    } = useCashSystem(showNotify);
+    } = useCashSystem(showNotify, selectedBranchId);
 
     const [pastShifts, setPastShifts] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -83,6 +84,16 @@ const CashManager = ({ showNotify }) => {
             <span>Cargando caja...</span>
         </div>
     );
+
+    if (!selectedBranchId || selectedBranchId === 'all') {
+        return (
+            <div className="cash-empty-state">
+                <div className="cash-empty-icon"><MapPin size={48} /></div>
+                <h3>Selecciona una sucursal</h3>
+                <p>Elige una sucursal en el menú superior para gestionar la caja de ese local.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="cash-container animate-fade">
