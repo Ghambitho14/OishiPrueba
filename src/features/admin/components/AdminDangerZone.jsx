@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 import { Loader2, AlertCircle, XCircle, FileText, Trash2, Users, ChevronDown } from 'lucide-react';
 
-const AdminDangerZone = ({ orders, showNotify, loadData, isMobile }) => {
+const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranch }) => {
   const [analyticsDate, setAnalyticsDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -146,18 +146,42 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile }) => {
           throw new Error('Mes inválido');
         }
 
-        // 1. Borrar movimientos de caja del mes para evitar error de FK
-        const { error: cashError, data: cashData } = await supabase.from(TABLES.cash_movements).delete()
-          .gte('created_at', range.startIso).lt('created_at', range.endIso).select();
+        const isSingleBranch = selectedBranch && selectedBranch.id && selectedBranch.id !== 'all';
 
-        // 2. Borrar las órdenes
-        const { error, data: deletedOrders } = await supabase.from(TABLES.orders).delete()
-          .gte('created_at', range.startIso).lt('created_at', range.endIso).select();
+        // 1. Borrar movimientos de caja del mes (por sucursal si hay una seleccionada)
+        if (isSingleBranch) {
+          const { data: branchShifts } = await supabase
+            .from(TABLES.cash_shifts)
+            .select('id')
+            .eq('branch_id', selectedBranch.id);
+          const shiftIds = (branchShifts || []).map(s => s.id);
+          if (shiftIds.length > 0) {
+            const { error: cashError } = await supabase.from(TABLES.cash_movements).delete()
+              .in('shift_id', shiftIds)
+              .gte('created_at', range.startIso)
+              .lt('created_at', range.endIso);
+            if (cashError) throw cashError;
+          }
+        } else {
+          const { error: cashError } = await supabase.from(TABLES.cash_movements).delete()
+            .gte('created_at', range.startIso).lt('created_at', range.endIso);
+          if (cashError) throw cashError;
+        }
 
-        if (cashError) throw cashError;
+        // 2. Borrar las órdenes (por sucursal si hay una seleccionada)
+        let orderQuery = supabase.from(TABLES.orders).delete()
+          .gte('created_at', range.startIso).lt('created_at', range.endIso);
+        if (isSingleBranch) {
+          orderQuery = orderQuery.eq('branch_id', selectedBranch.id);
+        }
+        const { error, data: deletedOrders } = await orderQuery.select();
 
         if (error) throw error;
-        showNotify(`${deletedOrders?.length || 0} registros del mes eliminados`, 'success');
+        const count = deletedOrders?.length ?? 0;
+        showNotify(isSingleBranch
+          ? `${count} registros del mes eliminados (sucursal ${selectedBranch.name})`
+          : `${count} registros del mes eliminados (todas las sucursales)`,
+        'success');
 
       } else if (dangerAction === 'allClients') {
         const { count, error, data: deletedClients } = await supabase.from(TABLES.clients).delete().neq('phone', '0000').select('*', { count: 'exact' });
@@ -269,7 +293,12 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile }) => {
                 <>
                   <div style={{ height: isMobile ? 12 : 0 }} />
                   <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: 20 }}>
-                    Borra todas las órdenes y movimientos de caja de <b style={{ color: 'white' }}>{analyticsDate}</b>.
+                    Borra las órdenes y movimientos de caja de <b style={{ color: 'white' }}>{analyticsDate}</b>
+                    {selectedBranch && selectedBranch.id && selectedBranch.id !== 'all' ? (
+                      <> para la sucursal <b style={{ color: 'white' }}>{selectedBranch.name}</b></>
+                    ) : (
+                      <> de <b style={{ color: 'white' }}>todas las sucursales</b></>
+                    )}.
                     <br/><b style={{color: '#ef4444'}}>Acción irreversible.</b>
                   </p>
                   <button

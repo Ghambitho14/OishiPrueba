@@ -4,9 +4,10 @@
  * apunte a las tablas correctas.
  */
 export const TABLES = {
-  // Sucursales y negocio
+  // Empresa (datos globales de la empresa, no por local)
+  companies: 'companies',
+  // Sucursales (cada local tiene su info aquí; multi-local)
   branches: 'branches',
-  business_info: 'business_info',
 
   // Productos y precios
   categories: 'categories',

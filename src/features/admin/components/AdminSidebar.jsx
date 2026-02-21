@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChefHat, ShoppingBag, BarChart3, Users, List, Settings, LogOut, DollarSign, Store, ChevronDown, ClipboardList } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, List, Settings, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Building2 } from 'lucide-react';
 import logo from '../../../assets/logo.png';
 import cashIcon from '../../../assets/cash.svg';
 import categoryIcon from '../../../assets/category.svg';
@@ -32,41 +32,48 @@ const CategoryIcon = ({ size }) => (
     />
 );
 
-const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogout }) => {
+const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, userEmail, branchName }) => {
     const navigate = useNavigate();
     const pendingCount = kanbanColumns?.pending?.length || 0;
+    const isAdmin = userRole === 'admin';
 
-    const menuItems = useMemo(() => [
-        { 
-            id: 'orders', 
-            label: 'Pedidos', 
-            icon: ChefHat, 
-            badge: pendingCount > 0 ? pendingCount : null 
-        },
-        {
-            id: 'sales-group',
-            label: 'Ventas',
-            icon: DollarSign,
-            isGroup: true,
-            children: [
-                { id: 'caja', label: 'Caja', icon: CashIcon },
-                { id: 'analytics', label: 'Reportes', icon: BarChart3 }
-            ]
-        },
-        {
-            id: 'menu-group',
-            label: 'Menú',
-            icon: List,
-            isGroup: true,
-            children: [
-                { id: 'categories', label: 'Categorías', icon: CategoryIcon },
-                { id: 'products', label: 'Productos', icon: ShoppingBag },
-                { id: 'inventory', label: 'Inventario', icon: ClipboardList }
-            ]
-        },
-        { id: 'clients', label: 'Clientes', icon: Users },
-        { id: 'settings', label: 'Herramientas', icon: Settings }
-    ], [pendingCount]);
+    const menuItems = useMemo(() => {
+        const items = [
+            { 
+                id: 'orders', 
+                label: 'Pedidos', 
+                icon: ChefHat, 
+                badge: pendingCount > 0 ? pendingCount : null 
+            },
+            {
+                id: 'sales-group',
+                label: 'Ventas',
+                icon: DollarSign,
+                isGroup: true,
+                children: [
+                    { id: 'caja', label: 'Caja', icon: CashIcon },
+                    { id: 'analytics', label: 'Reportes', icon: BarChart3 }
+                ]
+            },
+            {
+                id: 'menu-group',
+                label: 'Menú',
+                icon: List,
+                isGroup: true,
+                children: [
+                    { id: 'categories', label: 'Categorías', icon: CategoryIcon },
+                    { id: 'products', label: 'Productos', icon: ShoppingBag },
+                    { id: 'inventory', label: 'Inventario', icon: ClipboardList }
+                ]
+            },
+            { id: 'clients', label: 'Clientes', icon: Users },
+            { id: 'settings', label: 'Herramientas', icon: Settings }
+        ];
+        if (isAdmin) {
+            items.push({ id: 'company', label: 'Datos de la empresa', icon: Building2, adminOnly: true });
+        }
+        return items;
+    }, [pendingCount, isAdmin]);
 
     const [expandedGroups, setExpandedGroups] = useState(() => {
         const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === activeTab));
@@ -94,7 +101,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, onLogo
         <aside className="admin-sidebar glass">
             <div className="sidebar-top">
                 {!isMobile && <div className="logo-circle"><img src={logo} alt="Logo" /></div>}
-                {!isMobile && <h3 className="brand-title">Oishi Admin</h3>}
+                {!isMobile && (
+                    <div className="brand-info">
+                        <h3 className="brand-title">Oishi Admin</h3>
+                        {userEmail && <span className="user-email">{userEmail}</span>}
+                        {branchName && <span className="branch-name-badge">{branchName}</span>}
+                    </div>
+                )}
             </div>
             
             <nav className="sidebar-menu">

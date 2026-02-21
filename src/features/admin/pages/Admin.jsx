@@ -17,6 +17,7 @@ import AdminInventory from '../components/AdminInventory';
 import AdminSettings from '../components/AdminSettings';
 import AdminAnalytics from '../components/AdminAnalytics';
 import AdminDangerZone from '../components/AdminDangerZone';
+import AdminCompanyData from '../components/AdminCompanyData';
 import ClientDetailsPanel from '../components/ClientDetailsPanel';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
@@ -107,6 +108,10 @@ const AdminProvider = ({ children }) => {
   // --- MODAL DE ALCANCE (GLOBAL VS LOCAL) ---
   const [scopeModal, setScopeModal] = useState({ isOpen: false, item: null, type: 'product' });
 
+  // --- ROL (solo admin ve "Datos de la empresa") ---
+  const [userRole, setUserRole] = useState(null);
+  const [userEmail, setUserEmail] = useState(null);
+
   // --- CRM & REPORTES ---
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedClientOrders, setSelectedClientOrders] = useState([]);
@@ -149,22 +154,26 @@ const AdminProvider = ({ children }) => {
   useEffect(() => {
     const verifyAdminAccess = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Verificar si el email está en la tabla de admins
-        const { data: adminUser } = await supabase
-          .from(TABLES.admin_users)
-          .select('role')
-          .eq('email', user.email)
-          .maybeSingle();
-
-        if (!adminUser) {
-          console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Se permite el acceso temporalmente.");
-          // Cuando hayas agregado tu email a la base de datos, descomenta esto para activar la seguridad real:
-          // await supabase.auth.signOut();
-          // navigate('/login');
-          // showNotify('No tienes permisos de administrador', 'error');
+        if (user) {
+          setUserEmail(user.email);
+          // Verificar si el email está en la tabla de admins
+          const { data: adminUser } = await supabase
+            .from(TABLES.admin_users)
+            .select('role')
+            .eq('email', user.email)
+            .maybeSingle();
+  
+          if (!adminUser) {
+            console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Se permite el acceso temporalmente.");
+            setUserRole(null);
+            // Cuando hayas agregado tu email a la base de datos, descomenta esto para activar la seguridad real:
+            // await supabase.auth.signOut();
+            // navigate('/login');
+            // showNotify('No tienes permisos de administrador', 'error');
+          } else {
+            setUserRole(adminUser.role || null);
+          }
         }
-      }
     };
     verifyAdminAccess();
   }, [navigate, showNotify]);
@@ -340,7 +349,7 @@ const AdminProvider = ({ children }) => {
           event: '*',
           schema: 'public',
           table: 'orders',
-          filter: selectedBranch ? `branch_id=eq.${selectedBranch.id}` : undefined
+          filter: selectedBranch && selectedBranch.id !== 'all' ? `branch_id=eq.${selectedBranch.id}` : undefined
         },
         handleRealtimeEvent
       )
@@ -680,6 +689,7 @@ const AdminProvider = ({ children }) => {
     selectedClient, setSelectedClient,
     selectedClientOrders, setSelectedClientOrders,
     clientHistoryLoading, setClientHistoryLoading,
+    userRole,
     showNotify,
     cashSystem,
     loadData,
@@ -697,6 +707,7 @@ const AdminProvider = ({ children }) => {
     kanbanColumns,
     processedProducts,
     productStats,
+    userEmail,
   }), [
     navigate,
     activeTab,
@@ -728,6 +739,7 @@ const AdminProvider = ({ children }) => {
     selectedClient,
     selectedClientOrders,
     clientHistoryLoading,
+    userRole,
     showNotify,
     cashSystem, // Ahora es estable gracias al fix en useCashSystem
     loadData,
@@ -744,7 +756,8 @@ const AdminProvider = ({ children }) => {
     handleSaveCategory,
     kanbanColumns,
     processedProducts,
-    productStats
+    productStats,
+    userEmail
   ]);
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
@@ -799,6 +812,8 @@ const AdminComponent = () => {
     kanbanColumns,
     processedProducts,
     productStats,
+    userRole,
+    userEmail,
   } = useAdmin();
 
   if (loading && !refreshing && products.length === 0 && orders.length === 0) return (
@@ -822,6 +837,9 @@ const AdminComponent = () => {
         setActiveTab={setActiveTab}
         isMobile={isMobile}
         kanbanColumns={kanbanColumns}
+        userRole={userRole}
+        userEmail={userEmail}
+        branchName={selectedBranch?.name}
         onLogout={async () => {
           await supabase.auth.signOut();
           navigate('/login');
@@ -836,7 +854,8 @@ const AdminComponent = () => {
                 activeTab === 'analytics' ? 'Rendimiento' :
                   activeTab === 'clients' ? 'Clientes' :
                     activeTab === 'caja' ? 'Caja y Turnos' :
-                      activeTab === 'settings' ? 'Herramientas' : 'Categorías'}
+                      activeTab === 'settings' ? 'Herramientas' :
+                      activeTab === 'company' ? 'Datos de la empresa' : 'Categorías'}
           </h1>
 
           <div className="header-actions">
@@ -1134,15 +1153,23 @@ const AdminComponent = () => {
         {/* 6. HERRAMIENTAS */}
         {activeTab === 'settings' && (
           <div className="settings-view animate-fade">
-             <AdminSettings showNotify={showNotify} />
+             <AdminSettings showNotify={showNotify} isMobile={isMobile} selectedBranch={selectedBranch} />
 
              {/* ZONA DE PELIGRO (FUNCIONES AVANZADAS) */}
              <AdminDangerZone 
                 orders={orders} 
                 showNotify={showNotify} 
                 loadData={loadData} 
-                isMobile={isMobile} 
+                isMobile={isMobile}
+                selectedBranch={selectedBranch}
              />
+          </div>
+        )}
+
+        {/* 7. DATOS DE LA EMPRESA (solo rol admin) */}
+        {activeTab === 'company' && (
+          <div className="settings-view animate-fade">
+            <AdminCompanyData showNotify={showNotify} isMobile={isMobile} branches={branches} />
           </div>
         )}
       </main>

@@ -1,62 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { TABLES } from '../lib/supabaseTables';
 import { BusinessContext } from './BusinessContextInstance';
+import { useLocation } from './useLocation';
 
+/**
+ * Mapea branch + empresa al formato businessInfo.
+ * El nombre que se muestra (Home, título) es el de la EMPRESA (restaurante).
+ * Teléfono, dirección, horario y datos bancarios son de la SUCURSAL seleccionada.
+ */
+function mapToBusinessInfo(branch, companyName) {
+    if (!branch) {
+        return {
+            name: companyName || '',
+            phone: '',
+            instagram: '',
+            address: '',
+            schedule: '',
+            bank_name: '',
+            account_type: '',
+            account_number: '',
+            account_rut: '',
+            account_email: '',
+            account_holder: ''
+        };
+    }
+    return {
+        name: companyName || branch.name || '',
+        phone: branch.phone || '',
+        instagram: branch.instagram_url || branch.instagram || '',
+        address: branch.address || '',
+        schedule: branch.schedule || '',
+        bank_name: branch.bank_name || '',
+        account_type: branch.account_type || '',
+        account_number: branch.account_number || '',
+        account_rut: branch.account_rut || '',
+        account_email: branch.account_email || '',
+        account_holder: branch.account_holder || ''
+    };
+}
 
 export const BusinessProvider = ({ children }) => {
-    const [businessInfo, setBusinessInfo] = useState({
-        name: '',
-        phone: '',
-        instagram: '',
-        address: '',
-        schedule: '',
-        bank_name: '',
-        account_type: '',
-        account_number: '',
-        account_rut: '',
-        account_email: ''
-    });
-    const [loading, setLoading] = useState(true);
+    const { selectedBranch, allBranches, loadingBranches } = useLocation();
+    const [companyName, setCompanyName] = useState('');
 
-    useEffect(() => {
-        fetchBusinessInfo();
-        
-        // Suscribirse a cambios en tiempo real
-        const subscription = supabase
-            .channel('business_info_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.business_info }, () => {
-                fetchBusinessInfo();
-            })
-            .subscribe();
+    const branch = selectedBranch || (allBranches && allBranches[0]) || null;
+    const companyId = branch?.company_id || null;
 
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, []);
-
-    const fetchBusinessInfo = async () => {
+    const fetchCompanyName = useCallback(async () => {
+        if (!companyId) {
+            setCompanyName('');
+            return;
+        }
         try {
             const { data } = await supabase
-                .from(TABLES.business_info)
-                .select('*')
-                .limit(1)
+                .from(TABLES.companies)
+                .select('name')
+                .eq('id', companyId)
                 .maybeSingle();
-            
-            if (data) {
-                setBusinessInfo(prev => ({ ...prev, ...data }));
-                // Actualizar título si cambia
-                if (data.name) document.title = data.name;
-            }
-        } catch (err) {
-            console.error('Error fetching business info', err);
-        } finally {
-            setLoading(false);
+            setCompanyName(data?.name || '');
+        } catch {
+            setCompanyName('');
         }
-    };
+    }, [companyId]);
+
+    useEffect(() => {
+        fetchCompanyName();
+    }, [fetchCompanyName]);
+
+    const businessInfo = useMemo(
+        () => mapToBusinessInfo(branch, companyName),
+        [branch, companyName]
+    );
+
+    const loading = loadingBranches;
+
+    useEffect(() => {
+        if (businessInfo.name) document.title = businessInfo.name;
+    }, [businessInfo.name]);
+
+    const value = useMemo(() => ({
+        businessInfo,
+        loading,
+        refreshBusinessInfo: fetchCompanyName
+    }), [businessInfo, loading, fetchCompanyName]);
 
     return (
-        <BusinessContext.Provider value={{ businessInfo, loading, refreshBusinessInfo: fetchBusinessInfo }}>
+        <BusinessContext.Provider value={value}>
             {children}
         </BusinessContext.Provider>
     );

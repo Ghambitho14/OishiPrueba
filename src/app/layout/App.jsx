@@ -190,8 +190,8 @@ function InnerApp() {
 
 function App() {
   return (
-    <BusinessProvider>
-      <LocationProvider>
+    <LocationProvider>
+      <BusinessProvider>
         <CashProvider>
           <CartProvider>
             <Router>
@@ -199,8 +199,8 @@ function App() {
             </Router>
           </CartProvider>
         </CashProvider>
-      </LocationProvider>
-    </BusinessProvider>
+      </BusinessProvider>
+    </LocationProvider>
   );
 }
 

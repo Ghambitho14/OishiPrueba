@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, User, Mail, Hash, ChevronDown } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 import "../styles/AdminSettings.css";
 
-// ID fijo de la única fila de configuración (upsert por este id)
-const BUSINESS_INFO_ROW_ID = '00000000-0000-0000-0000-000000000001';
-
-const AdminSettings = ({ showNotify, isMobile }) => {
+const AdminSettings = ({ showNotify, isMobile, selectedBranch }) => {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -23,19 +20,21 @@ const AdminSettings = ({ showNotify, isMobile }) => {
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [dataId, setDataId] = useState(null); // ID de la fila para update
-
     const [expandedSection, setExpandedSection] = useState(() => (isMobile ? 'basic' : null));
 
-    const loadSettings = React.useCallback(async () => {
+    const loadSettings = useCallback(async () => {
+        if (!selectedBranch || !selectedBranch.id || selectedBranch.id === 'all') {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const { data, error } = await supabase
-                .from(TABLES.business_info)
+                .from(TABLES.branches)
                 .select('*')
-                .limit(1)
+                .eq('id', selectedBranch.id)
                 .maybeSingle();
-            
+
             if (error) throw error;
 
             if (data) {
@@ -43,7 +42,7 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     name: data.name || '',
                     phone: data.phone || '',
                     address: data.address || '',
-                    instagram: data.instagram || '',
+                    instagram: data.instagram_url || '',
                     schedule: data.schedule || '',
                     bank_name: data.bank_name || '',
                     account_type: data.account_type || '',
@@ -52,7 +51,6 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     account_email: data.account_email || '',
                     account_holder: data.account_holder || ''
                 });
-                setDataId(data.id);
             }
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -60,7 +58,7 @@ const AdminSettings = ({ showNotify, isMobile }) => {
         } finally {
             setLoading(false);
         }
-    }, [showNotify]);
+    }, [showNotify, selectedBranch?.id]);
 
     useEffect(() => {
         loadSettings();
@@ -68,14 +66,17 @@ const AdminSettings = ({ showNotify, isMobile }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!selectedBranch || !selectedBranch.id || selectedBranch.id === 'all') {
+            showNotify('Selecciona una sucursal para guardar', 'error');
+            return;
+        }
         setSaving(true);
         try {
             const payload = {
-                id: BUSINESS_INFO_ROW_ID,
                 name: formData.name || null,
                 phone: formData.phone || null,
                 address: formData.address || null,
-                instagram: formData.instagram || null,
+                instagram_url: formData.instagram || null,
                 schedule: formData.schedule || null,
                 bank_name: formData.bank_name || null,
                 account_type: formData.account_type || null,
@@ -85,11 +86,12 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                 account_holder: formData.account_holder || null
             };
             const { error } = await supabase
-                .from(TABLES.business_info)
-                .upsert(payload, { onConflict: 'id' });
+                .from(TABLES.branches)
+                .update(payload)
+                .eq('id', selectedBranch.id);
+
             if (error) throw error;
-            setDataId(BUSINESS_INFO_ROW_ID);
-            showNotify('Configuración guardada correctamente', 'success');
+            showNotify(`Configuración de "${selectedBranch.name}" guardada correctamente`, 'success');
         } catch (error) {
             console.error('Error saving settings:', error);
             const msg = (error && typeof error === 'object' && error.message)
@@ -101,14 +103,31 @@ const AdminSettings = ({ showNotify, isMobile }) => {
         }
     };
 
+    const canEdit = selectedBranch && selectedBranch.id && selectedBranch.id !== 'all';
+
+    if (!canEdit) {
+        return (
+            <div className="settings-container animate-fade">
+                <div className="glass" style={{ padding: 40, textAlign: 'center', borderRadius: 16 }}>
+                    <p style={{ color: '#9ca3af', fontSize: '1rem' }}>
+                        Selecciona una <strong style={{ color: 'white' }}>sucursal</strong> en el selector del encabezado para editar su información (nombre, teléfono, dirección, horario y datos de transferencia).
+                    </p>
+                    <p style={{ color: '#6b7280', fontSize: '0.9rem', marginTop: 12 }}>
+                        Cada local tiene su propia configuración en la tabla <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4 }}>branches</code>.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) return <div className="p-10 text-center text-white">Cargando configuración...</div>;
 
     return (
         <div className="settings-container animate-fade">
             <header className="settings-header">
                 <div>
-                    <h1>Configuración del Negocio</h1>
-                    <p style={{ color: '#9ca3af', marginTop: 5 }}>Gestiona la información pública de tu local.</p>
+                    <h1>Configuración del local</h1>
+                    <p style={{ color: '#9ca3af', marginTop: 5 }}>Información pública de <strong style={{ color: 'white' }}>{selectedBranch.name}</strong></p>
                 </div>
                 <button 
                     className="btn btn-primary" 
@@ -122,7 +141,6 @@ const AdminSettings = ({ showNotify, isMobile }) => {
 
             <form className="settings-form glass" onSubmit={handleSubmit}>
                 
-                {/* Info Básica */}
                 <section className="settings-section">
                     {isMobile ? (
                         <button
@@ -169,7 +187,6 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     )}
                 </section>
 
-                {/* Ubicación y Redes */}
                 <section className="settings-section">
                     {isMobile ? (
                         <button
@@ -201,14 +218,14 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                             </div>
                         </div>
                         <div className="form-group">
-                            <label>Instagram</label>
+                            <label>Instagram (URL o @usuario)</label>
                             <div className="input-icon-wrapper">
                                 <Instagram size={16} className="input-icon" />
                                 <input 
                                     className="form-input with-icon"
                                     value={formData.instagram}
                                     onChange={e => setFormData({...formData, instagram: e.target.value})}
-                                    placeholder="@usuario"
+                                    placeholder="@usuario o https://..."
                                 />
                             </div>
                         </div>
@@ -216,7 +233,6 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     )}
                 </section>
 
-                {/* Horarios y Pagos */}
                 <section className="settings-section">
                     {isMobile ? (
                         <button
@@ -249,7 +265,6 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     )}
                 </section>
 
-                {/* Datos Bancarios */}
                 <section className="settings-section">
                     {isMobile ? (
                         <button
@@ -269,7 +284,7 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     {(!isMobile || expandedSection === 'bank') && (
                     <>
                     <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: 20 }}>
-                        Estos datos se mostrarán cuando el cliente elija "Pagar con Transferencia"
+                        Estos datos se mostrarán cuando el cliente elija "Pagar con Transferencia" en este local.
                     </p>
                     <div className="form-grid">
                         <div className="form-group">
