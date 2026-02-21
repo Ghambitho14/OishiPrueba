@@ -87,9 +87,9 @@ const BranchSelectorModal = ({ isOpen, onClose, branches, allBranches, isLoading
             ) : (
               branches.map((branch) => (
                 <button
-                  key={branch.id}
-                  onClick={() => handleBranchSelect(branch)}
-                  className="branch-button"
+                   key={branch.id}
+                   onClick={() => handleBranchSelect(branch)}
+                   className="branch-button"
                 >
                   {/* Cabecera del botón procesada por nuestra función */}
                   <div className="branch-item-row">

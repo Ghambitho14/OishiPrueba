@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { TABLES } from '../lib/supabaseTables';
 
 export const LocationContext = createContext();
 
@@ -20,6 +22,40 @@ export const LocationProvider = ({ children }) => {
       return null;
     }
   });
+
+  const [allBranches, setAllBranches] = useState([]);
+  const [loadingBranches, setLoadingBranches] = useState(true);
+
+  // Cargar todas las sucursales al montar
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const { data, error } = await supabase
+          .from(TABLES.branches)
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+
+        // Mapear campos snake_case a camelCase para compatibilidad con Home.jsx
+        const mappedBranches = (data || []).map(b => ({
+          ...b,
+          whatsappUrl: b.whatsapp_url,
+          instagramUrl: b.instagram_url,
+          mapUrl: b.map_url
+        }));
+
+        setAllBranches(mappedBranches);
+      } catch (err) {
+        console.error("Error loading all branches:", err);
+      } finally {
+        setLoadingBranches(false);
+      }
+    };
+
+    fetchBranches();
+  }, []);
 
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => {
      // Abrir modal si no hay branch seleccionado
@@ -60,7 +96,9 @@ export const LocationProvider = ({ children }) => {
       selectBranch, 
       clearBranch,
       isLocationModalOpen,
-      setIsLocationModalOpen
+      setIsLocationModalOpen,
+      allBranches,
+      loadingBranches
     }}>
       {children}
     </LocationContext.Provider>

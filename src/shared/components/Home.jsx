@@ -8,12 +8,12 @@ import { useLocation } from '../../context/useLocation';
 import { useBusiness } from '../../context/useBusiness';
 
 
-import BranchSelectorModal from './BranchSelectorModal';
+import ContactBranchModal from './ContactBranchModal';
 
 const Home = () => {
   const navigate = useNavigate();
   const { businessInfo } = useBusiness();
-  const { allBranches } = useLocation();
+  const { allBranches, loadingBranches } = useLocation();
   const [showModal, setShowModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // 'menu', 'whatsapp', 'instagram', 'location'
 
@@ -134,13 +134,13 @@ const Home = () => {
         </div>
       </main>
 
-      {/* Modal Reutilizable */}
-      <BranchSelectorModal
+      {/* Modal Especializado para Contacto */}
+      <ContactBranchModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         branches={allBranches}
+        isLoading={loadingBranches}
         onSelectBranch={handleBranchSelect}
-        allowClose={true} // Permitir cerrar si se arrepienten
       />
     </div>
   );
