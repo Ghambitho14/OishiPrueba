@@ -74,7 +74,6 @@ export const CartProvider = ({ children }) => {
     };
 
     // Re-ejecutar cuando cambie la sucursal o cambien los ids del carrito
-    const idsKey = cart.map(i => i.id).join(',');
     validatePrices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranch, cart.map ? cart.map(i => i.id).join(',') : cart]);

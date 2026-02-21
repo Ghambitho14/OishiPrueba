@@ -408,6 +408,11 @@
 /* 4. MÓVILES - Optimización UX Táctil */
 @media (max-width: 500px) and (pointer: coarse) {
   
+  /* [FIX] Forzar 1 columna en móviles para evitar tarjetas aplastadas */
+  .product-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   /* Tarjeta Móvil */
   .product-card {
     height: 100%;

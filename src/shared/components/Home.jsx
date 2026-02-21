@@ -4,13 +4,16 @@ import { Utensils, MessageCircle, Instagram, MapPin, Settings } from 'lucide-rea
 import { QRCodeSVG } from 'qrcode.react';
 import '../../styles/Home.css';
 import logo from '../../assets/logo.png';
-import BranchSelectorModal from './BranchSelectorModal'; // Asegurar ruta correcta
-import { branches } from '../data/branches';
+import { useLocation } from '../../context/useLocation';
 import { useBusiness } from '../../context/useBusiness';
+
+
+import BranchSelectorModal from './BranchSelectorModal';
 
 const Home = () => {
   const navigate = useNavigate();
   const { businessInfo } = useBusiness();
+  const { allBranches } = useLocation();
   const [showModal, setShowModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // 'menu', 'whatsapp', 'instagram', 'location'
 
@@ -18,22 +21,6 @@ const Home = () => {
   const menuUrl = `${window.location.origin}/menu`;
 
   const handleActionClick = (action) => {
-    // Si hay datos en la configuración global, usar esos prioritariamente
-    if (action === 'whatsapp' && businessInfo.phone) {
-        const phone = businessInfo.phone.replace(/\D/g, '');
-        window.open(`https://wa.me/${phone}`, '_blank');
-        return;
-    }
-    if (action === 'instagram' && businessInfo.instagram) {
-        const user = businessInfo.instagram.replace('@', '');
-        window.open(`https://instagram.com/${user}`, '_blank');
-        return;
-    }
-    if (action === 'location' && businessInfo.address) {
-        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(businessInfo.address)}`, '_blank');
-        return;
-    }
-
     // Fallback: Si no hay info global configurada, usar el selector de sucursales
     setPendingAction(action);
     setShowModal(true);
@@ -133,7 +120,6 @@ const Home = () => {
               <div className="qr-box">
                 <QRCodeSVG
                   value={menuUrl}
-                  size={130}
                   level={"H"}
                   includeMargin={false}
                 />
@@ -152,12 +138,13 @@ const Home = () => {
       <BranchSelectorModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        branches={branches}
+        branches={allBranches}
         onSelectBranch={handleBranchSelect}
         allowClose={true} // Permitir cerrar si se arrepienten
       />
     </div>
   );
 };
+
 
 export default Home;

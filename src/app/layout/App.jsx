@@ -28,6 +28,34 @@ function InnerApp() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // [NUEVO] Bloqueo estricto de Zoom (Gestos y Teclado)
+  useEffect(() => {
+    // 1. Bloquear Pinch-Zoom en iOS (Safari)
+    const handleGestureStart = (e) => e.preventDefault();
+    
+    // 2. Bloquear Ctrl + Scroll (Desktop)
+    const handleWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    };
+
+    // 3. Bloquear Atajos de Teclado (Ctrl + / -)
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('gesturestart', handleGestureStart);
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('gesturestart', handleGestureStart);
+      document.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // Efecto "Anti-Zoom" Robusto (RESTAURADO A ESTADO ESTABLE)
   useEffect(() => {
     const handleVisualLock = () => {
@@ -110,10 +138,10 @@ function InnerApp() {
     setTimeout(handleVisualLock, 100);
 
     return () => window.removeEventListener('resize', handleVisualLock);
-  }, []);
+  }, [location.pathname]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: '100vh', background: '#0a0a0a' }}>
+    <div style={{ position: 'relative', width: '100%', minHeight: '100dvh', background: '#0a0a0a', touchAction: 'pan-x pan-y' }}>
       {/* CAPA DE FONDO MAESTRA CON PARALLAX */}
       <div 
         className="app-bg-layer" 
