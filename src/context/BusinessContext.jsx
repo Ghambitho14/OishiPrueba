@@ -65,7 +65,7 @@ export const BusinessProvider = ({ children }) => {
     }, [companyId]);
 
     useEffect(() => {
-        fetchCompanyName();
+        void Promise.resolve().then(fetchCompanyName);
     }, [fetchCompanyName]);
 
     const businessInfo = useMemo(
