@@ -19,7 +19,19 @@ const fmt = (n) => {
     try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
 };
 
-const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
+
+const TrendBadge = ({ value }) => {
+    if (value === 0) return <span className="rpt-trend neutral">0%</span>;
+    const pos = value > 0;
+    return (
+        <span className={`rpt-trend ${pos ? 'positive' : 'negative'}`}>
+            {pos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+            {Math.abs(value)}%
+        </span>
+    );
+};
+
+const AdminAnalytics = ({ orders, clients, branches }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
 
@@ -227,16 +239,6 @@ const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
         return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
     }, [orders, filterPeriod, days]);
 
-    const TrendBadge = ({ value }) => {
-        if (value === 0) return <span className="rpt-trend neutral">0%</span>;
-        const pos = value > 0;
-        return (
-            <span className={`rpt-trend ${pos ? 'positive' : 'negative'}`}>
-                {pos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                {Math.abs(value)}%
-            </span>
-        );
-    };
 
     const chartOptions = {
         responsive: true,

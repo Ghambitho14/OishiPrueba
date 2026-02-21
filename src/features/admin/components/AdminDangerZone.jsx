@@ -104,9 +104,10 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
     const csvContent = "\uFEFF" + lines.join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
+    const [year, month] = String(analyticsDate).split('-');
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Cierre_${year}_${month}.csv`);
+    link.setAttribute('download', `Cierre_${year || '0000'}_${month || '00'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -184,7 +185,7 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
         'success');
 
       } else if (dangerAction === 'allClients') {
-        const { count, error, data: deletedClients } = await supabase.from(TABLES.clients).delete().neq('phone', '0000').select('*', { count: 'exact' });
+        const { count, error } = await supabase.from(TABLES.clients).delete().neq('phone', '0000').select('*', { count: 'exact' });
         if (error) throw error;
         showNotify(`Base de clientes purgada (${count} registros)`, 'success');
       }

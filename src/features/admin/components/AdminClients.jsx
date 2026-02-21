@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Plus, Download, Filter, MoreVertical, User, ShoppingBag, FileText, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import ClientFormModal from './ClientFormModal';
 import '../styles/AdminClients.css';
@@ -133,11 +133,6 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
 
     const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
 
-    // Resetear página al filtrar
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, activeFilter]);
-
     const handleSort = (key) => {
         setSortConfig(current => ({
             key,
@@ -228,7 +223,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                             type="text" 
                             placeholder="Buscar cliente..." 
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                         />
                     </div>
                     
@@ -249,25 +244,25 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                 </div>
                 <button 
                     className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => setActiveFilter('all')}
+                    onClick={() => { setActiveFilter('all'); setCurrentPage(1); }}
                 >
                     Todo
                 </button>
                 <button 
                     className={`filter-chip ${activeFilter === 'elite' ? 'active' : ''}`}
-                    onClick={() => setActiveFilter('elite')}
+                    onClick={() => { setActiveFilter('elite'); setCurrentPage(1); }}
                 >
                     Comprador Élite
                 </button>
                 <button 
                     className={`filter-chip ${activeFilter === 'top' ? 'active' : ''}`}
-                    onClick={() => setActiveFilter('top')}
+                    onClick={() => { setActiveFilter('top'); setCurrentPage(1); }}
                 >
                     Comprador Top
                 </button>
                 <button 
                     className={`filter-chip ${activeFilter === 'frequent' ? 'active' : ''}`}
-                    onClick={() => setActiveFilter('frequent')}
+                    onClick={() => { setActiveFilter('frequent'); setCurrentPage(1); }}
                 >
                     Comprador Frecuente
                 </button>

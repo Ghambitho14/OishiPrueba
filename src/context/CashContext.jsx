@@ -1,18 +1,10 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cashService } from '../features/admin/services/cashService';
 import { supabase } from '../lib/supabase';
 import { TABLES } from '../lib/supabaseTables';
-
-const CashContext = createContext();
+import { CashContext } from './CashContextInstance';
 const normId = (id) => (id != null ? String(id) : null);
 
-export const useCash = () => {
-    const context = useContext(CashContext);
-    if (!context) {
-        throw new Error('useCash must be used within a CashProvider');
-    }
-    return context;
-};
 
 export const CashProvider = ({ children }) => {
     const [activeShift, setActiveShift] = useState(null);

@@ -1027,7 +1027,6 @@ const AdminComponent = () => {
             products={products} 
             clients={clients} 
             branches={branches.filter(b => b.id !== 'all')}
-            selectedBranch={selectedBranch}
           />
         )}
 
@@ -1274,7 +1273,6 @@ const AdminComponent = () => {
 
       {isModalOpen && (
         <ProductModal 
-          isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
           onSave={handleSaveProduct} 
           product={editingProduct} 

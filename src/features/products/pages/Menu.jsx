@@ -12,7 +12,7 @@ import { TABLES } from '../../../lib/supabaseTables';
 import logo from '../../../assets/logo.png';
 import BranchSelectorModal from '../../../shared/components/BranchSelectorModal';
 import { useLocation } from '../../../context/useLocation';
-import { useCash } from '../../../context/CashContext';
+import { useCash } from '../../../context/useCash';
 import { useBusiness } from '../../../context/useBusiness';
 
 const Menu = () => {

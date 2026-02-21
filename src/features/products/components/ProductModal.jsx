@@ -14,7 +14,7 @@ const INITIAL_STATE = {
   image_url: ''
 };
 
-const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories, saving = false }) => {
+const ProductModal = React.memo(({ onClose, onSave, product, categories, saving = false }) => {
   const fileInputRef = useRef();
   const nameInputRef = useRef();
 

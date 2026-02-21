@@ -9,7 +9,7 @@ import { useCart } from '../hooks/useCart';
 import { ordersService } from '../../orders/services/orders';
 import { useBusiness } from '../../../context/useBusiness';
 import { useLocation } from '../../../context/useLocation';
-import { useCash } from '../../../context/CashContext';
+import { useCash } from '../../../context/useCash';
 import { formatRut, validateRut } from '../../../shared/utils/formatters';
 
 import '../../../styles/CartModal.css';
