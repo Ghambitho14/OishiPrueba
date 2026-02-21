@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard';
 import { Search, ChevronLeft, Loader2, X, MapPin, ChevronDown } from 'lucide-react';
 import '../../../styles/Menu.css';
 import '../../../styles/Navbar.css';
+import '../../../styles/BranchSelectorModal.css';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import logo from '../../../assets/logo.png';
@@ -341,22 +342,13 @@ const Menu = () => {
             return {
               ...b,
               name: (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <span style={{ fontWeight: 600 }}>{b.name}</span>
-                  <span style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    backgroundColor: isOpen ? 'rgba(34, 197, 94, 0.15)' : 'rgba(107, 114, 128, 0.1)',
-                    color: isOpen ? '#22c55e' : '#9ca3af',
-                    border: `1px solid ${isOpen ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    letterSpacing: '0.5px'
-                  }}>
-                    {isOpen && <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', boxShadow: '0 0 8px currentColor' }} />}
+                <div className="branch-item-row">
+                  <div className="branch-name-group">
+                    <MapPin size={18} className={`branch-pin-icon ${isOpen ? 'icon-open' : 'icon-closed'}`} />
+                    <span className="branch-item-name">{b.name}</span>
+                  </div>
+                  <span className={`branch-status-badge ${isOpen ? 'status-open' : 'status-closed'}`}>
+                    {isOpen && <span className="status-dot" />}
                     {isOpen ? 'ABIERTO' : 'CERRADO'}
                   </span>
                 </div>
