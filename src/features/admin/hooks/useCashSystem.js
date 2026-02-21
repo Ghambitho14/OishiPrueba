@@ -214,7 +214,11 @@ export const useCashSystem = (showNotify, branchId) => {
         if (!rpcError) return true;
 
         // 2. Fallback Manual (Lectura -> Escritura) si no existe la función RPC
-        console.warn('RPC falló, usando fallback manual para caja:', rpcError.message);
+        // Si el error es 404 (función no encontrada), usamos el fallback silenciosamente
+        if (rpcError.code !== 'PGRST202' && !rpcError.message?.includes('Could not find the function')) {
+            console.warn('RPC falló, usando fallback manual para caja:', rpcError.message);
+        }
+        
         const { data: current, error: fetchError } = await supabase
             .from(TABLES.cash_shifts)
             .select('expected_balance')

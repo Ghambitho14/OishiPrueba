@@ -52,14 +52,20 @@ const AdminAnalytics = ({ orders, clients, branches, selectedBranch }) => {
 
         const valid = orders.filter(o => o.status !== 'cancelled');
         
+        // [FIX] Crear Set de IDs válidos para filtrar órdenes huérfanas ("Sin asignar")
+        const validBranchIds = new Set((branches || []).map(b => b.id));
+        
         const current = valid.filter(o => {
             const d = new Date(o.created_at);
-            return (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
+            const matchesTime = (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
+            // Solo incluir órdenes que pertenecen a una sucursal activa/existente
+            return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
         const prev = valid.filter(o => {
             const d = new Date(o.created_at);
-            return filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff) && filterByTab(o);
+            const matchesTime = filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff) && filterByTab(o);
+            return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
         // --- CHART DATA ---
