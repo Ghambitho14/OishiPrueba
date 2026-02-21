@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
   Package, DollarSign, Star, Trophy, PieChart,
@@ -19,7 +19,6 @@ import AdminAnalytics from '../components/AdminAnalytics';
 import AdminDangerZone from '../components/AdminDangerZone';
 import ClientDetailsPanel from '../components/ClientDetailsPanel';
 import { supabase } from '../../../lib/supabase';
-import { TABLES } from '../../../lib/supabaseTables';
 import { uploadImage } from '../../../shared/utils/cloudinary';
 import CashManager from '../components/caja/CashManager';
 import { useCashSystem } from '../hooks/useCashSystem';
@@ -111,6 +110,16 @@ const AdminProvider = ({ children }) => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedClientOrders, setSelectedClientOrders] = useState([]);
   const [clientHistoryLoading, setClientHistoryLoading] = useState(false);
+
+  // --- REFS PARA CONTROL DE CONCURRENCIA ---
+  const loadDataAbortController = useRef(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
     window.addEventListener('resize', handleResize);
@@ -152,7 +161,7 @@ const AdminProvider = ({ children }) => {
       if (user) {
         // Verificar si el email está en la tabla de admins
         const { data: adminUser } = await supabase
-          .from(TABLES.admin_users)
+          .from('admin_users')
           .select('role')
           .eq('email', user.email)
           .maybeSingle();
@@ -172,7 +181,7 @@ const AdminProvider = ({ children }) => {
   // --- CARGA DE SUCURSALES ---
   useEffect(() => {
     const loadBranches = async () => {
-      const { data, error } = await supabase.from(TABLES.branches).select('*').order('name');
+      const { data, error } = await supabase.from('branches').select('*').order('name');
       if (!error && data?.length > 0) {
         setBranches(data);
         // [FIX] Seleccionar automáticamente la primera sucursal si no hay ninguna seleccionada
@@ -201,31 +210,41 @@ const AdminProvider = ({ children }) => {
   const loadData = useCallback(async (isRefresh = false) => {
     if (!selectedBranch) return;
 
+    // 1. Cancelar petición anterior si existe (Evita Race Conditions)
+    if (loadDataAbortController.current) {
+      loadDataAbortController.current.abort();
+    }
+    loadDataAbortController.current = new AbortController();
+    const signal = loadDataAbortController.current.signal;
+
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
       const isAllBranches = selectedBranch.id === 'all';
 
-      // 1. Cargar datos base
+      // 2. Cargar datos base con señal de aborto
       const promises = [
-        supabase.from(TABLES.categories).select('*').order('order'),
-        supabase.from(TABLES.products).select('*').order('name'),
+        supabase.from('categories').select('*').order('order').abortSignal(signal),
+        supabase.from('products').select('*').order('name').abortSignal(signal),
         isAllBranches 
-          ? supabase.from(TABLES.orders).select('*').order('created_at', { ascending: false })
-          : supabase.from(TABLES.orders).select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }),
-        supabase.from(TABLES.clients).select('*').order('last_order_at', { ascending: false })
+          ? supabase.from('orders').select('*').order('created_at', { ascending: false }).abortSignal(signal)
+          : supabase.from('orders').select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }).abortSignal(signal),
+        supabase.from('clients').select('*').order('last_order_at', { ascending: false }).abortSignal(signal)
       ];
 
       if (!isAllBranches) {
-        promises.push(supabase.from(TABLES.product_prices).select('*').eq('branch_id', selectedBranch.id));
-        promises.push(supabase.from(TABLES.product_branch).select('*').eq('branch_id', selectedBranch.id));
+        promises.push(supabase.from('product_prices').select('*').eq('branch_id', selectedBranch.id));
+        promises.push(supabase.from('product_branch').select('*').eq('branch_id', selectedBranch.id));
       }
 
       const results = await Promise.all(promises);
       const [catsRes, globalProductsRes, ordsRes, cltsRes] = results;
       const pricesRes = !isAllBranches ? results[4] : { data: [] };
       const branchStatusRes = !isAllBranches ? results[5] : { data: [] };
+
+      // Si se canceló la petición, no procesar nada
+      if (signal.aborted) return;
 
       if (catsRes.error) throw catsRes.error;
       if (globalProductsRes.error) throw globalProductsRes.error;
@@ -269,17 +288,25 @@ const AdminProvider = ({ children }) => {
       const clientIdsInOrders = new Set(cleanOrders.map(o => o.client_id).filter(Boolean));
       const filteredClients = (cltsRes.data || []).filter(c => clientIdsInOrders.has(c.id));
 
-      setCategories(catsRes.data || []);
-      setProducts(mergedProducts);
-      setOrders(cleanOrders);
-      setClients(filteredClients);
+      if (isMounted.current) {
+        setCategories(catsRes.data || []);
+        setProducts(mergedProducts);
+        setOrders(cleanOrders);
+        setClients(filteredClients);
+      }
 
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Carga de datos cancelada por nueva solicitud.');
+        return;
+      }
       console.error("Error cargando datos:", error);
-      showNotify("Error de conexión", 'error');
+      if (isMounted.current) showNotify("Error de conexión", 'error');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMounted.current && !signal.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [showNotify, selectedBranch]);
 
@@ -288,7 +315,7 @@ const AdminProvider = ({ children }) => {
     setClientHistoryLoading(true);
     try {
       const { data, error } = await supabase
-        .from(TABLES.orders)
+        .from('orders')
         .select('*')
         .eq('client_id', client.id)
         .order('created_at', { ascending: false });
@@ -313,9 +340,19 @@ const AdminProvider = ({ children }) => {
   const handleRealtimeEvent = useCallback((payload) => {
     console.log('🔔 Evento Realtime:', payload);
     
+    // [ROBUSTEZ] Doble verificación: Asegurar que el evento pertenece a la sucursal actual
+    // Esto previene "fugas" de datos si el canal no se desconectó lo suficientemente rápido al cambiar de tab.
+    if (selectedBranch && selectedBranch.id !== 'all' && payload.new && payload.new.branch_id !== selectedBranch.id) {
+        return;
+    }
+
     if (payload.eventType === 'INSERT') {
       const newOrder = sanitizeOrder(payload.new);
-      setOrders(prev => [newOrder, ...prev]);
+      setOrders(prev => {
+        // Protección contra duplicados (Idempotencia)
+        if (prev.some(o => o.id === newOrder.id)) return prev;
+        return [newOrder, ...prev];
+      });
       showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
       // Si es un pedido nuevo, también podríamos querer actualizar clientes si es relevante
     } 
@@ -367,11 +404,14 @@ const AdminProvider = ({ children }) => {
 
   // --- 2. GESTIÓN DE PEDIDOS ---
   const moveOrder = async (orderId, nextStatus) => {
-    const previousOrders = [...orders];
+    // [ROBUSTEZ] Guardar solo el estado anterior de ESTE pedido, no toda la lista
+    const targetOrder = orders.find(o => o.id === orderId);
+    const previousStatus = targetOrder ? targetOrder.status : null;
+
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
 
     try {
-      const { error } = await supabase.from(TABLES.orders).update({ status: nextStatus }).eq('id', orderId);
+      const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
       if (error) throw error;
       
       // [FIX] Registrar venta en caja si se completa/entrega
@@ -393,7 +433,10 @@ const AdminProvider = ({ children }) => {
 
       showNotify('Pedido actualizado');
     } catch {
-      setOrders(previousOrders);
+      // [ROBUSTEZ] Rollback granular: Solo revertir el pedido afectado
+      if (previousStatus) {
+          setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: previousStatus } : o));
+      }
       showNotify("Error al actualizar", "error");
     }
   };
@@ -404,7 +447,7 @@ const AdminProvider = ({ children }) => {
     try {
       const receiptUrl = await uploadImage(file, 'receipts');
 
-      const { error } = await supabase.from(TABLES.orders).update({ payment_ref: receiptUrl }).eq('id', orderId);
+      const { error } = await supabase.from('orders').update({ payment_ref: receiptUrl }).eq('id', orderId);
       if (error) throw error;
 
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
@@ -435,6 +478,17 @@ const AdminProvider = ({ children }) => {
 
     setRefreshing(true);
     try {
+      // --- VALIDACIONES ROBUSTAS ---
+      if (!formData.name || formData.name.trim().length < 2) {
+          throw new Error("El nombre del producto es demasiado corto.");
+      }
+      if (!formData.category_id) {
+          throw new Error("Debes seleccionar una categoría.");
+      }
+      if (Number(formData.price) < 0) {
+          throw new Error("El precio no puede ser negativo.");
+      }
+
       let finalImageUrl = formData.image_url;
       if (localFile) {
         finalImageUrl = await uploadImage(localFile, 'menu');
@@ -451,10 +505,10 @@ const AdminProvider = ({ children }) => {
         // MEJORA LÓGICA: Si es un producto NUEVO o estamos en "Todas",
         // guardamos los datos base (precio/estado) en la tabla global para que sirvan de fallback.
         ...((!editingProduct || isAllBranches) && {
-          price: parseInt(formData.price) || 0,
+          price: Math.max(0, parseInt(formData.price) || 0),
           is_special: formData.is_special || false,
           has_discount: formData.has_discount || false,
-          discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null
+          discount_price: formData.has_discount ? Math.max(0, parseInt(formData.discount_price) || 0) : null
         })
       };
 
@@ -470,11 +524,41 @@ const AdminProvider = ({ children }) => {
       let productId = editingProduct?.id;
 
       if (editingProduct) {
-        await supabase.from(TABLES.products).update(productPayload).eq('id', productId);
+        await supabase.from('products').update(productPayload).eq('id', productId);
       } else {
-        const { data: newProd, error } = await supabase.from(TABLES.products).insert(productPayload).select().single();
+        const { data: newProd, error } = await supabase.from('products').insert(productPayload).select().single();
         if (error) throw error;
         productId = newProd.id;
+      }
+
+      // [FIX MULTI-SUCURSAL] Si es "Todas", propagar configuración a TODAS las sucursales reales
+      if (isAllBranches) {
+          const realBranches = branches.filter(b => b.id !== 'all');
+          
+          // 1. Replicar Precios
+          const pricesPayload = realBranches.map(b => ({
+              product_id: productId,
+              branch_id: b.id,
+              company_id: b.company_id,
+              price: Math.max(0, parseInt(formData.price) || 0),
+              has_discount: formData.has_discount || false,
+              discount_price: formData.has_discount ? Math.max(0, parseInt(formData.discount_price) || 0) : null,
+              is_active: true
+          }));
+
+          // 2. Replicar Estado (Activo/Inactivo)
+          // Nota: Al guardar globalmente, asumimos que queremos estandarizar el estado en todos lados
+          const branchRelationsPayload = realBranches.map(b => ({
+              product_id: productId,
+              branch_id: b.id,
+              is_active: true, // Por defecto activo al crear/editar globalmente
+              is_special: formData.is_special || false
+          }));
+          
+          if (pricesPayload.length > 0) {
+              await supabase.from('product_prices').upsert(pricesPayload, { onConflict: 'product_id, branch_id' });
+              await supabase.from('product_branch').upsert(branchRelationsPayload, { onConflict: 'product_id, branch_id' });
+          }
       }
 
       // 2. Guardar/Actualizar Precios ESPECÍFICOS (Solo si NO es "Todas las sucursales")
@@ -483,13 +567,13 @@ const AdminProvider = ({ children }) => {
             product_id: productId,
             branch_id: selectedBranch.id,
             company_id: selectedBranch.company_id,
-            price: parseInt(formData.price) || 0,
+            price: Math.max(0, parseInt(formData.price) || 0),
             has_discount: formData.has_discount || false,
-            discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null,
+            discount_price: formData.has_discount ? Math.max(0, parseInt(formData.discount_price) || 0) : null,
             is_active: true
           };
 
-          const { error: priceError } = await supabase.from(TABLES.product_prices).upsert(
+          const { error: priceError } = await supabase.from('product_prices').upsert(
             { ...pricePayload, id: editingProduct?.price_id },
             { onConflict: 'product_id, branch_id' }
           );
@@ -504,7 +588,7 @@ const AdminProvider = ({ children }) => {
             is_special: formData.is_special || false
           };
 
-          const { error: branchError } = await supabase.from(TABLES.product_branch).upsert(
+          const { error: branchError } = await supabase.from('product_branch').upsert(
             { ...branchPayload, id: editingProduct?.branch_relation_id },
             { onConflict: 'product_id, branch_id' }
           );
@@ -525,9 +609,9 @@ const AdminProvider = ({ children }) => {
     if (!window.confirm('¿Eliminar producto?')) return;
     try {
       // MEJORA LÓGICA: Limpieza manual de relaciones para evitar errores de FK
-      await supabase.from(TABLES.product_prices).delete().eq('product_id', id);
-      await supabase.from(TABLES.product_branch).delete().eq('product_id', id);
-      await supabase.from(TABLES.products).delete().eq('id', id);
+      await supabase.from('product_prices').delete().eq('product_id', id);
+      await supabase.from('product_branch').delete().eq('product_id', id);
+      await supabase.from('products').delete().eq('id', id);
       
       showNotify("Producto eliminado");
       loadData(true);
@@ -565,11 +649,21 @@ const AdminProvider = ({ children }) => {
     try {
       if (scope === 'global' || selectedBranch.id === 'all') {
         // Actualizar GLOBALMENTE (Tabla products)
-        await supabase.from(TABLES.products).update({ is_active: newActive }).eq('id', item.id);
+        await supabase.from('products').update({ is_active: newActive }).eq('id', item.id);
+        
+        // [FIX] Propagar también a product_branch para que el menú lo detecte
+        const realBranches = branches.filter(b => b.id !== 'all');
+        const relationsPayload = realBranches.map(b => ({
+            product_id: item.id,
+            branch_id: b.id,
+            is_active: newActive
+        }));
+        await supabase.from('product_branch').upsert(relationsPayload, { onConflict: 'product_id, branch_id' });
+
         showNotify(newActive ? 'Activado en todos los locales' : 'Desactivado en todos los locales');
       } else {
         // Actualizar LOCALMENTE (Tabla product_branch)
-        await supabase.from(TABLES.product_branch).upsert({
+        await supabase.from('product_branch').upsert({
           product_id: item.id,
           branch_id: selectedBranch.id,
           is_active: newActive
@@ -584,6 +678,10 @@ const AdminProvider = ({ children }) => {
 
   const handleSaveCategory = async (formData) => {
     try {
+      if (!formData.name || formData.name.trim().length < 2) {
+          throw new Error("El nombre de la categoría es inválido.");
+      }
+
       const payload = { 
         name: formData.name, 
         order: parseInt(formData.order), 
@@ -598,10 +696,10 @@ const AdminProvider = ({ children }) => {
       }
 
       if (editingCategory) {
-        await supabase.from(TABLES.categories).update(payload).eq('id', editingCategory.id);
+        await supabase.from('categories').update(payload).eq('id', editingCategory.id);
       } else {
         // Dejar que la base de datos genere el UUID
-        await supabase.from(TABLES.categories).insert(payload);
+        await supabase.from('categories').insert(payload);
       }
       setIsCategoryModalOpen(false);
       loadData(true);
@@ -1134,7 +1232,11 @@ const AdminComponent = () => {
         {/* 6. HERRAMIENTAS */}
         {activeTab === 'settings' && (
           <div className="settings-view animate-fade">
-             <AdminSettings showNotify={showNotify} />
+             <AdminSettings 
+                showNotify={showNotify} 
+                isMobile={isMobile}
+                selectedBranch={selectedBranch} // <--- INYECCIÓN DE CONTEXTO
+             />
 
              {/* ZONA DE PELIGRO (FUNCIONES AVANZADAS) */}
              <AdminDangerZone 

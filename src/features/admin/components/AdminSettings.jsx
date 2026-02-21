@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash, ChevronDown } from 'lucide-react';
+import { Save, Building, Phone, MapPin, Instagram, Clock, CreditCard, CheckCircle2, AlertCircle, User, Mail, Hash, ChevronDown, Link as LinkIcon, MessageCircle, ExternalLink, Wand2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 import "../styles/AdminSettings.css";
@@ -7,12 +7,14 @@ import "../styles/AdminSettings.css";
 // ID fijo de la única fila de configuración (upsert por este id)
 const BUSINESS_INFO_ROW_ID = '00000000-0000-0000-0000-000000000001';
 
-const AdminSettings = ({ showNotify, isMobile }) => {
+const AdminSettings = ({ showNotify, isMobile, selectedBranch }) => {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
         address: '',
         instagram: '',
+        map_url: '',
+        whatsapp_url: '',
         schedule: '',
         bank_name: '',
         account_type: '',
@@ -30,11 +32,29 @@ const AdminSettings = ({ showNotify, isMobile }) => {
     const loadSettings = React.useCallback(async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from(TABLES.business_info)
-                .select('*')
-                .limit(1)
-                .maybeSingle();
+            let data, error;
+
+            // LÓGICA MULTI-LOCAL: Decidir fuente de datos
+            if (selectedBranch && selectedBranch.id !== 'all') {
+                // Cargar configuración ESPECÍFICA de la sucursal
+                const response = await supabase
+                    .from(TABLES.branches)
+                    .select('*')
+                    .eq('id', selectedBranch.id)
+                    .single();
+                
+                data = response.data;
+                // [FIX] Mapeo de campos específicos de branches
+                if (data) {
+                    data.instagram = data.instagram_url; // branches usa instagram_url
+                }
+                error = response.error;
+            } else {
+                // Cargar configuración GLOBAL
+                const response = await supabase.from(TABLES.business_info).select('*').limit(1).maybeSingle();
+                data = response.data;
+                error = response.error;
+            }
             
             if (error) throw error;
 
@@ -44,6 +64,8 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                     phone: data.phone || '',
                     address: data.address || '',
                     instagram: data.instagram || '',
+                    map_url: data.map_url || '',
+                    whatsapp_url: data.whatsapp_url || '',
                     schedule: data.schedule || '',
                     bank_name: data.bank_name || '',
                     account_type: data.account_type || '',
@@ -60,22 +82,23 @@ const AdminSettings = ({ showNotify, isMobile }) => {
         } finally {
             setLoading(false);
         }
-    }, [showNotify]);
+    }, [showNotify, selectedBranch]);
 
     useEffect(() => {
         loadSettings();
-    }, [loadSettings]);
+    }, [loadSettings, selectedBranch]); // Recargar si cambia la sucursal
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSaving(true);
         try {
             const payload = {
-                id: BUSINESS_INFO_ROW_ID,
                 name: formData.name || null,
                 phone: formData.phone || null,
                 address: formData.address || null,
                 instagram: formData.instagram || null,
+                map_url: formData.map_url || null,
+                whatsapp_url: formData.whatsapp_url || null,
                 schedule: formData.schedule || null,
                 bank_name: formData.bank_name || null,
                 account_type: formData.account_type || null,
@@ -84,11 +107,38 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                 account_email: formData.account_email || null,
                 account_holder: formData.account_holder || null
             };
-            const { error } = await supabase
-                .from(TABLES.business_info)
-                .upsert(payload, { onConflict: 'id' });
+
+            let error;
+
+            if (selectedBranch && selectedBranch.id !== 'all') {
+                // ACTUALIZAR SUCURSAL ESPECÍFICA
+                // [FIX] Adaptar payload al esquema de branches
+                const branchPayload = {
+                    ...payload,
+                    instagram_url: payload.instagram, // Mapear a columna correcta
+                };
+                delete branchPayload.instagram; // Eliminar campo que no existe en branches
+                delete branchPayload.id; // No actualizar ID
+
+                const res = await supabase
+                    .from(TABLES.branches)
+                    .update(branchPayload)
+                    .eq('id', selectedBranch.id);
+                error = res.error;
+            } else {
+                // ACTUALIZAR GLOBAL (business_info)
+                // Filtramos campos que no existen en business_info para evitar errores
+                const globalPayload = { ...payload };
+                delete globalPayload.map_url;
+                delete globalPayload.whatsapp_url;
+
+                const res = await supabase
+                    .from(TABLES.business_info)
+                    .upsert({ ...globalPayload, id: BUSINESS_INFO_ROW_ID }, { onConflict: 'id' });
+                error = res.error;
+            }
+
             if (error) throw error;
-            setDataId(BUSINESS_INFO_ROW_ID);
             showNotify('Configuración guardada correctamente', 'success');
         } catch (error) {
             console.error('Error saving settings:', error);
@@ -101,14 +151,32 @@ const AdminSettings = ({ showNotify, isMobile }) => {
         }
     };
 
+    // Herramientas de UI
+    const openLink = (url) => {
+        if (!url) return;
+        window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+    };
+
+    const generateWaLink = () => {
+        const cleanPhone = formData.phone.replace(/\D/g, '');
+        const finalPhone = cleanPhone.startsWith('56') ? cleanPhone : `56${cleanPhone}`;
+        if (finalPhone.length < 8) return showNotify('Ingresa un teléfono válido primero', 'error');
+        
+        setFormData(prev => ({ ...prev, whatsapp_url: `https://wa.me/${finalPhone}` }));
+    };
+
     if (loading) return <div className="p-10 text-center text-white">Cargando configuración...</div>;
 
     return (
         <div className="settings-container animate-fade">
             <header className="settings-header">
                 <div>
-                    <h1>Configuración del Negocio</h1>
-                    <p style={{ color: '#9ca3af', marginTop: 5 }}>Gestiona la información pública de tu local.</p>
+                    <h1>Configuración {selectedBranch?.id !== 'all' ? 'Local' : 'Global'}</h1>
+                    <p style={{ color: '#9ca3af', marginTop: 5 }}>
+                        {selectedBranch?.id !== 'all' 
+                            ? `Editando datos exclusivos para: ${selectedBranch.name}`
+                            : 'Editando datos predeterminados para toda la empresa.'}
+                    </p>
                 </div>
                 <button 
                     className="btn btn-primary" 
@@ -165,6 +233,69 @@ const AdminSettings = ({ showNotify, isMobile }) => {
                                 />
                             </div>
                         </div>
+                        {selectedBranch?.id !== 'all' && (
+                            <>
+                                <div className="form-group">
+                                    <label>Link Google Maps (Opcional)</label>
+                                    <div className="input-icon-wrapper">
+                                        <LinkIcon size={16} className="input-icon" />
+                                        <input 
+                                            className="form-input with-icon"
+                                            value={formData.map_url}
+                                            onChange={e => setFormData({...formData, map_url: e.target.value})}
+                                            placeholder="https://maps.app.goo.gl/..."
+                                            style={{ paddingRight: 40 }}
+                                        />
+                                        {formData.map_url && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => openLink(formData.map_url)}
+                                                className="btn-icon-action"
+                                                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 4 }}
+                                                title="Probar enlace"
+                                            >
+                                                <ExternalLink size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>Link WhatsApp Directo (Opcional)</label>
+                                    <div className="input-icon-wrapper">
+                                        <MessageCircle size={16} className="input-icon" />
+                                        <input 
+                                            className="form-input with-icon"
+                                            value={formData.whatsapp_url}
+                                            onChange={e => setFormData({...formData, whatsapp_url: e.target.value})}
+                                            placeholder="https://wa.me/569..."
+                                            style={{ paddingRight: 70 }}
+                                        />
+                                        <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
+                                            {!formData.whatsapp_url && formData.phone && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={generateWaLink}
+                                                    style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', padding: 4 }}
+                                                    title="Generar link con el teléfono"
+                                                >
+                                                    <Wand2 size={16} />
+                                                </button>
+                                            )}
+                                            {formData.whatsapp_url && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openLink(formData.whatsapp_url)}
+                                                    style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 4 }}
+                                                    title="Probar enlace"
+                                                >
+                                                    <ExternalLink size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                     )}
                 </section>

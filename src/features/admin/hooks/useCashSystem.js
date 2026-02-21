@@ -36,6 +36,9 @@ export const useCashSystem = (showNotify, branchId) => {
      */
     const loadActiveShift = useCallback(async () => {
         if (!branchId || branchId === 'all') {
+            // [ROBUSTEZ] Limpiar estado inmediatamente para evitar mostrar datos de otra sucursal
+            setActiveShift(null);
+            setMovements([]);
             setLoading(false);
             return;
         }
@@ -51,8 +54,13 @@ export const useCashSystem = (showNotify, branchId) => {
 
             if (error) throw error;
 
-            // Solo actualizar si el ID cambió para evitar bucles si el objeto es nuevo pero el contenido igual
-            setActiveShift(prev => (prev?.id === shift?.id ? prev : shift));
+            // [FIX] Actualizar si cambia el ID o el balance esperado (para reflejar ingresos/egresos)
+            setActiveShift(prev => {
+                if (!prev || !shift) return shift;
+                // Usamos Number() para asegurar comparación por valor numérico y no por referencia o tipo (string vs number)
+                if (prev.id === shift.id && Number(prev.expected_balance) === Number(shift.expected_balance)) return prev;
+                return shift;
+            });
             
             if (shift) {
                 loadMovements(shift.id);
@@ -193,15 +201,80 @@ export const useCashSystem = (showNotify, branchId) => {
     }, [activeShift, showNotify]);
 
     /**
+     * Helper interno para actualizar el balance esperado de forma segura
+     * Intenta usar RPC (base de datos) y hace fallback manual si falla.
+     */
+    const updateShiftBalance = useCallback(async (shiftId, amountDelta) => {
+        // 1. Intentar vía RPC (Atómico y seguro contra condiciones de carrera)
+        const { error: rpcError } = await supabase.rpc('increment_expected_balance', { 
+            shift_id: shiftId, 
+            amount: amountDelta 
+        });
+
+        if (!rpcError) return true;
+
+        // 2. Fallback Manual (Lectura -> Escritura) si no existe la función RPC
+        console.warn('RPC falló, usando fallback manual para caja:', rpcError.message);
+        const { data: current, error: fetchError } = await supabase
+            .from(TABLES.cash_shifts)
+            .select('expected_balance')
+            .eq('id', shiftId)
+            .single();
+            
+        if (fetchError || !current) return false;
+
+        const newBalance = Math.round(((Number(current.expected_balance) || 0) + amountDelta) * 100) / 100;
+        
+        const { error: updateError } = await supabase
+            .from(TABLES.cash_shifts)
+            .update({ expected_balance: newBalance })
+            .eq('id', shiftId);
+
+        return !updateError;
+    }, []);
+
+    /**
+     * [MEJORA MULTI-NEGOCIO]
+     * Obtiene el turno objetivo para una transacción.
+     * Si estamos en vista "Todas", busca el turno abierto de la sucursal del pedido.
+     */
+    const getTargetShift = useCallback(async (orderBranchId) => {
+        // 1. Escenario ideal: El turno activo en pantalla coincide con la orden
+        if (activeShift && activeShift.branch_id === orderBranchId) {
+            return activeShift;
+        }
+
+        // 2. Escenario Admin Global: Buscar turno abierto específico para esa sucursal
+        if (orderBranchId) {
+            const { data } = await supabase
+                .from(TABLES.cash_shifts)
+                .select('id, expected_balance, branch_id')
+                .eq('status', 'open')
+                .eq('branch_id', orderBranchId)
+                .maybeSingle();
+            return data;
+        }
+        return null;
+    }, [activeShift]);
+
+    /**
      * Agrega un movimiento manual (Ingreso/Egreso)
      */
     const addManualMovement = useCallback(async (type, amount, description, paymentMethod = 'cash') => {
         if (!activeShift) return false;
         try {
+            const numericAmount = Number(amount);
+            if (isNaN(numericAmount) || numericAmount <= 0) throw new Error("El monto debe ser un número mayor a 0");
+
+            // Validación estricta para egresos
+            if (type === 'expense' && (!description || description.trim().length < 3)) {
+                throw new Error("Es obligatorio indicar el motivo del egreso (mínimo 3 letras).");
+            }
+
             const movement = {
                 shift_id: activeShift.id,
                 type,
-                amount,
+                amount: numericAmount,
                 description,
                 payment_method: paymentMethod
             };
@@ -211,23 +284,15 @@ export const useCashSystem = (showNotify, branchId) => {
 
             // Actualizar expected_balance si es efectivo
             if (paymentMethod === 'cash') {
-                const adjustment = type === 'expense' ? -amount : amount;
+                const adjustment = type === 'expense' ? -numericAmount : numericAmount;
                 
-                // Intentamos usar RPC si existe, sino update manual
-                const { error: rpcError } = await supabase.rpc('increment_expected_balance', { 
-                    shift_id: activeShift.id, 
-                    amount: adjustment 
-                });
+                // [MEJORA UX] Actualización optimista: Cambiar el número en pantalla inmediatamente
+                setActiveShift(prev => ({
+                    ...prev,
+                    expected_balance: (Number(prev.expected_balance) || 0) + adjustment
+                }));
 
-                if (rpcError) {
-                    // Fallback manual
-                    const { data: current } = await supabase.from(TABLES.cash_shifts).select('expected_balance').eq('id', activeShift.id).single();
-                    if (current) {
-                        await supabase.from(TABLES.cash_shifts)
-                            .update({ expected_balance: (current.expected_balance || 0) + adjustment })
-                            .eq('id', activeShift.id);
-                    }
-                }
+                await updateShiftBalance(activeShift.id, adjustment);
             }
             
             await loadActiveShift();
@@ -239,35 +304,42 @@ export const useCashSystem = (showNotify, branchId) => {
                 if (error.code === '42501') {
                     showNotify('Error de permisos (RLS) al registrar movimiento.', 'error');
                 } else {
-                    showNotify('Error al registrar movimiento', 'error');
+                    showNotify(error.message || 'Error al registrar movimiento', 'error');
                 }
             }
             return false;
         }
-    }, [activeShift, showNotify, loadActiveShift]);
+    }, [activeShift, showNotify, loadActiveShift, updateShiftBalance]);
 
     /**
      * Registra una venta automáticamente
      */
     const registerSale = useCallback(async (order) => {
-        if (!activeShift) return;
-        try {
-            const { data: existing } = await supabase
-                .from(TABLES.cash_movements)
-                .select('id')
-                .eq('shift_id', activeShift.id)
-                .eq('order_id', order.id)
-                .maybeSingle();
+        // [ROBUSTEZ] Usar getTargetShift en lugar de depender solo de activeShift
+        const targetShift = await getTargetShift(order.branch_id);
+        if (!targetShift) return; // Si no hay caja abierta en esa sucursal, no hacemos nada (o podríamos loguear error)
 
-            if (existing) {
-                console.log('Orden ya registrada en caja:', order.id);
-                return; 
-            }
+        try {
+            // [MEJORA ROBUSTEZ] Verificar balance neto de la orden en este turno
+            // Esto permite manejar casos de: Venta -> Cancelación -> Venta (Re-ingreso)
+            const { data: movements } = await supabase
+                .from(TABLES.cash_movements)
+                .select('type, amount')
+                .eq('shift_id', targetShift.id)
+                .eq('order_id', order.id);
+
+            const saleAmount = Math.round(Number(order.total) || 0);
+            if (saleAmount <= 0) return; // No registrar ventas de valor 0 o inválidas
+
+            const currentNet = (movements || []).reduce((acc, m) => acc + (m.type === 'sale' ? m.amount : -m.amount), 0);
+
+            // Si el balance neto ya es igual al total (o muy cercano), ya está registrada.
+            if (Math.abs(currentNet - saleAmount) < 5) return;
 
             const movement = {
-                shift_id: activeShift.id,
+                shift_id: targetShift.id,
                 type: 'sale',
-                amount: order.total,
+                amount: saleAmount,
                 description: `Venta #${String(order.id).slice(-4)} - ${order.client_name}`,
                 payment_method: order.payment_type === 'online' ? 'online' : (order.payment_type === 'tarjeta' ? 'card' : 'cash'),
                 order_id: order.id
@@ -278,39 +350,46 @@ export const useCashSystem = (showNotify, branchId) => {
 
             // Actualizar balance si es efectivo
             if (movement.payment_method === 'cash') {
-                 const { data: current } = await supabase.from(TABLES.cash_shifts).select('expected_balance').eq('id', activeShift.id).single();
-                 if (current) {
-                     await supabase.from(TABLES.cash_shifts)
-                         .update({ expected_balance: (current.expected_balance || 0) + movement.amount })
-                         .eq('id', activeShift.id);
-                 }
+                 await updateShiftBalance(targetShift.id, saleAmount);
             }
 
-            await loadActiveShift();
+            // Solo recargar si el turno afectado es el que estamos viendo
+            if (activeShift && activeShift.id === targetShift.id) {
+                await loadActiveShift();
+            }
         } catch (error) {
             console.error('Error registering sale in cash system:', error);
         }
-    }, [activeShift, loadActiveShift]);
+    }, [activeShift, loadActiveShift, updateShiftBalance, getTargetShift]);
 
     /**
      * Registra una devolución
      */
     const registerRefund = useCallback(async (order) => {
-        if (!activeShift) return;
-        try {
-            const { data: existing } = await supabase
-                .from(TABLES.cash_movements)
-                .select('id, type')
-                .eq('shift_id', activeShift.id)
-                .eq('order_id', order.id)
-                .eq('type', 'expense');
+        // [ROBUSTEZ] Usar getTargetShift para devoluciones también
+        const targetShift = await getTargetShift(order.branch_id);
+        if (!targetShift) return;
 
-            if (existing && existing.length > 0) return;
+        try {
+            // [MEJORA ROBUSTEZ] Verificar si ya está reembolsada (Neto ~ 0)
+            const { data: movements } = await supabase
+                .from(TABLES.cash_movements)
+                .select('type, amount')
+                .eq('shift_id', targetShift.id)
+                .eq('order_id', order.id);
+
+            const refundAmount = Math.round(Number(order.total) || 0);
+            if (refundAmount <= 0) return;
+
+            const currentNet = (movements || []).reduce((acc, m) => acc + (m.type === 'sale' ? m.amount : -m.amount), 0);
+            
+            // Si el balance neto es 0 (o negativo), ya está reembolsada o nunca se cobró.
+            if (currentNet <= 5) return;
 
             const movement = {
-                shift_id: activeShift.id,
+                shift_id: targetShift.id,
                 type: 'expense',
-                amount: order.total || 0,
+                amount: refundAmount,
                 description: `Devolución #${String(order.id).slice(-4)} - ${order.client_name}`,
                 payment_method: order.payment_type === 'online' ? 'online' : (order.payment_type === 'tarjeta' ? 'card' : 'cash'),
                 order_id: order.id
@@ -320,21 +399,18 @@ export const useCashSystem = (showNotify, branchId) => {
             if (error) throw error;
 
             if (movement.payment_method === 'cash') {
-                 const { data: current } = await supabase.from(TABLES.cash_shifts).select('expected_balance').eq('id', activeShift.id).single();
-                 if (current) {
-                     await supabase.from(TABLES.cash_shifts)
-                         .update({ expected_balance: (current.expected_balance || 0) - movement.amount })
-                         .eq('id', activeShift.id);
-                 }
+                 await updateShiftBalance(targetShift.id, -refundAmount);
             }
 
-            await loadActiveShift();
+            if (activeShift && activeShift.id === targetShift.id) {
+                await loadActiveShift();
+            }
             if (showNotify) showNotify('Devolución registrada en caja', 'success');
         } catch (error) {
             console.error('Error registrando devolución en caja:', error);
             if (showNotify) showNotify('Error registrando devolución', 'error');
         }
-    }, [activeShift, showNotify, loadActiveShift]);
+    }, [activeShift, showNotify, loadActiveShift, updateShiftBalance, getTargetShift]);
 
     const getPastShifts = useCallback(async (limit = 20) => {
         if (!branchId) return [];
@@ -364,11 +440,15 @@ export const useCashSystem = (showNotify, branchId) => {
             const amount = Number(m.amount) || 0;
             if (m.type === 'expense') {
                 acc.expenses += amount;
+                // [FIX] Restar egresos del balance del método de pago correspondiente
+                if (m.payment_method === 'cash') acc.cash -= amount;
+                else if (m.payment_method === 'card') acc.card -= amount;
+                else if (m.payment_method === 'online') acc.online -= amount;
             } else {
                 if (m.payment_method === 'cash') acc.cash += amount;
                 else if (m.payment_method === 'card') acc.card += amount;
                 else if (m.payment_method === 'online') acc.online += amount;
-                acc.income += amount;
+                acc.income += amount; // Total Ingresos (Bruto)
             }
             return acc;
         }, { cash: 0, card: 0, online: 0, expenses: 0, income: 0 });

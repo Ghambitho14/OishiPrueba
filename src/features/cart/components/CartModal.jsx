@@ -64,6 +64,25 @@ const CartModal = React.memo(() => {
   
   const currentBranch = selectedBranch;
 
+  // [NUEVO] Lógica de Cascada: Sucursal > Global
+  // Determina qué datos mostrar (banco, dirección, teléfono) según el contexto
+  const activeInfo = useMemo(() => {
+    if (!selectedBranch) return businessInfo;
+    return {
+      ...businessInfo, // Base global
+      ...selectedBranch, // Sobrescribe con datos de sucursal si existen
+      // Asegurar fallbacks específicos para campos críticos si vienen vacíos en la sucursal
+      name: selectedBranch.name || businessInfo.name,
+      address: selectedBranch.address || businessInfo.address,
+      phone: selectedBranch.phone || businessInfo.phone,
+      bank_name: selectedBranch.bank_name || businessInfo.bank_name,
+      account_type: selectedBranch.account_type || businessInfo.account_type,
+      account_number: selectedBranch.account_number || businessInfo.account_number,
+      account_rut: selectedBranch.account_rut || businessInfo.account_rut,
+      account_email: selectedBranch.account_email || businessInfo.account_email,
+      account_holder: selectedBranch.account_holder || businessInfo.account_holder,
+    };
+  }, [businessInfo, selectedBranch]);
 
   // Datos del Cliente
   const [formData, setFormData] = useState({
@@ -202,15 +221,12 @@ const CartModal = React.memo(() => {
       setViewState(v => ({ ...v, showSuccess: true, isSaving: false, receiptUploadFailed: receiptUploadFailed ?? false }));
 
       setTimeout(() => {
-        const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote, businessInfo.name);
+        const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote, activeInfo.name);
         
-        // Obtener teléfono de configuración global prioritariamente, luego sucursal o fallback
+        // Usar teléfono de la sucursal activa (o global si no hay)
         let targetPhone = "56976645547"; // Default
-        
-        if (businessInfo.phone) {
-            targetPhone = businessInfo.phone.replace(/\D/g, '');
-        } else if (currentBranch && currentBranch.phone) {
-            targetPhone = currentBranch.phone.replace(/\D/g, '');
+        if (activeInfo.phone) {
+            targetPhone = activeInfo.phone.replace(/\D/g, '');
         }
 
         window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -236,6 +252,7 @@ const CartModal = React.memo(() => {
             onGoHome={() => { resetFlow(); navigate('/'); }}
             receiptUploadFailed={viewState.receiptUploadFailed}
             branch={currentBranch}
+            activeInfo={activeInfo}
           />
         ) : (
           <>
@@ -324,6 +341,7 @@ const CartModal = React.memo(() => {
                     validation={validation}
                     cartTotal={cartTotal}
                     onBack={() => setViewState(v => ({ ...v, showPaymentInfo: false }))}
+                    activeInfo={activeInfo}
                   />
                 )}
               </footer>
@@ -341,7 +359,7 @@ const CartModal = React.memo(() => {
 const PaymentFlow = ({
   paymentType, setPaymentType, showForm, setShowForm,
   formData, onInputChange, onFileChange, onSubmit,
-  isSaving, validation, cartTotal, onBack
+  isSaving, validation, cartTotal, onBack, activeInfo
 }) => {
   
   // 1. VISTA DE FORMULARIO DE DATOS
@@ -423,7 +441,7 @@ const PaymentFlow = ({
     return (
       <div className="payment-details animate-fade">
         {paymentType === 'online' ? (
-          <BankInfo cartTotal={cartTotal} />
+          <BankInfo cartTotal={cartTotal} activeInfo={activeInfo} />
         ) : (
           <div className="store-pay-info glass mb-20">
             <Store size={32} className="text-accent" />
@@ -461,43 +479,52 @@ const PaymentFlow = ({
   );
 };
 
-const BankInfo = ({ cartTotal }) => {
-  const { businessInfo } = useBusiness();
+const BankInfo = ({ cartTotal, activeInfo }) => {
+  const info = activeInfo || {}; // Usar la info fusionada
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
   };
 
   // Verificar si hay datos configurados
-  const hasData = businessInfo.bank_name || businessInfo.account_number || businessInfo.account_rut || businessInfo.account_email || businessInfo.name;
+  const hasData = info.bank_name || info.account_number || info.account_rut || info.account_email || info.account_holder;
 
   return (
     <div className="bank-info glass">
       <h4>Datos para Transferir</h4>
       {hasData ? (
           <ul className="bank-details-list">
-            {businessInfo.bank_name && (
-                <li><span>Banco:</span> <b>{businessInfo.bank_name}</b></li>
+            {info.bank_name && (
+                <li><span>Banco:</span> <b>{info.bank_name}</b></li>
             )}
-            {businessInfo.account_type && (
-                <li><span>Tipo:</span> <b>{businessInfo.account_type}</b></li>
+            {info.account_type && (
+                <li><span>Tipo:</span> <b>{info.account_type}</b></li>
             )}
-            {businessInfo.account_number && (
-                <li className="copy-row" onClick={() => copyToClipboard(businessInfo.account_number)}>
-                    <span>Cuenta:</span> <b>{businessInfo.account_number}</b> <Copy size={14} />
+            {info.account_number && (
+                <li className="copy-row" onClick={() => copyToClipboard(info.account_number)}>
+                    <span>Cuenta:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <b>{info.account_number}</b> <Copy size={14} />
+                    </div>
                 </li>
             )}
-            {businessInfo.account_rut && (
-                <li className="copy-row" onClick={() => copyToClipboard(businessInfo.account_rut)}>
-                    <span>RUT:</span> <b>{businessInfo.account_rut}</b> <Copy size={14} />
+            {info.account_rut && (
+                <li className="copy-row" onClick={() => copyToClipboard(info.account_rut)}>
+                    <span>RUT:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <b>{info.account_rut}</b> <Copy size={14} />
+                    </div>
                 </li>
             )}
-            {businessInfo.account_email && (
-                <li className="copy-row" onClick={() => copyToClipboard(businessInfo.account_email)}>
-                    <span>Email:</span> <b>{businessInfo.account_email}</b> <Copy size={14} />
+            {info.account_email && (
+                <li className="copy-row" onClick={() => copyToClipboard(info.account_email)}>
+                    <span>Email:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <b>{info.account_email}</b> <Copy size={14} />
+                    </div>
                 </li>
             )}
-            {businessInfo.name && (
-                <li><span>Nombre:</span> <b>{businessInfo.name}</b></li>
+            {info.account_holder && (
+                <li><span>Nombre:</span> <b>{info.account_holder}</b></li>
             )}
           </ul>
       ) : (
@@ -511,7 +538,7 @@ const BankInfo = ({ cartTotal }) => {
   );
 };
 
-const SuccessView = ({ onNewOrder, onGoHome, receiptUploadFailed }) => (
+const SuccessView = ({ onNewOrder, onGoHome, receiptUploadFailed, activeInfo }) => (
   <div className="cart-success-view animate-fade">
     <div className="success-icon-circle"><Check size={40} /></div>
     <h2 className="text-accent">¡Pedido Recibido!</h2>
@@ -525,8 +552,8 @@ const SuccessView = ({ onNewOrder, onGoHome, receiptUploadFailed }) => (
     )}
     <div className="order-summary-card">
       <div className="summary-label">Retiro en</div>
-      <div className="summary-value">Castelar Nte. 141</div>
-      <div className="text-xs text-muted">San Joaquín, RM</div>
+      <div className="summary-value">{activeInfo?.address || "Dirección no disponible"}</div>
+      <div className="text-xs text-muted">{activeInfo?.name || "Oishi Sushi"}</div>
     </div>
     <div className="success-actions">
       <button className="btn btn-primary btn-block" onClick={onNewOrder}>Nuevo Pedido</button>

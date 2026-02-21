@@ -408,11 +408,6 @@
 /* 4. MÓVILES - Optimización UX Táctil */
 @media (max-width: 500px) and (pointer: coarse) {
   
-  /* [FIX] Forzar 1 columna en móviles para evitar tarjetas aplastadas */
-  .product-grid {
-    grid-template-columns: 1fr !important;
-  }
-
   /* Tarjeta Móvil */
   .product-card {
     height: 100%;
@@ -433,10 +428,10 @@
   /* ... (código intermedio) ... */
 
   .product-footer {
-    padding-top: 4px !important;    
-    padding-bottom: 4px !important; 
-    margin-bottom: -20px !important;
-    margin-top: -5px !important; /* [CRÍTICO] Ya no 'auto', sino fijo y pequeño */
+    padding-top: 8px !important;    
+    padding-bottom: 10px !important; 
+    margin-bottom: 0 !important;
+    margin-top: auto !important;
     height: auto;
     gap: 0px; 
   }
@@ -597,10 +592,10 @@
 @media (max-width: 380px) {
   
   .product-footer {
-    padding-top: 4px !important;    
-    padding-bottom: 2px !important; 
-    margin-bottom: -20px !important; /* [TUS AJUSTES MANUALES] */
-    margin-top: -6px !important;     /* [TUS AJUSTES MANUALES] */
+    padding-top: 6px !important;    
+    padding-bottom: 6px !important; 
+    margin-bottom: 0 !important;
+    margin-top: auto !important;
     height: auto !important;
   }
 

@@ -133,3 +133,16 @@ section {
         pointer-events: none;
     }
 }
+
+/* =========================================
+   APP-LIKE SCROLL (NO SCROLLBARS)
+   ========================================= */
+html, body {
+    overscroll-behavior-y: none; /* Evita el rebote elástico en móviles */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
+}

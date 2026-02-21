@@ -15,27 +15,36 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
 
     // Calcular métricas derivadas por cliente usando orders
     const enrichedClients = useMemo(() => {
-        if (!clients) return [];
+        if (!Array.isArray(clients)) return [];
+        const safeOrders = Array.isArray(orders) ? orders : [];
         
+        // [OPTIMIZACIÓN] Crear un mapa indexado por client_id (O(N))
+        // Esto evita recorrer todo el array de orders dentro del map de clientes (O(N^2))
+        const ordersMap = safeOrders.reduce((acc, o) => {
+            if (o.status === 'cancelled') return acc; // Ignorar cancelados globalmente
+            if (!acc[o.client_id]) acc[o.client_id] = [];
+            acc[o.client_id].push(o);
+            return acc;
+        }, {});
+
         return clients.map(client => {
-            // Si ya vienen calculados en la DB mejor, si no cruzamos con orders
-            // Asumimos que orders viene completo o filtramos
-            // Si orders es muy grande, esto podría ser lento.
-            // Admin.jsx pasa 'orders' (todos).
-            // Optimización: Crear mapa de conteo de ordenes por cliente primero
-            // Pero por ahora map directo si no son miles.
+            // Acceso directo O(1) en lugar de filter O(N)
+            const clientOrders = ordersMap[client.id] || [];
             
-            const clientOrders = orders ? orders.filter(o => o.client_id === client.id && o.status !== 'cancelled') : [];
-            const totalOrders = clientOrders.length;
-            const totalSpent = clientOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-            const fidelityPoints = Math.floor(totalSpent / 1000); // 1 punto por cada $1000
+            // [FIX MULTI-SUCURSAL] Usar datos GLOBALES de la DB para segmento y fidelidad
+            // Si usamos solo 'clientOrders' (que puede estar filtrado por sucursal), 
+            // un cliente VIP parecería nuevo en otra sucursal.
+            const globalTotalOrders = client.total_orders || clientOrders.length;
+            const globalTotalSpent = client.total_spent || clientOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+            
+            const fidelityPoints = Math.floor(globalTotalSpent / 1000); // 1 punto por cada $1000
             
             // Segmento
             let segment = 'none';
-            if (totalOrders >= 20) segment = 'elite';
-            else if (totalOrders >= 10) segment = 'top';
-            else if (totalOrders >= 5) segment = 'frequent';
-            else if (totalOrders > 0) segment = 'buyer';
+            if (globalTotalOrders >= 20) segment = 'elite';
+            else if (globalTotalOrders >= 10) segment = 'top';
+            else if (globalTotalOrders >= 5) segment = 'frequent';
+            else if (globalTotalOrders > 0) segment = 'buyer';
 
             // Estado
             const lastDate = clientOrders.length > 0 
@@ -53,9 +62,9 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
 
             return {
                 ...client,
-                totalOrders,
-                total_orders: totalOrders, // Patter para Detalles
-                total_spent: totalSpent,
+                totalOrders: globalTotalOrders, // Mostrar total histórico real
+                total_orders: globalTotalOrders,
+                total_spent: globalTotalSpent,
                 fidelityPoints,
                 segment,
                 status,
@@ -176,7 +185,11 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
 
         const csvContent = "\uFEFF" + [
             headers.join(','),
-            ...rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+            ...rows.map(row => row.map(v => {
+                // Escapar comillas dobles y envolver en comillas
+                const safeVal = v === null || v === undefined ? '' : String(v);
+                return `"${safeVal.replace(/"/g, '""')}"`;
+            }).join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

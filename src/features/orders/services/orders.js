@@ -1,5 +1,4 @@
 import { supabase } from '../../../lib/supabase';
-import { TABLES } from '../../../lib/supabaseTables';
 import { uploadImage } from '../../../shared/utils/cloudinary';
 
 /**
@@ -18,8 +17,12 @@ export const ordersService = {
                 throw new Error("El ID de sucursal es obligatorio para crear un pedido.");
             }
 
+            if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+                throw new Error("El pedido debe contener al menos un producto.");
+            }
+
             const { data: openShift } = await supabase
-                .from(TABLES.cash_shifts)
+                .from('cash_shifts')
                 .select('id')
                 .eq('status', 'open')
                 .eq('branch_id', orderData.branch_id)
@@ -36,7 +39,9 @@ export const ordersService = {
                     ? Number(item.discount_price) 
                     : Number(item.price || 0);
                 
-                return sum + (price * (Number(item.quantity) || 1));
+                const qty = Math.max(1, Number(item.quantity) || 1); // Asegurar cantidad positiva
+                
+                return sum + (price * qty);
             }, 0);
 
             // Si hay una discrepancia mayor a $50 (por posibles redondeos), corregimos forzosamente
@@ -72,7 +77,7 @@ export const ordersService = {
             }
 
             const { data: newOrder, error: orderError } = await supabase
-                .from(TABLES.orders)
+                .from('orders')
                 .insert({
                     client_id: clientId,
                     client_name: orderData.client_name,
@@ -115,7 +120,7 @@ export const ordersService = {
 
         // 2. Buscar cliente existente por Teléfono (Identificador principal)
         const { data: existingClient, error: searchError } = await supabase
-            .from(TABLES.clients)
+            .from('clients')
             .select('*')
             .eq('phone', safePhone)
             .maybeSingle(); // Usamos maybeSingle para evitar error si no existe o si hay múltiples (aunque unique lo previene)
@@ -140,7 +145,7 @@ export const ordersService = {
             }
 
             const { error: updateError } = await supabase
-                .from(TABLES.clients)
+                .from('clients')
                 .update(updateData)
                 .eq('id', existingClient.id);
 
@@ -155,7 +160,7 @@ export const ordersService = {
             
             // Usamos UPSERT por seguridad (en caso de condición de carrera con el teléfono)
             const { data: newClient, error: createError } = await supabase
-                .from(TABLES.clients)
+                .from('clients')
                 .upsert({
                     name: client_name,
                     phone: safePhone,
@@ -171,7 +176,7 @@ export const ordersService = {
             if (createError) {
                  // Si falla upsert, intentamos buscar de nuevo por si acaso fue creado milisegundos antes
                  if (createError.code === '23505') {
-                      const { data: retryClient } = await supabase.from(TABLES.clients).select('id').eq('phone', safePhone).single();
+                      const { data: retryClient } = await supabase.from('clients').select('id').eq('phone', safePhone).single();
                       if (retryClient) return retryClient.id;
                  }
                  throw createError;
