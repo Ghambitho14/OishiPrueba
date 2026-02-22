@@ -1,9 +1,29 @@
 import React from 'react';
-import { Clock, XCircle, Upload, ImageIcon } from 'lucide-react';
+import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle } from 'lucide-react';
 import { formatTimeElapsed } from '../../../shared/utils/formatters';
+import { printOrderTicket } from '../utils/receiptPrinting';
+import logo from '../../../assets/logo.png';
 import '../../../styles/OrderCard.css';
 
-const OrderCard = ({ order, moveOrder, setReceiptModalOrder }) => {
+const OrderCard = ({ order, moveOrder, setReceiptModalOrder, branch, clients }) => {
+    
+    const handleMoveToKitchen = (e) => {
+        e.stopPropagation();
+        // 1. Imprimir Comanda
+        printOrderTicket(order, branch?.name, logo);
+        // 2. Mover a estado "active" (Cocinando)
+        moveOrder(order.id, 'active');
+    };
+
+    const handleReprint = (e) => {
+        e.stopPropagation();
+        printOrderTicket(order, branch?.name, logo);
+    };
+
+    // Lógica VIP: Buscar cliente y verificar si tiene más de 5 pedidos
+    const clientData = clients?.find(c => c.id === order.client_id);
+    const isVip = clientData?.total_orders >= 5;
+
     return (
         <div className={`kanban-card glass animate-slide-up ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
             {/* ENCABEZADO */}
@@ -12,17 +32,39 @@ const OrderCard = ({ order, moveOrder, setReceiptModalOrder }) => {
                     <Clock size={14} /> 
                     {formatTimeElapsed(order.created_at)}
                 </span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={handleReprint} className="btn-icon-xs" title="Imprimir Comanda" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#ccc', cursor: 'pointer', padding: 4, borderRadius: 4 }}>
+                        <Printer size={14} />
+                    </button>
                 <span className={`payment-badge ${order.payment_type === 'online' ? 'online' : ''}`}>
                     {order.payment_type === 'online' ? 'Transf.' : (order.payment_type === 'tarjeta' ? 'Tarjeta' : 'Efectivo')}
                 </span>
+                </div>
             </div>
 
             {/* CLIENTE */}
             <div className="card-client">
-                <h4>{order.client_name}</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <h4>{order.client_name}</h4>
+                    {isVip && (
+                        <span title={`Cliente VIP (${clientData.total_orders} pedidos)`} style={{ background: '#ffd700', color: '#000', borderRadius: '4px', padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
+                            <Crown size={12} fill="black" />
+                        </span>
+                    )}
+                </div>
                 {(order.client_phone || order.client_rut) && (
                     <div className="client-phone">
-                        {order.client_phone && <span>{order.client_phone}</span>}
+                        {order.client_phone && (
+                            <a 
+                                href={`https://wa.me/${order.client_phone.replace(/\D/g,'')}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+                                title="Abrir WhatsApp"
+                            >
+                                <MessageCircle size={12} /> {order.client_phone}
+                            </a>
+                        )}
                         {order.client_phone && order.client_rut && <span style={{opacity: 0.3}}>|</span>}
                         {order.client_rut && <span>{order.client_rut}</span>}
                     </div>
@@ -89,7 +131,7 @@ const OrderCard = ({ order, moveOrder, setReceiptModalOrder }) => {
                         <button onClick={() => moveOrder(order.id, 'cancelled')} className="btn-icon-action cancel" style={{ flex: '0 0 50px' }} title="Cancelar Pedido">
                             <XCircle size={22} />
                         </button>
-                        <button onClick={() => moveOrder(order.id, 'active')} className="btn-action primary" style={{ flex: 1 }}>
+                        <button onClick={handleMoveToKitchen} className="btn-action primary" style={{ flex: 1 }}>
                             A Cocina
                         </button>
                     </>

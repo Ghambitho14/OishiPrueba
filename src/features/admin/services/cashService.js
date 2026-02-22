@@ -176,16 +176,37 @@ export const cashService = {
     /**
      * Obtiene historial paginado de turnos pasados.
      */
-    getPastShifts: async (limit = 20) => {
-        const { data, error } = await supabase
+    getPastShifts: async (limit = 20, branchId = null) => {
+        let query = supabase
             .from('cash_shifts')
-            .select('*')
+            .select(`
+                *,
+                cash_movements (
+                    amount,
+                    type,
+                    payment_method
+                )
+            `)
             .eq('status', 'closed')
             .order('closed_at', { ascending: false })
             .limit(limit);
 
+        if (branchId) {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query;
+
         if (error) throw error;
-        return data;
+        
+        return data.map(shift => {
+            const movements = shift.cash_movements || [];
+            const totalOnline = movements
+                .filter(m => m.payment_method === 'online' && m.type === 'sale')
+                .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+            
+            return { ...shift, total_online: totalOnline };
+        });
     },
 
     /**

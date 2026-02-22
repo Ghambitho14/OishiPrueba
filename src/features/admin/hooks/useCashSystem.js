@@ -420,13 +420,29 @@ export const useCashSystem = (showNotify, branchId) => {
         if (!branchId) return [];
         const { data, error } = await supabase
             .from(TABLES.cash_shifts)
-            .select('*')
+            .select(`
+                *,
+                cash_movements (
+                    amount,
+                    type,
+                    payment_method
+                )
+            `)
             .eq('status', 'closed')
             .eq('branch_id', branchId) // FILTRO POR SUCURSAL
             .order('closed_at', { ascending: false })
             .limit(limit);
         if (error) throw error;
-        return data;
+        
+        // Calcular totales de transferencias para cada turno
+        return data.map(shift => {
+            const movements = shift.cash_movements || [];
+            const totalOnline = movements
+                .filter(m => m.payment_method === 'online' && m.type === 'sale')
+                .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+            
+            return { ...shift, total_online: totalOnline };
+        });
     }, [branchId]);
 
     const getShiftMovements = useCallback(async (shiftId) => {

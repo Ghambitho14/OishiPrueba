@@ -164,12 +164,11 @@ const AdminProvider = ({ children }) => {
             .maybeSingle();
   
           if (!adminUser) {
-            console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Se permite el acceso temporalmente.");
+            console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Acceso denegado.");
             setUserRole(null);
-            // Cuando hayas agregado tu email a la base de datos, descomenta esto para activar la seguridad real:
-            // await supabase.auth.signOut();
-            // navigate('/login');
-            // showNotify('No tienes permisos de administrador', 'error');
+            await supabase.auth.signOut();
+            navigate('/login');
+            showNotify('No tienes permisos de administrador', 'error');
           } else {
             setUserRole(adminUser.role || null);
           }
@@ -178,20 +177,24 @@ const AdminProvider = ({ children }) => {
     verifyAdminAccess();
   }, [navigate, showNotify]);
 
-  // --- CARGA DE SUCURSALES ---
-  useEffect(() => {
-    const loadBranches = async () => {
-      const { data, error } = await supabase.from(TABLES.branches).select('*').order('name');
-      if (!error && data?.length > 0) {
-        setBranches(data);
-        // [FIX] Seleccionar automáticamente la primera sucursal si no hay ninguna seleccionada
-        if (!selectedBranch || selectedBranch.id === 'all') {
-          setSelectedBranch(data[0]);
-        }
-      }
-    };
-    loadBranches();
+  // --- CARGA DE SUCURSALES (Centralizada) ---
+  const refreshBranches = useCallback(async () => {
+    const { data, error } = await supabase.from(TABLES.branches).select('*').order('name');
+    if (!error && data?.length > 0) {
+      setBranches(data);
+      
+      // Actualizar la sucursal seleccionada con la nueva información de la BD
+      setSelectedBranch(prev => {
+        if (!prev || prev.id === 'all') return prev || data[0];
+        const updated = data.find(b => b.id === prev.id);
+        return updated || data[0];
+      });
+    }
   }, []);
+
+  useEffect(() => {
+    refreshBranches();
+  }, [refreshBranches]);
 
   // --- VALIDACIÓN DE SUCURSAL ACTIVA ---
   // Si no estamos en Analytics, forzar selección de una sucursal real (no 'all')
@@ -221,9 +224,9 @@ const AdminProvider = ({ children }) => {
         supabase.from(TABLES.categories).select('*').order('order'),
         supabase.from(TABLES.products).select('*').order('name'),
         isAllBranches 
-          ? supabase.from(TABLES.orders).select('*').order('created_at', { ascending: false })
-          : supabase.from(TABLES.orders).select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }),
-        supabase.from(TABLES.clients).select('*').order('last_order_at', { ascending: false })
+          ? supabase.from(TABLES.orders).select('*').order('created_at', { ascending: false }).limit(100)
+          : supabase.from(TABLES.orders).select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }).limit(100),
+        supabase.from(TABLES.clients).select('*').order('last_order_at', { ascending: false }).limit(200)
       ];
 
       if (!isAllBranches) {
@@ -326,6 +329,13 @@ const AdminProvider = ({ children }) => {
       const newOrder = sanitizeOrder(payload.new);
       setOrders(prev => [newOrder, ...prev]);
       showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
+      
+      // [NUEVO] Reproducir sonido de notificación
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(e => console.log('Audio play blocked', e));
+      } catch (e) { console.error(e); }
+      
       // Si es un pedido nuevo, también podríamos querer actualizar clientes si es relevante
     } 
     else if (payload.eventType === 'UPDATE') {
@@ -359,14 +369,14 @@ const AdminProvider = ({ children }) => {
         }
       });
 
-    // Fallback: Polling cada 15 segundos (más rápido por si falla Realtime)
+    // Fallback: Polling cada 60 segundos (menos agresivo)
     const intervalId = setInterval(() => {
       // Solo recargamos si NO estamos editando algo activamente para no interrumpir
       if (!isModalOpen && !editingProduct) {
-         console.log('🔄 Sincronizando datos...');
+         console.log('🔄 Sincronizando datos (Polling)...');
          loadData(true); 
       }
-    }, 15000);
+    }, 60000);
 
     return () => {
       clearInterval(intervalId);
@@ -645,6 +655,11 @@ const AdminProvider = ({ children }) => {
     );
 
     return result.sort((a, b) => {
+      // Priorizar productos activos primero si el filtro es "Todos"
+      if (filterStatus === 'all' && a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+
       if (sortOrder === 'name-asc') return a.name.localeCompare(b.name);
       if (sortOrder === 'price-asc') return a.price - b.price;
       if (sortOrder === 'price-desc') return b.price - a.price;
@@ -696,6 +711,7 @@ const AdminProvider = ({ children }) => {
     showNotify,
     cashSystem,
     loadData,
+    refreshBranches,
     handleSelectClient,
     moveOrder,
     uploadReceiptToOrder,
@@ -815,6 +831,7 @@ const AdminComponent = () => {
     kanbanColumns,
     processedProducts,
     productStats,
+    refreshBranches,
     userRole,
     userEmail,
   } = useAdmin();
@@ -927,6 +944,8 @@ const AdminComponent = () => {
               setMobileTab={setMobileTab}
               moveOrder={moveOrder}
               setReceiptModalOrder={setReceiptModalOrder}
+              branch={selectedBranch}
+              clients={clients}
             />
           ) : (
             <AdminHistoryTable orders={kanbanColumns.history} setReceiptModalOrder={setReceiptModalOrder} />
@@ -1155,7 +1174,7 @@ const AdminComponent = () => {
         {/* 6. HERRAMIENTAS */}
         {activeTab === 'settings' && (
           <div className="settings-view animate-fade">
-             <AdminSettings showNotify={showNotify} isMobile={isMobile} selectedBranch={selectedBranch} />
+             <AdminSettings showNotify={showNotify} isMobile={isMobile} selectedBranch={selectedBranch} onBranchUpdate={refreshBranches} />
 
              {/* ZONA DE PELIGRO (FUNCIONES AVANZADAS) */}
              <AdminDangerZone 
@@ -1171,7 +1190,7 @@ const AdminComponent = () => {
         {/* 7. DATOS DE LA EMPRESA (solo rol admin) */}
         {activeTab === 'company' && (
           <div className="settings-view animate-fade">
-            <AdminCompanyData showNotify={showNotify} isMobile={isMobile} branches={branches} />
+            <AdminCompanyData showNotify={showNotify} isMobile={isMobile} branches={branches} onBranchUpdate={refreshBranches} />
           </div>
         )}
       </main>

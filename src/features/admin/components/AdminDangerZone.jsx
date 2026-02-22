@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 import { Loader2, AlertCircle, XCircle, FileText, Trash2, Users, ChevronDown } from 'lucide-react';
+import { downloadExcel } from '../../../shared/utils/exportUtils';
 
 const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranch }) => {
   const [analyticsDate, setAnalyticsDate] = useState(() => {
@@ -61,58 +62,70 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
   }, [isDangerModalOpen]);
 
   const handleExportMonthlyCsv = async () => {
+    // 1. Calcular rango de fechas
     const range = getMonthRangeUtc(analyticsDate);
     if (!range) {
       showNotify('Mes inválido', 'error');
       return;
     }
 
-    const startMs = new Date(range.startIso).getTime();
-    const endMs = new Date(range.endIso).getTime();
+    setLoading(true);
+    try {
+      // 2. [FIX] Consultar BD directamente para obtener TODOS los datos del mes
+      // (Evita el límite de 100 pedidos de la vista principal)
+      let query = supabase
+        .from(TABLES.orders)
+        .select('*')
+        .gte('created_at', range.startIso)
+        .lt('created_at', range.endIso)
+        .order('created_at', { ascending: true });
 
-    const filteredOrders = orders.filter(o => {
-      const t = new Date(o.created_at).getTime();
-      return Number.isFinite(t) && t >= startMs && t < endMs;
-    });
+      // Filtrar por sucursal si corresponde
+      if (selectedBranch && selectedBranch.id && selectedBranch.id !== 'all') {
+        query = query.eq('branch_id', selectedBranch.id);
+      }
 
-    if (filteredOrders.length === 0) {
-      showNotify("No hay datos para exportar", 'info');
-      return;
+      const { data: fullMonthOrders, error } = await query;
+
+      if (error) throw error;
+
+      if (!fullMonthOrders || fullMonthOrders.length === 0) {
+        showNotify("No hay datos para exportar en este período", 'info');
+        return;
+      }
+
+      // 3. Formatear datos para Excel
+      const dataToExport = fullMonthOrders.map(order => {
+        const d = new Date(order.created_at);
+        // Parseo seguro de items (por si viene como string o json)
+        let items = Array.isArray(order.items) ? order.items : [];
+        if (typeof order.items === 'string') {
+            try { items = JSON.parse(order.items); } catch {}
+        }
+        
+        const itemsText = items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
+        return {
+          Fecha: d.toLocaleDateString('es-CL'),
+          Hora: d.toLocaleTimeString('es-CL'),
+          Cliente: order.client_name,
+          RUT: order.client_rut,
+          Teléfono: order.client_phone,
+          Items: itemsText,
+          Total: order.total,
+          'Método Pago': order.payment_type || '',
+          'Ref. Pago': order.payment_ref || ''
+        };
+      });
+
+      const [year, month] = String(analyticsDate).split('-');
+      downloadExcel(dataToExport, `Cierre_${year || '0000'}_${month || '00'}.xls`);
+      showNotify('Reporte Excel generado', 'success');
+    } catch (err) {
+      console.error(err);
+      showNotify('Error al generar reporte: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
     }
-
-    const headers = ['Fecha', 'Hora', 'Cliente', 'RUT', 'Teléfono', 'Items', 'Total', 'Método Pago', 'Ref. Pago'];
-    const lines = [headers.join(',')];
-
-    filteredOrders.forEach(order => {
-      const d = new Date(order.created_at);
-      const itemsText = order.items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
-      const row = [
-        d.toLocaleDateString('es-CL'),
-        d.toLocaleTimeString('es-CL'),
-        order.client_name,
-        order.client_rut,
-        order.client_phone,
-        itemsText,
-        order.total,
-        order.payment_type || '',
-        order.payment_ref || ''
-      ];
-      const escaped = row.map(v => `"${String(v).replace(/"/g, '""')}"`);
-      lines.push(escaped.join(','));
-    });
-
-    const csvContent = "\uFEFF" + lines.join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const [year, month] = String(analyticsDate).split('-');
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Cierre_${year || '0000'}_${month || '00'}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showNotify('Reporte Excel generado', 'success');
   };
 
   const executeDangerAction = async () => {
@@ -185,9 +198,13 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
         'success');
 
       } else if (dangerAction === 'allClients') {
+        // [MEJORA] Manejo de error de llave foránea (FK)
         const { count, error } = await supabase.from(TABLES.clients).delete().neq('phone', '0000').select('*', { count: 'exact' });
-        if (error) throw error;
-        showNotify(`Base de clientes purgada (${count} registros)`, 'success');
+        if (error) {
+            if (error.code === '23503') throw new Error('No se pueden borrar clientes con pedidos asociados.');
+            throw error;
+        }
+        showNotify(`Base de clientes purgada (${count || 0} registros)`, 'success');
       }
 
       // Cerrar modal solo después de éxito
@@ -262,8 +279,8 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
                   <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: 20 }}>
                     Genera y descarga un Excel con todas las ventas de <b style={{ color: 'white' }}>{analyticsDate}</b>.
                   </p>
-                  <button onClick={handleExportMonthlyCsv} className="btn-table-action" style={{ width: '100%', padding: 12, background: 'rgba(37, 211, 102, 0.2)', color: '#25d366', border: '1px solid #25d366' }}>
-                    Descargar Reporte Mes
+                  <button onClick={handleExportMonthlyCsv} disabled={loading} className="btn-table-action" style={{ width: '100%', padding: 12, background: 'rgba(37, 211, 102, 0.2)', color: '#25d366', border: '1px solid #25d366', opacity: loading ? 0.7 : 1 }}>
+                    {loading ? <><Loader2 size={16} className="animate-spin" style={{marginRight: 8}}/> Generando...</> : 'Descargar Reporte Mes'}
                   </button>
                 </>
               )}

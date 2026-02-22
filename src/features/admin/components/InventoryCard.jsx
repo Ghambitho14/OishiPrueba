@@ -84,6 +84,12 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                     </div>
                 </div>
 
+                {product.description && (
+                    <p className="inv-description" title={product.description}>
+                        {product.description}
+                    </p>
+                )}
+
                 <div className="inv-actions">
                     {/* En modo lista, el toggle está aquí abajo */}
                     {viewMode === 'list' && (

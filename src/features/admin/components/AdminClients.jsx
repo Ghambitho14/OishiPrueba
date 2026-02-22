@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Plus, Download, Filter, MoreVertical, User, ShoppingBag, FileText, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import ClientFormModal from './ClientFormModal';
 import '../styles/AdminClients.css';
+import { downloadExcel } from '../../../shared/utils/exportUtils';
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNotify }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -165,35 +166,19 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
             return;
         }
 
-        const headers = ['Nombre', 'Teléfono', 'Email', 'RUT', 'Total Pedidos', 'Total Gastado ($)', 'Puntos Fidelity', 'Segmento', 'Estado'];
-        const rows = filteredClients.map(c => [
-            c.name || 'Sin Nombre',
-            c.phone || '',
-            c.email || '',
-            c.rut || '',
-            c.totalOrders || 0,
-            c.total_spent || 0,
-            c.fidelityPoints || 0,
-            c.segment || 'none',
-            c.status || 'inactive'
-        ]);
+        const dataToExport = filteredClients.map(c => ({
+            Nombre: c.name || 'Sin Nombre',
+            Teléfono: c.phone || '',
+            Email: c.email || '',
+            RUT: c.rut || '',
+            'Total Pedidos': c.totalOrders || 0,
+            'Total Gastado ($)': c.total_spent || 0,
+            'Puntos Fidelity': c.fidelityPoints || 0,
+            Segmento: c.segment || 'none',
+            Estado: c.status || 'inactive'
+        }));
 
-        const csvContent = "\uFEFF" + [
-            headers.join(','),
-            ...rows.map(row => row.map(v => {
-                // Escapar comillas dobles y envolver en comillas
-                const safeVal = v === null || v === undefined ? '' : String(v);
-                return `"${safeVal.replace(/"/g, '""')}"`;
-            }).join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', `Clientes_CRM_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadExcel(dataToExport, `Clientes_CRM_${new Date().toISOString().split('T')[0]}.xls`);
         showNotify('Base de clientes exportada', 'success');
     };
 

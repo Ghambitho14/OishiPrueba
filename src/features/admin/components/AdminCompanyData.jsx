@@ -8,7 +8,7 @@ import '../styles/AdminSettings.css';
  * Datos de la empresa (globales, no por local).
  * Solo visible para usuarios con rol "admin" en admin_users.
  */
-const AdminCompanyData = ({ showNotify, isMobile, branches }) => {
+const AdminCompanyData = ({ showNotify, isMobile, branches, onBranchUpdate }) => {
     const [formData, setFormData] = useState({
         name: '',
         legal_rut: '',
@@ -85,6 +85,10 @@ const AdminCompanyData = ({ showNotify, isMobile, branches }) => {
 
             if (error) throw error;
             setCompanyId(id);
+            
+            // Actualizar datos globales
+            if (onBranchUpdate) await onBranchUpdate();
+            
             showNotify('Datos de la empresa guardados correctamente', 'success');
         } catch (error) {
             console.error('Error saving company:', error);

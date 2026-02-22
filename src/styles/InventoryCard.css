@@ -160,6 +160,18 @@
     gap: 4px;
 }
 
+.admin-layout .inv-description {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* --- PRECIOS (Lógica de Descuentos) --- */
 .admin-layout .price-container {
     display: flex;

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import OrderCard from './OrderCard';
 import '../../../styles/AdminKanban.css';
 
-const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, setReceiptModalOrder }) => {
+const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, setReceiptModalOrder, branch, clients }) => {
 
     // 1. CONFIGURACIÓN CENTRALIZADA
     // Aquí defines tus columnas. Si quieres agregar una, solo la pones aquí y listo.
@@ -74,6 +74,8 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                                             order={order}
                                             moveOrder={moveOrder}
                                             setReceiptModalOrder={setReceiptModalOrder}
+                                            branch={branch}
+                                            clients={clients}
                                         />
                                     ))
                                 )}

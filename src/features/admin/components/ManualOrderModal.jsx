@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import {
     X, Search, Plus, User, ShoppingBag, Minus, Trash2,
-    CreditCard, CheckCircle2, Store, Receipt, MessageCircle,
+    CreditCard, CheckCircle2, Store, Receipt, MessageCircle, Printer,
     Upload, FileText
 } from 'lucide-react';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import logo from '../../../assets/logo.png';
 import { useManualOrder } from '../hooks/useManualOrder';
 import '../../../styles/ManualOrderModal.css';
+import { printOrderTicket } from '../utils/receiptPrinting';
 
-const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderSaved, showNotify, registerSale, branch }) => {
+const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderSaved, showNotify, registerSale, branch, isMobile }) => {
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
@@ -26,6 +27,11 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     const sanitizeInput = (text) => {
         if (!text) return '';
         return text.replace(/[<>]/g, '').trim(); // Elimina < y > para evitar inyección básica
+    };
+
+    // [NUEVO] Función para imprimir ticket térmico
+    const handlePrintPreCheck = () => {
+        printOrderTicket(manualOrder, branch?.name, logo);
     };
 
     // --- EFFECT: ESCAPE KEY ---
@@ -127,6 +133,11 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                 </div>
                 <div className="manual-order-card-content">
                     <h3 className="manual-order-card-title" title={p.name}>{p.name}</h3>
+                    {p.description && (
+                        <p className="manual-order-card-desc" title={p.description}>
+                            {p.description}
+                        </p>
+                    )}
                     <div className="manual-order-card-footer-row">
                         <div className="manual-order-card-price">
                             {hasDiscount ? (
@@ -374,8 +385,17 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         {/* Sección: Resumen Orden - Expandido */}
                         <div className="manual-order-section" style={{ borderBottom: 'none', flex: 1, display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
                             <div className="manual-order-section-title" style={{ padding: '12px 16px 8px', margin: 0, background: '#0f0f0f', zIndex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <ShoppingBag size={14} />
                                 RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
+                            </div>
+                                    {manualOrder.items.length > 0 && (
+                                        <button onClick={handlePrintPreCheck} className="btn-icon-xs" title="Imprimir Pre-cuenta" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', borderRadius: 4, padding: 4, cursor: 'pointer' }}>
+                                            <Printer size={14} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Carrito - VERSIÓN PREMIUM GLASSMORPHIC */}

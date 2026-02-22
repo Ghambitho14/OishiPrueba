@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 import "../styles/AdminSettings.css";
 
-const AdminSettings = ({ showNotify, isMobile, selectedBranch }) => {
+const AdminSettings = ({ showNotify, isMobile, selectedBranch, onBranchUpdate }) => {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -91,6 +91,10 @@ const AdminSettings = ({ showNotify, isMobile, selectedBranch }) => {
                 .eq('id', selectedBranch.id);
 
             if (error) throw error;
+            
+            // Actualizar datos globales
+            if (onBranchUpdate) await onBranchUpdate();
+            
             showNotify(`Configuración de "${selectedBranch.name}" guardada correctamente`, 'success');
         } catch (error) {
             console.error('Error saving settings:', error);

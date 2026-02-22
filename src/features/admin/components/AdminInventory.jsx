@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
 import InventoryItemModal from './InventoryItemModal';
 import '../styles/AdminInventory.css';
+import { downloadExcel } from '../../../shared/utils/exportUtils';
 
 const AdminInventory = ({ showNotify, branchId, branches }) => {
     const [items, setItems] = useState([]);
@@ -26,10 +27,18 @@ const AdminInventory = ({ showNotify, branchId, branches }) => {
 
             // 2. Fetch stock for current branch (or all branches for global view)
             let branchStock = [];
-            const { data, error: stockError } = await supabase
-                .from(TABLES.inventory_branch)
-                .select('*')
-                .eq(branchId !== 'all' ? 'branch_id' : 'company_id', branchId !== 'all' ? branchId : allItems[0]?.company_id);
+            
+            let query = supabase.from(TABLES.inventory_branch).select('*');
+
+            if (branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            } else {
+                // [FIX] Filtrar por los IDs de las sucursales disponibles
+                const validBranchIds = branches.filter(b => b.id !== 'all').map(b => b.id);
+                if (validBranchIds.length > 0) query = query.in('branch_id', validBranchIds);
+            }
+
+            const { data, error: stockError } = await query;
             
             if (stockError) throw stockError;
             branchStock = data || [];
@@ -122,6 +131,17 @@ const AdminInventory = ({ showNotify, branchId, branches }) => {
         (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    const handleExport = () => {
+        const dataToExport = filteredItems.map(item => ({
+            Insumo: item.name,
+            Categoria: item.category || 'Sin categoría',
+            Stock: item.stock,
+            Unidad: item.unit || '',
+            Estado: item.stock <= 0 ? 'Agotado' : (item.stock <= item.min_stock ? 'Bajo' : 'OK')
+        }));
+        downloadExcel(dataToExport, `Inventario_${new Date().toLocaleDateString('es-CL').replace(/\//g, '-')}.xls`);
+    };
+
     return (
         <div className="inventory-view animate-fade">
             <div className="inventory-header">
@@ -130,7 +150,7 @@ const AdminInventory = ({ showNotify, branchId, branches }) => {
                     <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginTop: 5 }}>Gestiona tus materias primas y stock crítico.</p>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                    <button className="btn btn-secondary btn-icon-text" style={{ background: 'white', color: '#333' }}>
+                    <button className="btn btn-secondary btn-icon-text" style={{ background: 'white', color: '#333' }} onClick={handleExport}>
                         <Download size={18} /> Exportar
                     </button>
                     <button className="btn btn-primary btn-icon-text" onClick={handleCreate}>
