@@ -83,9 +83,7 @@ const Home = () => {
               <div className="brand-container-centered">
                 <img src={logo} alt="Logo" className="home-logo-centered" />
                 <div className="brand-text-centered">
-                  <h1 className="text-gradient">
-                    {(businessInfo.name || '').trim().toUpperCase() || '\u00A0'}
-                  </h1>
+                  <h1 className="text-gradient">Oishi Sushi</h1>
                 </div>
               </div>
               <p className="home-tagline">
