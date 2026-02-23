@@ -65,6 +65,17 @@
     font-weight: 500;
 }
 
+.settings-container .form-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 6px 0 0;
+    line-height: 1.4;
+}
+
+.settings-container .form-hint strong {
+    color: #9ca3af;
+}
+
 .settings-container .form-input, 
 .settings-container .form-textarea {
     width: 100%;

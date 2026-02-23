@@ -5,28 +5,26 @@ import { TABLES } from '../lib/supabaseTables';
 
 export const LocationContext = createContext();
 
+function getInitialBranch() {
+  try {
+    const saved = localStorage.getItem('selectedBranch');
+    if (!saved) return { branch: null, hasValidBranch: false };
+    const parsed = JSON.parse(saved);
+    const hasValid = !!(parsed && parsed.id && typeof parsed.id === 'string' && parsed.id.length > 0);
+    return { branch: hasValid ? parsed : null, hasValidBranch: hasValid };
+  } catch (e) {
+    console.error("Error parsing saved branch:", e);
+    return { branch: null, hasValidBranch: false };
+  }
+}
+
 export const LocationProvider = ({ children }) => {
-  const [selectedBranch, setSelectedBranch] = useState(() => {
-    try {
-      const saved = localStorage.getItem('selectedBranch');
-      if (!saved) return null;
-
-      const parsed = JSON.parse(saved);
-      // Aceptar cualquier ID válido como string (no forzar UUID)
-      if (parsed && parsed.id && typeof parsed.id === 'string' && parsed.id.length > 0) {
-        return parsed;
-      }
-      return null;
-    } catch (e) {
-      console.error("Error parsing saved branch:", e);
-      return null;
-    }
-  });
-
+  const initial = getInitialBranch();
+  const [selectedBranch, setSelectedBranch] = useState(initial.branch);
   const [allBranches, setAllBranches] = useState([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(!initial.hasValidBranch);
 
-  // Cargar todas las sucursales al montar
   useEffect(() => {
     const fetchBranches = async () => {
       try {
@@ -38,7 +36,6 @@ export const LocationProvider = ({ children }) => {
 
         if (error) throw error;
 
-        // Mapear campos snake_case a camelCase para compatibilidad con Home.jsx
         const mappedBranches = (data || []).map(b => ({
           ...b,
           whatsappUrl: b.whatsapp_url,
@@ -47,6 +44,17 @@ export const LocationProvider = ({ children }) => {
         }));
 
         setAllBranches(mappedBranches);
+
+        // Si la sucursal guardada tiene id inválido (ej. slug "san-joaquin") o ya no existe, limpiar
+        setSelectedBranch(prev => {
+          if (!prev?.id) return prev;
+          const valid = mappedBranches.some(b => b.id === prev.id);
+          if (!valid) {
+            try { localStorage.removeItem('selectedBranch'); } catch (_) {}
+            return null;
+          }
+          return prev;
+        });
       } catch (err) {
         console.error("Error loading all branches:", err);
       } finally {
@@ -56,20 +64,6 @@ export const LocationProvider = ({ children }) => {
 
     fetchBranches();
   }, []);
-
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => {
-     // Abrir modal si no hay branch seleccionado
-     try {
-       const saved = localStorage.getItem('selectedBranch');
-       if (!saved) return true;
-
-       const parsed = JSON.parse(saved);
-       // Si tiene un ID válido (string no vacío), no abrir. Sino, abrir.
-       return !(parsed && parsed.id && typeof parsed.id === 'string' && parsed.id.length > 0);
-     } catch {
-       return true;
-     }
-  });
 
   // Efecto de seguridad: Si no hay branch, ABRIR SIEMPRE el modal
   React.useEffect(() => {

@@ -164,16 +164,17 @@ const AdminSettings = ({ showNotify, isMobile, selectedBranch, onBranchUpdate })
                     {(!isMobile || expandedSection === 'basic') && (
                     <div className="form-grid">
                         <div className="form-group">
-                            <label>Nombre del Negocio</label>
+                            <label>Nombre de esta sucursal</label>
                             <div className="input-icon-wrapper">
                                 <Building size={16} className="input-icon" />
                                 <input 
                                     className="form-input with-icon"
                                     value={formData.name}
                                     onChange={e => setFormData({...formData, name: e.target.value})}
-                                    placeholder="Ej. Oishi Sushi"
+                                    placeholder="Ej. Oishi Sushi - Centro"
                                 />
                             </div>
+                            <p className="form-hint">Nombre de este local. El nombre de la empresa (portada Home) se edita en <strong>Datos de la empresa</strong>.</p>
                         </div>
                         <div className="form-group">
                             <label>Teléfono / WhatsApp (para botón)</label>

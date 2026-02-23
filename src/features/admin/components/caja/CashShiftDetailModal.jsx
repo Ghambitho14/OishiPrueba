@@ -148,8 +148,8 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                                                         <div style={{ fontWeight: 600 }}>{m.orders.client_name || 'Cliente Casual'}</div>
                                                         {m.orders.items && (
                                                             <div style={{ opacity: 0.85, fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                                                {Array.isArray(m.orders.items) 
-                                                                    ? m.orders.items.map(i => `${i.quantity}x ${i.name.split(' (')[0]}`).join(', ')
+                                                                {Array.isArray(m.orders.items)
+                                                                    ? m.orders.items.map(i => `${i.quantity}x ${(i.name ?? '').split(' (')[0]}`).join(', ')
                                                                     : ''}
                                                             </div>
                                                         )}

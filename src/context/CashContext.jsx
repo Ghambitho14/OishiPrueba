@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { cashService } from '../features/admin/services/cashService';
 import { supabase } from '../lib/supabase';
 import { TABLES } from '../lib/supabaseTables';
@@ -85,14 +85,14 @@ export const CashProvider = ({ children }) => {
         return branchesWithOpenCaja.includes(normId(branchId));
     }, [branchesWithOpenCaja]);
 
-    const value = {
+    const value = useMemo(() => ({
         activeShift,
         branchesWithOpenCaja,
         isShiftLoading: loading,
         isShiftActive: !!activeShift,
         isShiftActiveForBranch,
         refreshShift: refreshAll,
-    };
+    }), [activeShift, branchesWithOpenCaja, loading, isShiftActiveForBranch, refreshAll]);
 
     return <CashContext.Provider value={value}>{children}</CashContext.Provider>;
 };

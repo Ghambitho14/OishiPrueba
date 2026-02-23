@@ -25,7 +25,7 @@ const generateWSMessage = (formData, cart, total, paymentType, note, businessNam
   msg += `Fono: ${formData.phone}\n\n`;
   msg += 'DETALLE:\n';
   cart.forEach(item => {
-    msg += `+ ${item.quantity} x ${item.name.toUpperCase()}\n`;
+    msg += `+ ${item.quantity} x ${(item.name ?? '').toUpperCase()}\n`;
     if (item.description) {
       msg += `   (Hacer: ${item.description})\n`;
     }
@@ -186,6 +186,11 @@ const CartModal = React.memo(() => {
       return;
     }
 
+    if (!currentBranch?.id) {
+      setViewState(prev => ({ ...prev, error: "No hay sucursal seleccionada. Elige una sucursal para enviar el pedido." }));
+      return;
+    }
+
     setViewState(v => ({ ...v, isSaving: true, error: null }));
 
     try {
@@ -212,7 +217,7 @@ const CartModal = React.memo(() => {
         note: sanitizeInput(orderNote),
         status: 'pending',
         receiptFile: formData.receiptFile,
-        branch_id: currentBranch?.id || 'unknown',
+        branch_id: currentBranch.id,
         branch_name: currentBranch?.name || 'Desconocido'
       };
 

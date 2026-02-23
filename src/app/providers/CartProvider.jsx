@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import CartContext from '../../features/cart/hooks/cart-context';
 import { supabase } from '../../lib/supabase';
 import { TABLES } from '../../lib/supabaseTables';
 import { useLocation } from '../../context/useLocation';
+import { filterValidProductIds, isValidBranchId } from '../../shared/utils/safeIds';
+
+function ensureCartArray(value) {
+  if (Array.isArray(value)) return value;
+  return [];
+}
 
 export const CartProvider = ({ children }) => {
-  // 1. ESTADO INICIAL (CON PERSISTENCIA)
+  // 1. ESTADO INICIAL (CON PERSISTENCIA) — siempre array
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem('oishi_cart');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return ensureCartArray(parsed);
     } catch {
       return [];
     }
@@ -20,75 +27,86 @@ export const CartProvider = ({ children }) => {
 
   const { selectedBranch } = useLocation();
 
-  // 1.5. EFECTO: VALIDAR PRECIOS AL CARGAR (SEGURIDAD)
-  React.useEffect(() => {
+  const cartProductIds = useMemo(
+    () => (Array.isArray(cart) ? cart.map(i => i.id).filter(Boolean).join(',') : ''),
+    [cart]
+  );
+
+  // 1.5. EFECTO: VALIDAR PRECIOS AL CARGAR (SEGURIDAD) — con cancelación
+  useEffect(() => {
+    if (cart.length === 0 || !selectedBranch?.id) return;
+    // Evitar 400: branch_id debe ser UUID (o numérico). Slugs como "san-joaquin" vienen de localStorage viejo.
+    if (!isValidBranchId(selectedBranch.id)) return;
+
+    let cancelled = false;
+
     const validatePrices = async () => {
-      if (cart.length === 0) return;
-      if (!selectedBranch) return; // No consultar precios sin sucursal
+      const ids = filterValidProductIds(cart.map(item => item.id));
+      if (ids.length === 0) return;
 
       try {
-        const ids = cart.map(item => item.id);
-
         const { data, error } = await supabase
           .from(TABLES.product_prices)
           .select(`product_id, price, has_discount, discount_price, ${TABLES.products}(id,name,is_active,description)`)
           .in('product_id', ids)
           .eq('branch_id', selectedBranch.id);
 
+        if (cancelled) return;
         if (error) {
           console.error('validatePrices supabase error', error);
           return;
         }
 
-        setCart(prevCart => prevCart.map(cartItem => {
-          const priceRow = data ? data.find(p => p.product_id === cartItem.id) : null;
-          const meta = priceRow?.products;
+        setCart(prevCart => {
+          const next = prevCart.map(cartItem => {
+            const priceRow = data ? data.find(p => p.product_id === cartItem.id) : null;
+            const meta = priceRow?.products;
 
-          if (priceRow) {
-            return {
-              ...cartItem,
-              price: priceRow.price,
-              has_discount: priceRow.has_discount,
-              discount_price: priceRow.discount_price,
-              name: meta?.name ?? cartItem.name,
-              is_active: meta?.is_active ?? cartItem.is_active,
-              description: meta?.description ?? cartItem.description
-            };
-          }
+            if (priceRow) {
+              return {
+                ...cartItem,
+                price: priceRow.price,
+                has_discount: priceRow.has_discount,
+                discount_price: priceRow.discount_price,
+                name: meta?.name ?? cartItem.name,
+                is_active: meta?.is_active ?? cartItem.is_active,
+                description: meta?.description ?? cartItem.description
+              };
+            }
 
-          if (meta) {
-            return {
-              ...cartItem,
-              name: meta.name,
-              is_active: meta.is_active,
-              description: meta.description
-            };
-          }
+            if (meta) {
+              return {
+                ...cartItem,
+                name: meta.name,
+                is_active: meta.is_active,
+                description: meta.description
+              };
+            }
 
-          return cartItem;
-        }).filter(item => item.is_active !== false));
-
+            return cartItem;
+          }).filter(item => item.is_active !== false);
+          return next;
+        });
       } catch (err) {
-        console.error("Error validando precios del carrito:", err);
+        if (!cancelled) console.error("Error validando precios del carrito:", err);
       }
     };
 
-    // Re-ejecutar cuando cambie la sucursal o cambien los ids del carrito
     validatePrices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranch, cart.map ? cart.map(i => i.id).join(',') : cart]);
+    return () => { cancelled = true; };
+  }, [selectedBranch?.id, cartProductIds]);
 
   // 1.6 EFECTO: GUARDAR EN LOCALSTORAGE
   React.useEffect(() => {
     localStorage.setItem('oishi_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // 2. PRECIOS
+  // 2. PRECIOS (Number para soportar decimales)
   const getPrice = (product) => {
-    if (product.has_discount && product.discount_price && parseInt(product.discount_price) > 0) {
-      return parseInt(product.discount_price);
+    if (product.has_discount && product.discount_price != null && Number(product.discount_price) > 0) {
+      return Number(product.discount_price);
     }
-    return parseInt(product.price);
+    return Number(product.price) || 0;
   };
 
   // 3. ACCIONES
@@ -146,7 +164,7 @@ export const CartProvider = ({ children }) => {
       const subtotal = price * item.quantity;
       
       // Formato simple: 2 x NOMBRE
-      message += `+ ${item.quantity} x ${item.name.toUpperCase()}\n`;
+      message += `+ ${item.quantity} x ${(item.name ?? '').toUpperCase()}\n`;
       if (item.description) {
         message += `   (Hacer: ${item.description})\n`;
       }

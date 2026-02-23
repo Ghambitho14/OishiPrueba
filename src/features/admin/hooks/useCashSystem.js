@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
+import { isValidBranchId } from '../../../shared/utils/safeIds';
 
 export const useCashSystem = (showNotify, branchId) => {
     const [activeShift, setActiveShift] = useState(null);
@@ -21,7 +22,6 @@ export const useCashSystem = (showNotify, branchId) => {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            console.log('Movimientos cargados:', data);
             setMovements(data || []);
         } catch (error) {
             console.error('Error loading movements:', error);
@@ -35,8 +35,8 @@ export const useCashSystem = (showNotify, branchId) => {
      * Carga el turno activo para la sucursal seleccionada
      */
     const loadActiveShift = useCallback(async () => {
-        if (!branchId || branchId === 'all') {
-            // [ROBUSTEZ] Limpiar estado inmediatamente para evitar mostrar datos de otra sucursal
+        if (!branchId || branchId === 'all' || !isValidBranchId(branchId)) {
+            // [ROBUSTEZ] No llamar API con slug (ej. "san-joaquin") → evita 400 y caja que no carga
             setActiveShift(null);
             setMovements([]);
             setLoading(false);
@@ -97,10 +97,9 @@ export const useCashSystem = (showNotify, branchId) => {
                     filter: `shift_id=eq.${activeShift.id}`
                 },
                 (payload) => {
-                    console.log('Cambio en cash_movements:', payload);
                     if (payload.eventType === 'INSERT') {
-                        // Agregar el movimiento nuevo al inicio
-                        setMovements(prev => [payload.new, ...prev]);
+                        // Re-fetchear para tener el mismo shape (con join orders) que loadMovements
+                        loadMovements(activeShift.id);
                     } else if (payload.eventType === 'DELETE') {
                         // Remover si se borra
                         setMovements(prev => prev.filter(m => m.id !== payload.old.id));
@@ -115,13 +114,13 @@ export const useCashSystem = (showNotify, branchId) => {
         return () => {
             channel.unsubscribe();
         };
-    }, [activeShift?.id]); // Depender solo del ID es más seguro
+    }, [activeShift?.id, loadMovements]);
 
     /**
      * Abre un nuevo turno
      */
     const openShift = useCallback(async (amount) => {
-        if (!branchId || branchId === 'all') {
+        if (!branchId || branchId === 'all' || !isValidBranchId(branchId)) {
             if (showNotify) showNotify('Error: No se ha detectado la sucursal seleccionada.', 'error');
             return false;
         }
@@ -417,7 +416,7 @@ export const useCashSystem = (showNotify, branchId) => {
     }, [activeShift, showNotify, loadActiveShift, updateShiftBalance, getTargetShift]);
 
     const getPastShifts = useCallback(async (limit = 20) => {
-        if (!branchId) return [];
+        if (!branchId || !isValidBranchId(branchId)) return [];
         const { data, error } = await supabase
             .from(TABLES.cash_shifts)
             .select(`

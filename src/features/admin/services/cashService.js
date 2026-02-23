@@ -1,225 +1,215 @@
 import { supabase } from '../../../lib/supabase';
+import { TABLES } from '../../../lib/supabaseTables';
 
 /**
  * Servicio para la gestión de Caja (Shifts y Movements)
- * Optimizado para evitar condiciones de carrera y asegurar integridad financiera.
+ * Optimizado para multi-sucursal y para reducir condiciones de carrera.
  */
 
 export const cashService = {
-    // --- TURNOS ---
+	// --- TURNOS ---
 
-    /**
-     * Obtiene el turno abierto actualmente si existe (cualquier sucursal).
-     * Incluye un conteo de movimientos para feedback rápido en UI.
-     */
-    getActiveShift: async () => {
-        const { data, error } = await supabase
-            .from('cash_shifts')
-            .select('*, cash_movements(count)')
-            .eq('status', 'open')
-            .maybeSingle();
+	/**
+	 * Obtiene un turno abierto (cualquiera) para compatibilidad.
+	 * En multi-sucursal puede haber varios; se devuelve el primero para no fallar con maybeSingle().
+	 */
+	getActiveShift: async () => {
+		const { data, error } = await supabase
+			.from(TABLES.cash_shifts)
+			.select('*, cash_movements(count)')
+			.eq('status', 'open')
+			.limit(1)
+			.maybeSingle();
 
-        if (error) throw error;
-        return data;
-    },
+		if (error) throw error;
+		return data;
+	},
 
-    /**
-     * Obtiene el turno abierto para una sucursal específica.
-     * Usado para validar si una sucursal está recibiendo pedidos.
-     */
-    getActiveShiftForBranch: async (branchId) => {
-        if (!branchId) return null;
-        const { data, error } = await supabase
-            .from('cash_shifts')
-            .select('*, cash_movements(count)')
-            .eq('status', 'open')
-            .eq('branch_id', branchId)
-            .maybeSingle();
+	/**
+	 * Obtiene el turno abierto para una sucursal específica.
+	 */
+	getActiveShiftForBranch: async (branchId) => {
+		if (!branchId) return null;
+		const { data, error } = await supabase
+			.from(TABLES.cash_shifts)
+			.select('*, cash_movements(count)')
+			.eq('status', 'open')
+			.eq('branch_id', branchId)
+			.maybeSingle();
 
-        if (error) throw error;
-        return data;
-    },
+		if (error) throw error;
+		return data;
+	},
 
-    /**
-     * Obtiene los IDs de sucursales que tienen caja abierta.
-     * Usado para filtrar sucursales disponibles en carrito y pedidos manuales.
-     */
-    getBranchesWithOpenCaja: async () => {
-        const { data, error } = await supabase
-            .from('cash_shifts')
-            .select('branch_id')
-            .eq('status', 'open')
-            .not('branch_id', 'is', null);
+	/**
+	 * Obtiene los IDs de sucursales que tienen caja abierta.
+	 */
+	getBranchesWithOpenCaja: async () => {
+		const { data, error } = await supabase
+			.from(TABLES.cash_shifts)
+			.select('branch_id')
+			.eq('status', 'open')
+			.not('branch_id', 'is', null);
 
-        if (error) throw error;
-        return (data || []).map(r => r.branch_id).filter(Boolean).map(id => String(id));
-    },
+		if (error) throw error;
+		return (data || []).map(r => r.branch_id).filter(Boolean).map(id => String(id));
+	},
 
-    /**
-     * Abre un nuevo turno de caja.
-     * Incluye validación de seguridad para evitar duplicidad de turnos abiertos.
-     */
-    openShift: async (openingBalance, userId) => {
-        // Validación de seguridad: Verificar si ya hay una caja abierta
-        const { data: existingShift, error: checkError } = await supabase
-            .from('cash_shifts')
-            .select('id')
-            .eq('status', 'open')
-            .maybeSingle();
+	/**
+	 * Abre un nuevo turno de caja. Soporta multi-sucursal si se pasa branchId.
+	 * @param {number} openingBalance
+	 * @param {string} userId
+	 * @param {string} [branchId] - Si se pasa, la validación y el insert son por sucursal.
+	 */
+	openShift: async (openingBalance, userId, branchId = null) => {
+		const table = supabase.from(TABLES.cash_shifts);
+		let checkQuery = table.select('id').eq('status', 'open');
+		if (branchId) checkQuery = checkQuery.eq('branch_id', branchId);
+		const { data: existingShift, error: checkError } = await checkQuery.maybeSingle();
 
-        if (checkError) throw new Error('Error al verificar estado de caja: ' + checkError.message);
-        if (existingShift) throw new Error('Ya existe un turno de caja abierto en el sistema.');
+		if (checkError) throw new Error('Error al verificar estado de caja: ' + checkError.message);
+		if (existingShift) {
+			throw new Error(branchId
+				? 'Ya existe una caja abierta en esta sucursal.'
+				: 'Ya existe un turno de caja abierto en el sistema.');
+		}
 
-        const { data, error } = await supabase
-            .from('cash_shifts')
-            .insert({
-                opening_balance: openingBalance,
-                expected_balance: openingBalance,
-                opened_by: userId,
-                status: 'open'
-            })
-            .select()
-            .single();
+		const insertPayload = {
+			opening_balance: openingBalance,
+			expected_balance: openingBalance,
+			opened_by: userId,
+			status: 'open'
+		};
+		if (branchId) insertPayload.branch_id = branchId;
 
-        if (error) throw error;
-        return data;
-    },
+		const { data, error } = await supabase
+			.from(TABLES.cash_shifts)
+			.insert(insertPayload)
+			.select()
+			.single();
 
-    /**
-     * Cierra un turno de caja.
-     * Solo permite cerrar turnos que están actualmente marcados como 'open'.
-     */
-    closeShift: async (shiftId, actualBalance) => {
-        const { data, error } = await supabase
-            .from('cash_shifts')
-            .update({
-                actual_balance: actualBalance,
-                closed_at: new Date().toISOString(),
-                status: 'closed'
-            })
-            .eq('id', shiftId)
-            .eq('status', 'open') // Protección extra
-            .select()
-            .single();
+		if (error) throw error;
+		return data;
+	},
 
-        if (error) throw new Error('No se pudo cerrar la caja o ya se encuentra cerrada.');
-        return data;
-    },
+	/**
+	 * Cierra un turno de caja.
+	 */
+	closeShift: async (shiftId, actualBalance) => {
+		const { data, error } = await supabase
+			.from(TABLES.cash_shifts)
+			.update({
+				actual_balance: actualBalance,
+				closed_at: new Date().toISOString(),
+				status: 'closed'
+			})
+			.eq('id', shiftId)
+			.eq('status', 'open')
+			.select()
+			.single();
 
-    // --- MOVIMIENTOS ---
+		if (error) throw new Error('No se pudo cerrar la caja o ya se encuentra cerrada.');
+		return data;
+	},
 
-    /**
-     * Registra un nuevo movimiento de caja.
-     * Actualiza el saldo esperado del turno de forma atómica para evitar errores de concurrencia.
-     */
-    addMovement: async (movement) => {
-        // 1. Insertar el registro del movimiento
-        const { data: newMovement, error: moveError } = await supabase
-            .from('cash_movements')
-            .insert(movement)
-            .select()
-            .single();
+	// --- MOVIMIENTOS ---
 
-        if (moveError) throw moveError;
+	/**
+	 * Registra un nuevo movimiento de caja.
+	 * Intenta actualizar saldo vía RPC (atómico); si no existe, usa fallback lectura+escritura.
+	 */
+	addMovement: async (movement) => {
+		const { data: newMovement, error: moveError } = await supabase
+			.from(TABLES.cash_movements)
+			.insert(movement)
+			.select()
+			.single();
 
-        // 2. Actualizar saldo del turno si el método es efectivo
-        if (movement.payment_method === 'cash') {
-            const numericAmount = Number(movement.amount);
-            if (isNaN(numericAmount)) return newMovement; // Seguridad: Si no es número, no dañar la caja
-            
-            const amountChange = movement.type === 'expense' ? -numericAmount : numericAmount;
+		if (moveError) throw moveError;
 
-            /**
-             * IMPORTANTE: Se recomienda usar una función RPC en Supabase para 
-             * incrementar el balance directamente en SQL:
-             * await supabase.rpc('increment_shift_balance', { shift_id_param: movement.shift_id, amount_param: amountChange });
-             */
-            
-            try {
-                // Fallback manual optimizado (Lectura -> Cálculo -> Escritura)
-                const { data: shiftData } = await supabase
-                    .from('cash_shifts')
-                    .select('expected_balance')
-                    .eq('id', movement.shift_id)
-                    .single();
+		if (movement.payment_method === 'cash') {
+			const numericAmount = Number(movement.amount);
+			if (isNaN(numericAmount)) return newMovement;
 
-                if (shiftData) {
-                    const currentBalance = Number(shiftData.expected_balance) || 0;
-                    await supabase
-                        .from('cash_shifts')
-                        .update({ expected_balance: currentBalance + amountChange })
-                        .eq('id', movement.shift_id);
-                }
-            } catch (err) {
-                console.error('Error crítico al actualizar saldo esperado:', err);
-                // Aquí podrías implementar una cola de reintentos si es necesario
-            }
-        }
+			const amountChange = movement.type === 'expense' ? -numericAmount : numericAmount;
 
-        return newMovement;
-    },
+			const { error: rpcError } = await supabase.rpc('increment_expected_balance', {
+				shift_id: movement.shift_id,
+				amount: amountChange
+			});
 
-    /**
-     * Obtiene los movimientos de un turno con información de la orden relacionada.
-     */
-    getShiftMovements: async (shiftId) => {
-        const { data, error } = await supabase
-            .from('cash_movements')
-            .select('*, orders(*)')
-            .eq('shift_id', shiftId)
-            .order('created_at', { ascending: false });
+			if (rpcError) {
+				try {
+					const { data: shiftData } = await supabase
+						.from(TABLES.cash_shifts)
+						.select('expected_balance')
+						.eq('id', movement.shift_id)
+						.single();
 
-        if (error) throw error;
-        return data;
-    },
+					if (shiftData) {
+						const currentBalance = Number(shiftData.expected_balance) || 0;
+						await supabase
+							.from(TABLES.cash_shifts)
+							.update({ expected_balance: currentBalance + amountChange })
+							.eq('id', movement.shift_id);
+					}
+				} catch (err) {
+					console.error('Error al actualizar saldo esperado:', err);
+				}
+			}
+		}
 
-    /**
-     * Obtiene historial paginado de turnos pasados.
-     */
-    getPastShifts: async (limit = 20, branchId = null) => {
-        let query = supabase
-            .from('cash_shifts')
-            .select(`
-                *,
-                cash_movements (
-                    amount,
-                    type,
-                    payment_method
-                )
-            `)
-            .eq('status', 'closed')
-            .order('closed_at', { ascending: false })
-            .limit(limit);
+		return newMovement;
+	},
 
-        if (branchId) {
-            query = query.eq('branch_id', branchId);
-        }
+	getShiftMovements: async (shiftId) => {
+		const { data, error } = await supabase
+			.from(TABLES.cash_movements)
+			.select(`*, ${TABLES.orders}(*)`)
+			.eq('shift_id', shiftId)
+			.order('created_at', { ascending: false });
 
-        const { data, error } = await query;
+		if (error) throw error;
+		return data;
+	},
 
-        if (error) throw error;
-        
-        return data.map(shift => {
-            const movements = shift.cash_movements || [];
-            const totalOnline = movements
-                .filter(m => m.payment_method === 'online' && m.type === 'sale')
-                .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
-            
-            return { ...shift, total_online: totalOnline };
-        });
-    },
+	getPastShifts: async (limit = 20, branchId = null) => {
+		let query = supabase
+			.from(TABLES.cash_shifts)
+			.select(`
+				*,
+				cash_movements (
+					amount,
+					type,
+					payment_method
+				)
+			`)
+			.eq('status', 'closed')
+			.order('closed_at', { ascending: false })
+			.limit(limit);
 
-    /**
-     * Obtiene un turno específico por su ID.
-     */
-    getShiftById: async (shiftId) => {
-        const { data, error } = await supabase
-            .from('cash_shifts')
-            .select('*')
-            .eq('id', shiftId)
-            .maybeSingle();
+		if (branchId) query = query.eq('branch_id', branchId);
 
-        if (error) throw error;
-        return data;
-    }
+		const { data, error } = await query;
+		if (error) throw error;
+
+		return (data || []).map(shift => {
+			const movements = shift.cash_movements || [];
+			const totalOnline = movements
+				.filter(m => m.payment_method === 'online' && m.type === 'sale')
+				.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+			return { ...shift, total_online: totalOnline };
+		});
+	},
+
+	getShiftById: async (shiftId) => {
+		const { data, error } = await supabase
+			.from(TABLES.cash_shifts)
+			.select('*')
+			.eq('id', shiftId)
+			.maybeSingle();
+
+		if (error) throw error;
+		return data;
+	}
 };

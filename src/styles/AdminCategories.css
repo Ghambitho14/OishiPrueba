@@ -358,14 +358,17 @@
 /* --- CARD FOOTER --- */
 .admin-layout .cat-card-footer {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: auto;
     padding-top: 4px;
 }
 
 .admin-layout .cat-btn-edit,
-.admin-layout .cat-btn-view {
+.admin-layout .cat-btn-view,
+.admin-layout .cat-btn-delete {
     flex: 1;
+    min-width: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -400,6 +403,18 @@
 .admin-layout .cat-btn-view:hover {
     background: rgba(var(--cat-accent-color-rgb), 0.1);
     border-color: rgba(var(--cat-accent-color-rgb), 0.6);
+    transform: translateY(-2px);
+}
+
+.admin-layout .cat-btn-delete {
+    background: transparent;
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+.admin-layout .cat-btn-delete:hover {
+    background: rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.6);
     transform: translateY(-2px);
 }
 
@@ -521,7 +536,8 @@
     }
     
     .admin-layout .cat-btn-edit,
-    .admin-layout .cat-btn-view {
+    .admin-layout .cat-btn-view,
+    .admin-layout .cat-btn-delete {
         padding: 10px;
         font-size: 0.8rem;
     }

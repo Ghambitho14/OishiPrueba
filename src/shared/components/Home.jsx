@@ -84,11 +84,8 @@ const Home = () => {
                 <img src={logo} alt="Logo" className="home-logo-centered" />
                 <div className="brand-text-centered">
                   <h1 className="text-gradient">
-                    {businessInfo.name ? businessInfo.name.toUpperCase() : 'OISHI'}
+                    {(businessInfo.name || '').trim().toUpperCase() || '\u00A0'}
                   </h1>
-                  <span className="brand-subtitle">
-                    {businessInfo.address ? 'MEJOR SABOR' : 'SUSHI'}
-                  </span>
                 </div>
               </div>
               <p className="home-tagline">

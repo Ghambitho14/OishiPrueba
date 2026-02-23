@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useAntiZoom } from "../../hooks/useAntiZoom";
 import { BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { routes } from "../router";
 import { BusinessProvider } from "../../context/BusinessContext";
@@ -28,33 +29,7 @@ function InnerApp() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // [NUEVO] Bloqueo estricto de Zoom (Gestos y Teclado)
-  useEffect(() => {
-    // 1. Bloquear Pinch-Zoom en iOS (Safari)
-    const handleGestureStart = (e) => e.preventDefault();
-    
-    // 2. Bloquear Ctrl + Scroll (Desktop)
-    const handleWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) e.preventDefault();
-    };
-
-    // 3. Bloquear Atajos de Teclado (Ctrl + / -)
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener('gesturestart', handleGestureStart);
-    document.addEventListener('wheel', handleWheel, { passive: false });
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('gesturestart', handleGestureStart);
-      document.removeEventListener('wheel', handleWheel);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+  useAntiZoom();
 
   // Efecto "Anti-Zoom" Robusto (RESTAURADO A ESTADO ESTABLE)
   useEffect(() => {
@@ -134,10 +109,12 @@ function InnerApp() {
     };
 
     window.addEventListener('resize', handleVisualLock);
-    // Ejecutar inicial con un pequeño delay para asegurar montaje
-    setTimeout(handleVisualLock, 100);
+    const timerId = setTimeout(handleVisualLock, 100);
 
-    return () => window.removeEventListener('resize', handleVisualLock);
+    return () => {
+      window.removeEventListener('resize', handleVisualLock);
+      clearTimeout(timerId);
+    };
   }, [location.pathname]);
 
   return (

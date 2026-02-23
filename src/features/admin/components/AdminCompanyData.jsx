@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Building2, Phone, MapPin, Mail, Hash, ChevronDown } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
+import { useBusiness } from '../../../context/useBusiness';
 import '../styles/AdminSettings.css';
 
 /**
@@ -9,6 +10,7 @@ import '../styles/AdminSettings.css';
  * Solo visible para usuarios con rol "admin" en admin_users.
  */
 const AdminCompanyData = ({ showNotify, isMobile, branches, onBranchUpdate }) => {
+    const { refreshBusinessInfo } = useBusiness();
     const [formData, setFormData] = useState({
         name: '',
         legal_rut: '',
@@ -85,10 +87,10 @@ const AdminCompanyData = ({ showNotify, isMobile, branches, onBranchUpdate }) =>
 
             if (error) throw error;
             setCompanyId(id);
-            
-            // Actualizar datos globales
+
             if (onBranchUpdate) await onBranchUpdate();
-            
+            if (refreshBusinessInfo) await refreshBusinessInfo();
+
             showNotify('Datos de la empresa guardados correctamente', 'success');
         } catch (error) {
             console.error('Error saving company:', error);

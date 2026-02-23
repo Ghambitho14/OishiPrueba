@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
+import React from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
-  Package, DollarSign, Star, Trophy, PieChart,
-  Upload, PlusCircle, X, XCircle, Trash2, FileText, Plus, Edit, RefreshCw, Users, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, MapPin
+  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, MapPin, Upload
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import ProductModal from '../../products/components/ProductModal';
 import CategoryModal from '../../products/components/CategoryModal';
 import AdminSidebar from '../components/AdminSidebar';
@@ -19,770 +17,16 @@ import AdminAnalytics from '../components/AdminAnalytics';
 import AdminDangerZone from '../components/AdminDangerZone';
 import AdminCompanyData from '../components/AdminCompanyData';
 import ClientDetailsPanel from '../components/ClientDetailsPanel';
-import { supabase } from '../../../lib/supabase';
-import { TABLES } from '../../../lib/supabaseTables';
-import { uploadImage } from '../../../shared/utils/cloudinary';
 import CashManager from '../components/caja/CashManager';
-import { useCashSystem } from '../hooks/useCashSystem';
+import ScopeSelectionModal from '../components/ScopeSelectionModal';
+import { supabase } from '../../../lib/supabase';
+import { AdminProvider, useAdmin } from './AdminProvider';
 import '../../../styles/AdminLayout.css';
 import '../../../styles/AdminAnalytics.css';
 import '../../../styles/AdminShared.css';
 import '../../../styles/AdminCategories.css';
-import ScopeSelectionModal from '../components/ScopeSelectionModal';
 
-
-// --- CAPA DE SANEAMIENTO (EL PORTERO) ---
-const sanitizeOrder = (rawOrder) => {
-  let cleanItems = [];
-  if (rawOrder.items) {
-    if (Array.isArray(rawOrder.items)) {
-      cleanItems = rawOrder.items;
-    } else if (typeof rawOrder.items === 'string') {
-      try {
-        const parsed = JSON.parse(rawOrder.items);
-        cleanItems = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        cleanItems = [];
-      }
-    }
-  }
-  return {
-    ...rawOrder,
-    items: cleanItems,
-    total: Number(rawOrder.total) || 0,
-    client_name: rawOrder.client_name || 'Cliente Desconocido',
-    client_rut: rawOrder.client_rut || 'Sin RUT',
-    client_phone: rawOrder.client_phone || '',
-    status: rawOrder.status || 'pending',
-    created_at: rawOrder.created_at || new Date().toISOString()
-  };
-};
-
-const AdminContext = createContext(null);
-
-const useAdmin = () => {
-  const context = useContext(AdminContext);
-  if (!context) {
-    throw new Error('useAdmin must be used within an AdminProvider');
-  }
-  return context;
-};
-
-const AdminProvider = ({ children }) => {
-  const navigate = useNavigate();
-
-  // --- ESTADOS DE DATOS ---
-  const [activeTab, setActiveTab] = useState('orders');
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(null);
-
-  // --- ESTADOS DE INTERFAZ ---
-  const [isHistoryView, setIsHistoryView] = useState(false);
-  const [mobileTab, setMobileTab] = useState('pending');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, active, paused
-  const [viewMode, setViewMode] = useState('grid'); // grid, list
-  const [sortOrder, setSortOrder] = useState('name-asc'); // name-asc, price-asc, price-desc
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
-
-  // --- MODALES ---
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [notification, setNotification] = useState(null);
-
-  // --- MODALES COMPROBANTE Y PEDIDO MANUAL ---
-  const [receiptModalOrder, setReceiptModalOrder] = useState(null);
-  const [receiptPreview, setReceiptPreview] = useState(null);
-  const [isManualOrderModalOpen, setIsManualOrderModalOpen] = useState(false);
-  const [uploadingReceipt, setUploadingReceipt] = useState(false);
-
-  // --- MODAL DE ALCANCE (GLOBAL VS LOCAL) ---
-  const [scopeModal, setScopeModal] = useState({ isOpen: false, item: null, type: 'product' });
-
-  // --- ROL (solo admin ve "Datos de la empresa") ---
-  const [userRole, setUserRole] = useState(null);
-  const [userEmail, setUserEmail] = useState(null);
-
-  // --- CRM & REPORTES ---
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [selectedClientOrders, setSelectedClientOrders] = useState([]);
-  const [clientHistoryLoading, setClientHistoryLoading] = useState(false);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Anti-zoom: bloquear Ctrl+Scroll y Ctrl+/- en el panel admin
-  useEffect(() => {
-    const handleWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-      }
-    };
-    const handleKeydown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('keydown', handleKeydown);
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('keydown', handleKeydown);
-    };
-  }, []);
-
-  const showNotify = useCallback((msg, type = 'success') => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 3000);
-  }, []);
-
-  // --- SISTEMA DE CAJA ---
-  const cashSystem = useCashSystem(showNotify, selectedBranch?.id);
-
-  // --- [MEJORA SEGURIDAD] VERIFICACIÓN DE ROL ---
-  useEffect(() => {
-    const verifyAdminAccess = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserEmail(user.email);
-          // Verificar si el email está en la tabla de admins
-          const { data: adminUser } = await supabase
-            .from(TABLES.admin_users)
-            .select('role')
-            .eq('email', user.email)
-            .maybeSingle();
-  
-          if (!adminUser) {
-            console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Acceso denegado.");
-            setUserRole(null);
-            await supabase.auth.signOut();
-            navigate('/login');
-            showNotify('No tienes permisos de administrador', 'error');
-          } else {
-            setUserRole(adminUser.role || null);
-          }
-        }
-    };
-    verifyAdminAccess();
-  }, [navigate, showNotify]);
-
-  // --- CARGA DE SUCURSALES (Centralizada) ---
-  const refreshBranches = useCallback(async () => {
-    const { data, error } = await supabase.from(TABLES.branches).select('*').order('name');
-    if (!error && data?.length > 0) {
-      setBranches(data);
-      
-      // Actualizar la sucursal seleccionada con la nueva información de la BD
-      setSelectedBranch(prev => {
-        if (!prev || prev.id === 'all') return prev || data[0];
-        const updated = data.find(b => b.id === prev.id);
-        return updated || data[0];
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshBranches();
-  }, [refreshBranches]);
-
-  // --- VALIDACIÓN DE SUCURSAL ACTIVA ---
-  // Si no estamos en Analytics, forzar selección de una sucursal real (no 'all')
-  useEffect(() => {
-    if (branches.length === 0) return;
-
-    if (activeTab !== 'analytics') {
-      // Si es 'all' o nulo, cambiar a la primera sucursal
-      if (!selectedBranch || selectedBranch.id === 'all') {
-        setSelectedBranch(branches[0]);
-      }
-    }
-  }, [activeTab, branches, selectedBranch]);
-
-  // --- 1. CARGA DE DATOS ---
-  const loadData = useCallback(async (isRefresh = false) => {
-    if (!selectedBranch) return;
-
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    try {
-      const isAllBranches = selectedBranch.id === 'all';
-
-      // 1. Cargar datos base
-      const promises = [
-        supabase.from(TABLES.categories).select('*').order('order'),
-        supabase.from(TABLES.products).select('*').order('name'),
-        isAllBranches 
-          ? supabase.from(TABLES.orders).select('*').order('created_at', { ascending: false }).limit(100)
-          : supabase.from(TABLES.orders).select('*').eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }).limit(100),
-        supabase.from(TABLES.clients).select('*').order('last_order_at', { ascending: false }).limit(200)
-      ];
-
-      if (!isAllBranches) {
-        promises.push(supabase.from(TABLES.product_prices).select('*').eq('branch_id', selectedBranch.id));
-        promises.push(supabase.from(TABLES.product_branch).select('*').eq('branch_id', selectedBranch.id));
-      }
-
-      const results = await Promise.all(promises);
-      const [catsRes, globalProductsRes, ordsRes, cltsRes] = results;
-      const pricesRes = !isAllBranches ? results[4] : { data: [] };
-      const branchStatusRes = !isAllBranches ? results[5] : { data: [] };
-
-      if (catsRes.error) throw catsRes.error;
-      if (globalProductsRes.error) throw globalProductsRes.error;
-      if (ordsRes.error) throw ordsRes.error;
-      if (cltsRes.error) throw cltsRes.error;
-
-      if (!isAllBranches) {
-        if (pricesRes.error) throw pricesRes.error;
-        if (branchStatusRes.error) throw branchStatusRes.error;
-      }
-
-      // 2. Fusionar productos con datos de la sucursal
-      const branchPrices = pricesRes.data || [];
-      const branchStatuses = branchStatusRes.data || [];
-      
-      const mergedProducts = (globalProductsRes.data || []).map(prod => {
-        // Si estamos viendo "Todas", usamos los datos globales directos
-        if (isAllBranches) return prod;
-
-        const priceData = branchPrices.find(p => p.product_id === prod.id);
-        const statusData = branchStatuses.find(s => s.product_id === prod.id);
-
-        return {
-          ...prod,
-          // STRICT MODE: Usar SOLO datos de la sucursal. Si no existe configuración, es 0/inactivo.
-          price: priceData ? priceData.price : 0,
-          has_discount: priceData ? priceData.has_discount : false,
-          discount_price: priceData ? priceData.discount_price : 0,
-          // Si no hay registro en product_branch, asumimos que NO está activo en esta sucursal
-          is_active: statusData ? statusData.is_active : false,
-          is_special: statusData ? statusData.is_special : false,
-          // Guardar IDs de relación para updates
-          price_id: priceData?.id,
-          branch_relation_id: statusData?.id
-        };
-      });
-
-      const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
-
-      // Filtrar clientes por sucursal: solo los que tienen pedidos en la vista actual
-      const clientIdsInOrders = new Set(cleanOrders.map(o => o.client_id).filter(Boolean));
-      const filteredClients = (cltsRes.data || []).filter(c => clientIdsInOrders.has(c.id));
-
-      setCategories(catsRes.data || []);
-      setProducts(mergedProducts);
-      setOrders(cleanOrders);
-      setClients(filteredClients);
-
-    } catch (error) {
-      console.error("Error cargando datos:", error);
-      showNotify("Error de conexión", 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [showNotify, selectedBranch]);
-
-  const loadClientHistory = async (client) => {
-    if (!client) return;
-    setClientHistoryLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.orders)
-        .select('*')
-        .eq('client_id', client.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      const cleanHistory = (data || []).map(sanitizeOrder);
-      setSelectedClientOrders(cleanHistory);
-
-    } catch {
-      showNotify('Error al cargar historial', 'error');
-    } finally {
-      setClientHistoryLoading(false);
-    }
-  };
-
-  const handleSelectClient = (client) => {
-    setSelectedClient(client);
-    loadClientHistory(client);
-  };
-
-  // --- MANEJO DE REALTIME (OPTIMISTA) ---
-  const handleRealtimeEvent = useCallback((payload) => {
-    console.log('🔔 Evento Realtime:', payload);
-    
-    if (payload.eventType === 'INSERT') {
-      const newOrder = sanitizeOrder(payload.new);
-      setOrders(prev => [newOrder, ...prev]);
-      showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
-      
-      // [NUEVO] Reproducir sonido de notificación
-      try {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(e => console.log('Audio play blocked', e));
-      } catch (e) { console.error(e); }
-      
-      // Si es un pedido nuevo, también podríamos querer actualizar clientes si es relevante
-    } 
-    else if (payload.eventType === 'UPDATE') {
-      const updatedOrder = sanitizeOrder(payload.new);
-      setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
-    } 
-    else if (payload.eventType === 'DELETE') {
-      setOrders(prev => prev.filter(o => o.id !== payload.old.id));
-    }
-  }, [showNotify]);
-
-  useEffect(() => {
-    loadData();
-
-    // Configurar Realtime
-    const channel = supabase
-      .channel('table-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: selectedBranch && selectedBranch.id !== 'all' ? `branch_id=eq.${selectedBranch.id}` : undefined
-        },
-        handleRealtimeEvent
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Suscrito a cambios en tiempo real');
-        }
-      });
-
-    // Fallback: Polling cada 60 segundos (menos agresivo)
-    const intervalId = setInterval(() => {
-      // Solo recargamos si NO estamos editando algo activamente para no interrumpir
-      if (!isModalOpen && !editingProduct) {
-         console.log('🔄 Sincronizando datos (Polling)...');
-         loadData(true); 
-      }
-    }, 60000);
-
-    return () => {
-      clearInterval(intervalId);
-      supabase.removeChannel(channel);
-    };
-  }, [loadData, handleRealtimeEvent, isModalOpen, editingProduct, selectedBranch]);
-
-  // --- 2. GESTIÓN DE PEDIDOS ---
-  const moveOrder = async (orderId, nextStatus) => {
-    const previousOrders = [...orders];
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
-
-    try {
-      const { error } = await supabase.from(TABLES.orders).update({ status: nextStatus }).eq('id', orderId);
-      if (error) throw error;
-      
-      // [FIX] Registrar venta en caja si se completa/entrega
-      if ((nextStatus === 'completed' || nextStatus === 'picked_up') && activeTab === 'orders') {
-          const targetOrder = previousOrders.find(o => o.id === orderId);
-          if (targetOrder) {
-             cashSystem.registerSale(targetOrder);
-          }
-      }
-
-      // [FIX] Registrar devolución si se cancela una orden previamente completada
-      if (nextStatus === 'cancelled') {
-        const targetOrder = previousOrders.find(o => o.id === orderId);
-        // Solo si estaba completada o entregada (ya sumó a caja)
-        if (targetOrder && (targetOrder.status === 'completed' || targetOrder.status === 'picked_up')) {
-            cashSystem.registerRefund(targetOrder);
-        }
-      }
-
-      showNotify('Pedido actualizado');
-    } catch {
-      setOrders(previousOrders);
-      showNotify("Error al actualizar", "error");
-    }
-  };
-
-  const uploadReceiptToOrder = async (orderId, file) => {
-    if (!file) return;
-    setUploadingReceipt(true);
-    try {
-      const receiptUrl = await uploadImage(file, 'receipts');
-
-      const { error } = await supabase.from(TABLES.orders).update({ payment_ref: receiptUrl }).eq('id', orderId);
-      if (error) throw error;
-
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
-      if (selectedClient) {
-        setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
-      }
-
-      showNotify('Comprobante agregado');
-      setReceiptModalOrder(null);
-      setReceiptPreview(null);
-    } catch (error) {
-      showNotify('Error al subir comprobante: ' + error.message, 'error');
-    } finally {
-      setUploadingReceipt(false);
-    }
-  };
-
-  const handleReceiptFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setReceiptPreview(URL.createObjectURL(file));
-    }
-  };
-
-  // --- 3. GESTIÓN DE PRODUCTOS ---
-  const handleSaveProduct = async (formData, localFile) => {
-    if (!selectedBranch) return;
-
-    setRefreshing(true);
-    try {
-      let finalImageUrl = formData.image_url;
-      if (localFile) {
-        finalImageUrl = await uploadImage(localFile, 'menu');
-      }
-
-      const isAllBranches = selectedBranch.id === 'all';
-
-      // 1. Guardar/Actualizar Producto Global
-      const productPayload = { 
-        name: formData.name,
-        description: formData.description,
-        category_id: formData.category_id,
-        image_url: finalImageUrl,
-        is_special: formData.is_special || false,
-        is_active: editingProduct ? editingProduct.is_active : true
-      };
-
-      // Asignar company_id (requerido en la tabla products)
-      if (!isAllBranches) {
-          productPayload.company_id = selectedBranch.company_id;
-      } else if (branches.length > 0) {
-          productPayload.company_id = branches[0].company_id;
-      }
-
-      let productId = editingProduct?.id;
-
-      if (editingProduct) {
-        await supabase.from(TABLES.products).update(productPayload).eq('id', productId);
-      } else {
-        const { data: newProd, error } = await supabase.from(TABLES.products).insert(productPayload).select().single();
-        if (error) throw error;
-        productId = newProd.id;
-      }
-
-      // 2. Guardar/Actualizar Precios y Estado en Sucursales
-      // Si estamos en "Todas", actualizamos todas. Si no, solo la seleccionada.
-      const branchesToUpdate = isAllBranches ? branches : [selectedBranch];
-
-      for (const branch of branchesToUpdate) {
-          // 2.1 Precios
-          const pricePayload = {
-            product_id: productId,
-            branch_id: branch.id,
-            company_id: branch.company_id,
-            price: parseInt(formData.price) || 0,
-            has_discount: formData.has_discount || false,
-            discount_price: formData.has_discount ? (parseInt(formData.discount_price) || 0) : null,
-            is_active: true
-          };
-
-          const { error: priceError } = await supabase.from(TABLES.product_prices).upsert(
-            pricePayload,
-            { onConflict: 'product_id, branch_id' }
-          );
-          if (priceError) throw priceError;
-
-          // 2.2 Estado en Sucursal
-          const branchPayload = {
-            product_id: productId,
-            branch_id: branch.id,
-            // Si estamos editando, mantener estado actual. Si es nuevo, activo por defecto.
-            is_active: editingProduct ? editingProduct.is_active : true,
-            is_special: formData.is_special || false
-          };
-
-          const { error: branchError } = await supabase.from(TABLES.product_branch).upsert(
-            branchPayload,
-            { onConflict: 'product_id, branch_id' }
-          );
-          if (branchError) throw branchError;
-      }
-
-      showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
-      setIsModalOpen(false);
-      loadData(true);
-    } catch (error) {
-      showNotify("Error: " + error.message, 'error');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const deleteProduct = async (id) => {
-    if (!window.confirm('¿Eliminar producto?')) return;
-    try {
-      // 1. Eliminar precios y relaciones de sucursal
-      const { error: priceErr } = await supabase.from(TABLES.product_prices).delete().eq('product_id', id);
-      if (priceErr) throw priceErr;
-
-      const { error: relErr } = await supabase.from(TABLES.product_branch).delete().eq('product_id', id);
-      if (relErr) throw relErr;
-
-      // 2. Eliminar el producto
-      const { error: prodErr } = await supabase.from(TABLES.products).delete().eq('id', id);
-      if (prodErr) throw prodErr;
-      
-      showNotify("Producto eliminado correctamente");
-      loadData(true);
-    } catch (error) {
-      console.error('Delete error:', error);
-      showNotify("No se pudo eliminar: " + (error.message || 'Error desconocido'), 'error');
-    }
-  };
-
-  // --- 3.1 TOGGLE CON CONFIRMACIÓN DE ALCANCE ---
-  const toggleProductActive = async (product, e) => {
-    e.stopPropagation();
-    if (!selectedBranch) return;
-    
-    // Abrir modal para decidir alcance
-    setScopeModal({
-      isOpen: true,
-      item: product,
-      type: 'product'
-    });
-  };
-
-  const handleScopeConfirm = async (scope) => {
-    const { item, type } = scopeModal;
-    setScopeModal({ ...scopeModal, isOpen: false });
-
-    if (!item) return;
-
-    const newActive = !item.is_active;
-
-    // Actualización optimista en UI
-    if (type === 'product') {
-      setProducts(prev => prev.map(p => p.id === item.id ? { ...p, is_active: newActive } : p));
-    }
-
-    try {
-      if (scope === 'global' || selectedBranch.id === 'all') {
-        // Actualizar GLOBALMENTE (Tabla products)
-        await supabase.from(TABLES.products).update({ is_active: newActive }).eq('id', item.id);
-        showNotify(newActive ? 'Activado en todos los locales' : 'Desactivado en todos los locales');
-      } else {
-        // Actualizar LOCALMENTE (Tabla product_branch)
-        await supabase.from(TABLES.product_branch).upsert({
-          product_id: item.id,
-          branch_id: selectedBranch.id,
-          is_active: newActive
-        }, { onConflict: 'product_id, branch_id' });
-        showNotify(newActive ? 'Activado en este local' : 'Desactivado en este local');
-      }
-    } catch {
-      loadData(true);
-      showNotify('Error al cambiar estado', 'error');
-    }
-  };
-
-  const handleSaveCategory = async (formData) => {
-    try {
-      const payload = { 
-        name: formData.name, 
-        order: parseInt(formData.order), 
-        is_active: formData.is_active 
-      };
-
-      // Asignar company_id (necesario por la nueva BD)
-      if (selectedBranch && selectedBranch.id !== 'all') {
-        payload.company_id = selectedBranch.company_id;
-      } else if (branches.length > 0) {
-        payload.company_id = branches[0].company_id;
-      }
-
-      if (editingCategory) {
-        await supabase.from(TABLES.categories).update(payload).eq('id', editingCategory.id);
-      } else {
-        // Dejar que la base de datos genere el UUID
-        await supabase.from(TABLES.categories).insert(payload);
-      }
-      setIsCategoryModalOpen(false);
-      loadData(true);
-      showNotify('Categoría guardada');
-    } catch (error) {
-      console.error(error);
-      showNotify('Error al guardar: ' + error.message, 'error');
-    }
-  };
-
-
-  // --- 6. ESTADÍSTICAS AVANZADAS ---
-
-
-  const kanbanColumns = useMemo(() => ({
-    pending: orders.filter(o => o.status === 'pending'),
-    active: orders.filter(o => o.status === 'active'),
-    completed: orders.filter(o => o.status === 'completed'),
-    cancelled: orders.filter(o => o.status === 'cancelled'), // Nueva columna visible
-    history: orders.filter(o => o.status === 'picked_up' || o.status === 'cancelled')
-  }), [orders]);
-
-  // --- LÓGICA DE FILTRADO Y ORDENAMIENTO DE PRODUCTOS ---
-  const processedProducts = useMemo(() => {
-    let result = products.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      (filterCategory === 'all' || p.category_id === filterCategory) &&
-      (filterStatus === 'all' || (filterStatus === 'active' ? p.is_active : !p.is_active))
-    );
-
-    return result.sort((a, b) => {
-      // Priorizar productos activos primero si el filtro es "Todos"
-      if (filterStatus === 'all' && a.is_active !== b.is_active) {
-        return a.is_active ? -1 : 1;
-      }
-
-      if (sortOrder === 'name-asc') return a.name.localeCompare(b.name);
-      if (sortOrder === 'price-asc') return a.price - b.price;
-      if (sortOrder === 'price-desc') return b.price - a.price;
-      return 0;
-    });
-  }, [products, searchQuery, filterCategory, filterStatus, sortOrder]);
-
-  // Estadísticas rápidas de productos
-  const productStats = useMemo(() => {
-    return {
-      total: products.length,
-      active: products.filter(p => p.is_active).length,
-      paused: products.filter(p => !p.is_active).length
-    };
-  }, [products]);
-
-  const value = useMemo(() => ({
-    navigate,
-    activeTab, setActiveTab,
-    products, setProducts,
-    categories, setCategories,
-    orders, setOrders,
-    clients, setClients,
-    branches, setBranches,
-    selectedBranch, setSelectedBranch,
-    isHistoryView, setIsHistoryView,
-    mobileTab, setMobileTab,
-    searchQuery, setSearchQuery,
-    filterCategory, setFilterCategory,
-    filterStatus, setFilterStatus,
-    viewMode, setViewMode,
-    sortOrder, setSortOrder,
-    loading, setLoading,
-    refreshing, setRefreshing,
-    isMobile, setIsMobile,
-    isModalOpen, setIsModalOpen,
-    editingProduct, setEditingProduct,
-    isCategoryModalOpen, setIsCategoryModalOpen,
-    editingCategory, setEditingCategory,
-    notification, setNotification,
-    receiptModalOrder, setReceiptModalOrder,
-    receiptPreview, setReceiptPreview,
-    isManualOrderModalOpen, setIsManualOrderModalOpen,
-    uploadingReceipt, setUploadingReceipt,
-    selectedClient, setSelectedClient,
-    selectedClientOrders, setSelectedClientOrders,
-    clientHistoryLoading, setClientHistoryLoading,
-    userRole,
-    showNotify,
-    cashSystem,
-    loadData,
-    refreshBranches,
-    handleSelectClient,
-    moveOrder,
-    uploadReceiptToOrder,
-    handleReceiptFileChange,
-    handleSaveProduct,
-    deleteProduct,
-    toggleProductActive,
-    scopeModal,
-    handleScopeConfirm,
-    setScopeModal,
-    handleSaveCategory,
-    kanbanColumns,
-    processedProducts,
-    productStats,
-    userEmail,
-  }), [
-    navigate,
-    activeTab,
-    products,
-    categories,
-    orders,
-    clients,
-    branches,
-    selectedBranch,
-    isHistoryView,
-    mobileTab,
-    searchQuery,
-    filterCategory,
-    filterStatus,
-    viewMode,
-    sortOrder,
-    loading,
-    refreshing,
-    isMobile,
-    isModalOpen,
-    editingProduct,
-    isCategoryModalOpen,
-    editingCategory,
-    notification,
-    receiptModalOrder,
-    receiptPreview,
-    isManualOrderModalOpen,
-    uploadingReceipt,
-    selectedClient,
-    selectedClientOrders,
-    clientHistoryLoading,
-    userRole,
-    showNotify,
-    cashSystem, // Ahora es estable gracias al fix en useCashSystem
-    loadData,
-    handleSelectClient,
-    moveOrder,
-    uploadReceiptToOrder,
-    handleReceiptFileChange,
-    handleSaveProduct,
-    deleteProduct,
-    toggleProductActive,
-    scopeModal,
-    handleScopeConfirm,
-    setScopeModal,
-    handleSaveCategory,
-    kanbanColumns,
-    processedProducts,
-    productStats,
-    userEmail
-  ]);
-
-  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
-};
-
-const AdminComponent = () => {
+const AdminPage = () => {
   const {
     navigate,
     activeTab, setActiveTab,
@@ -828,12 +72,19 @@ const AdminComponent = () => {
     handleScopeConfirm,
     setScopeModal,
     handleSaveCategory,
+    deleteCategory,
+    categoryToDelete,
+    setCategoryToDelete,
+    confirmDeleteCategory,
     kanbanColumns,
     processedProducts,
     productStats,
     refreshBranches,
     userRole,
     userEmail,
+    productToDelete,
+    setProductToDelete,
+    confirmDeleteProduct,
   } = useAdmin();
 
   if (loading && !refreshing && products.length === 0 && orders.length === 0) return (
@@ -849,6 +100,30 @@ const AdminComponent = () => {
         <div className={`admin-notification ${notification.type} animate-slide-up`}>
           {notification.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{notification.msg}</span>
+        </div>
+      )}
+
+      {productToDelete && (
+        <div className="admin-modal-overlay" onClick={() => setProductToDelete(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg)', padding: 24, borderRadius: 12, maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <p style={{ margin: '0 0 16px', fontSize: 16 }}>¿Eliminar producto?</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="admin-btn secondary" onClick={() => setProductToDelete(null)}>Cancelar</button>
+              <button type="button" className="admin-btn danger" onClick={confirmDeleteProduct}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryToDelete && (
+        <div className="admin-modal-overlay" onClick={() => setCategoryToDelete(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg)', padding: 24, borderRadius: 12, maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <p style={{ margin: '0 0 16px', fontSize: 16 }}>¿Eliminar categoría &quot;{categoryToDelete.name}&quot;? Los productos quedarán sin categoría.</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="admin-btn secondary" onClick={() => setCategoryToDelete(null)}>Cancelar</button>
+              <button type="button" className="admin-btn danger" onClick={confirmDeleteCategory}>Eliminar</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1086,7 +361,18 @@ const AdminComponent = () => {
               {categories.map(c => {
                 const categoryProducts = products.filter(p => p.category_id === c.id);
                 const activeProducts = categoryProducts.filter(p => p.is_active);
-                const totalRevenue = categoryProducts.reduce((sum, p) => sum + (p.price || 0), 0);
+                const totalRevenue = orders
+                  .filter(o => o.status === 'completed' || o.status === 'picked_up')
+                  .reduce((sum, order) => {
+                    const items = Array.isArray(order.items) ? order.items : [];
+                    return sum + items.reduce((itemSum, item) => {
+                      const product = products.find(p => p.id === (item.id ?? item.product_id));
+                      if (!product || product.category_id !== c.id) return itemSum;
+                      const qty = Math.max(0, Number(item.quantity) || 1);
+                      const price = Number(item.price) ?? 0;
+                      return itemSum + price * qty;
+                    }, 0);
+                  }, 0);
                 
                 return (
                   <div key={c.id} className="cat-card glass">
@@ -1146,6 +432,15 @@ const AdminComponent = () => {
                       >
                         <ShoppingBag size={16} />
                         Ver productos
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => deleteCategory(c)}
+                        className="cat-btn-delete"
+                        title="Eliminar categoría"
+                      >
+                        <Trash2 size={16} />
+                        Borrar
                       </button>
                     </div>
                   </div>
@@ -1208,11 +503,11 @@ const AdminComponent = () => {
 
       {/* MODAL COMPROBANTE (EXISTENTE) */}
       {receiptModalOrder && (
-        <div className="admin-panel-overlay" onClick={() => { setReceiptModalOrder(null); setReceiptPreview(null); }}>
+        <div className="admin-panel-overlay" onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }}>
           <div className="admin-side-panel glass animate-slide-in" style={{ maxWidth: 450 }} onClick={e => e.stopPropagation()}>
             <div className="admin-side-header">
               <h3>Comprobante de Pago</h3>
-              <button onClick={() => { setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></button>
+              <button onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></button>
             </div>
             <div className="admin-side-body">
               {receiptModalOrder.payment_ref && receiptModalOrder.payment_ref.startsWith('http') && !receiptPreview && (
@@ -1316,7 +611,7 @@ const AdminComponent = () => {
 
 const Admin = () => (
   <AdminProvider>
-    <AdminComponent />
+    <AdminPage />
   </AdminProvider>
 );
 

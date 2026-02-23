@@ -44,10 +44,11 @@ export const ordersService = {
                 return sum + (price * qty);
             }, 0);
 
-            // Si hay una discrepancia mayor a $50 (por posibles redondeos), corregimos forzosamente
+            const totalToUse = Math.abs(calculatedTotal - orderData.total) > 50
+                ? calculatedTotal
+                : orderData.total;
             if (Math.abs(calculatedTotal - orderData.total) > 50) {
                 console.warn(`⚠️ Discrepancia de precio detectada. Recibido: ${orderData.total}, Calculado: ${calculatedTotal}. Se aplicará el calculado.`);
-                orderData.total = calculatedTotal;
             }
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
@@ -80,7 +81,7 @@ export const ordersService = {
                 p_client_phone: orderData.client_phone,
                 p_client_rut: orderData.client_rut || '',
                 p_items: orderData.items,
-                p_total: orderData.total,
+                p_total: totalToUse,
                 p_payment_type: orderData.payment_type,
                 p_payment_ref: paymentRef,
                 p_note: finalNote,

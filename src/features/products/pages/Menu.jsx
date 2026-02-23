@@ -17,29 +17,9 @@ import { useBusiness } from '../../../context/useBusiness';
 
 const Menu = () => {
   const navigate = useNavigate();
-  const { selectedBranch, selectBranch, isLocationModalOpen, setIsLocationModalOpen } = useLocation();
+  const { selectedBranch, selectBranch, isLocationModalOpen, setIsLocationModalOpen, allBranches } = useLocation();
   const { branchesWithOpenCaja, isShiftLoading } = useCash();
   const { businessInfo } = useBusiness();
-
-  // Anti-zoom: bloquear Ctrl+Scroll y Ctrl+/-
-  useEffect(() => {
-    const handleWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-      }
-    };
-    const handleKeydown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener('wheel', handleWheel, { passive: false });
-    document.addEventListener('keydown', handleKeydown);
-    return () => {
-      document.removeEventListener('wheel', handleWheel);
-      document.removeEventListener('keydown', handleKeydown);
-    };
-  }, []);
 
   // Si la sucursal guardada ya no tiene caja abierta, abrir modal para elegir una que sí acepte pedidos
   useEffect(() => {
@@ -58,33 +38,22 @@ const Menu = () => {
   const searchInputRef = useRef(null);
   const isManualScrolling = useRef(false);
 
-  const FIRE_ICON = "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif";
+  const FIRE_ICON_EMOJI = '🔥';
 
-  // 1. Carga de datos optimizada (Paralela)
+  // 1. Carga de datos optimizada (usa allBranches del contexto para evitar doble fetch)
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // 1. Cargar sucursales (siempre necesario para el modal)
-        let branchesData = [];
-        try {
-          const { data, error } = await supabase
-            .from(TABLES.branches)
-            .select('*')
-            .eq('is_active', true)
-            .order('name', { ascending: true });
-          if (!error) branchesData = data || [];
-        } catch { /* Fallback a lista vacía si falla Supabase */ }
+        const branchesData = Array.isArray(allBranches) ? allBranches : [];
 
-        // Si no hay sucursal seleccionada, solo guardamos branches y paramos (el modal se abrirá)
         if (!selectedBranch) {
-          setData({ categories: [], products: [], branches: branchesData || [] });
+          setData({ categories: [], products: [], branches: branchesData });
           setLoading(false);
           setIsLocationModalOpen(true);
           return;
         }
 
-        // 2. Cargar datos dependientes de la sucursal (Precios y Estado Local)
         const [catsRes, prodsRes, pricesRes, statusRes] = await Promise.all([
           supabase.from(TABLES.categories).select('*').eq('is_active', true).order('order', { ascending: true }),
           supabase.from(TABLES.products).select('*').order('name', { ascending: true }),
@@ -137,7 +106,7 @@ const Menu = () => {
       }
     };
     loadData();
-  }, [selectedBranch, setIsLocationModalOpen]);
+  }, [selectedBranch, setIsLocationModalOpen, allBranches]);
 
   // 2. Filtrado memoizado para rendimiento
   const { specialProducts, filteredBySearch, query } = useMemo(() => {
@@ -283,7 +252,7 @@ const Menu = () => {
                 id: 'special',
                 name: (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <img src={FIRE_ICON} style={{ width: '14px', height: '14px' }} alt="🔥" />
+                    <span role="img" aria-label="Destacado" style={{ fontSize: '14px' }}>{FIRE_ICON_EMOJI}</span>
                     Solo por hoy
                   </div>
                 )
@@ -318,7 +287,7 @@ const Menu = () => {
         {!query && specialProducts.length > 0 && (
           <section id="section-special" className="category-section">
             <h2 className="category-title">
-              <img src={FIRE_ICON} className="category-icon" alt="🔥" />
+              <span role="img" aria-label="Destacado" className="category-icon">{FIRE_ICON_EMOJI}</span>
               Solo por hoy
             </h2>
             <div className="product-grid">

@@ -26,3 +26,5 @@ dist-ssr
 /node_modules
 /BD
 /OishiPrueba.zip
+/.cursor
+/docs

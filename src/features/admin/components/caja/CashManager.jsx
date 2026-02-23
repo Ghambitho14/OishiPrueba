@@ -7,6 +7,7 @@ import {
     MapPin
 } from 'lucide-react';
 import { useCashSystem } from '../../hooks/useCashSystem';
+import { isValidBranchId } from '../../../../shared/utils/safeIds';
 import CashShiftModal from './CashShiftModal';
 import CashMovementModal from './CashMovementModal';
 import CashShiftDetailModal from './CashShiftDetailModal';
@@ -85,7 +86,7 @@ const CashManager = ({ showNotify, selectedBranchId }) => {
         </div>
     );
 
-    if (!selectedBranchId || selectedBranchId === 'all') {
+    if (!selectedBranchId || selectedBranchId === 'all' || !isValidBranchId(selectedBranchId)) {
         return (
             <div className="cash-empty-state">
                 <div className="cash-empty-icon"><MapPin size={48} /></div>
