@@ -9,13 +9,13 @@ export const printOrderTicket = (order, branchName = 'OISHI SUSHI', logoUrl = nu
 			.replace(/"/g, '&quot;')
 			.replace(/'/g, '&#39;');
 
+	// Solo HTTPS (y http en desarrollo) para evitar data:/blob: y posibles abusos
 	const safeLogoUrl = (() => {
 		if (!logoUrl) return '';
 		try {
 			const parsed = new URL(logoUrl, window.location.origin);
-			if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'data:' || parsed.protocol === 'blob:') {
-				return parsed.href;
-			}
+			if (parsed.protocol === 'https:') return parsed.href;
+			if (import.meta.env.DEV && parsed.protocol === 'http:') return parsed.href;
 			return '';
 		} catch {
 			return '';

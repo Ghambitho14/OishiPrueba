@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { formatRut, validateRut } from '../../../shared/utils/formatters';
+import { validateImageFile } from '../../../shared/utils/cloudinary';
 import { createManualOrder } from '../../orders/services/orders';
 
 const initialOrderState = {
@@ -77,8 +78,10 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                showNotify('La imagen es muy pesada (Máx 5MB)', 'error');
+            const { valid, error: validationError } = validateImageFile(file);
+            if (!valid) {
+                showNotify(validationError || 'Archivo no válido', 'error');
+                e.target.value = '';
                 return;
             }
             if (receiptPreview) URL.revokeObjectURL(receiptPreview);

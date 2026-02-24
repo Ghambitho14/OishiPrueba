@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, createContext, useCon
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
-import { uploadImage } from '../../../shared/utils/cloudinary';
+import { uploadImage, validateImageFile } from '../../../shared/utils/cloudinary';
 import { useCashSystem } from '../hooks/useCashSystem';
 import { sanitizeOrder } from '../../../shared/utils/orderUtils';
 
@@ -296,12 +296,18 @@ export const AdminProvider = ({ children }) => {
 	const handleReceiptFileChange = useCallback((e) => {
 		const file = e.target.files[0];
 		if (file) {
+			const { valid, error: validationError } = validateImageFile(file);
+			if (!valid) {
+				showNotify(validationError || 'Archivo no válido', 'error');
+				e.target.value = '';
+				return;
+			}
 			setReceiptPreview(prev => {
 				if (prev) URL.revokeObjectURL(prev);
 				return URL.createObjectURL(file);
 			});
 		}
-	}, []);
+	}, [showNotify]);
 
 	const handleSaveProduct = useCallback(async (formData, localFile) => {
 		if (!selectedBranch) return;

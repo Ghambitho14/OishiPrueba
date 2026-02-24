@@ -1,10 +1,34 @@
 /**
  * Cloudinary Upload Utility
  * Handles unsigned uploads to Cloudinary using Fetch API.
+ * Valida tipo MIME y tamaño para evitar subida de archivos no permitidos.
  */
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+/** Tipos MIME permitidos (excluye SVG por riesgo XSS). */
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * Comprueba si el archivo es una imagen permitida y no excede el tamaño.
+ * @param {File} file
+ * @returns {{ valid: boolean, error?: string }}
+ */
+export const validateImageFile = (file) => {
+  if (!file || !(file instanceof File)) {
+    return { valid: false, error: 'Archivo no válido.' };
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return { valid: false, error: 'La imagen es muy pesada (máx. 5 MB).' };
+  }
+  const type = (file.type || '').toLowerCase();
+  if (!ALLOWED_IMAGE_TYPES.includes(type)) {
+    return { valid: false, error: 'Solo se permiten imágenes JPG, PNG o WebP.' };
+  }
+  return { valid: true };
+};
 
 /**
  * Uploads a file to Cloudinary.
@@ -15,6 +39,11 @@ const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 export const uploadImage = async (file, folder = "oishi") => {
   if (!CLOUD_NAME || !UPLOAD_PRESET) {
     throw new Error("Cloudinary configuration is missing in .env");
+  }
+
+  const validation = validateImageFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
   }
 
   const formData = new FormData();

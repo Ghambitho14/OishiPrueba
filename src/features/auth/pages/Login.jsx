@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import '../../../styles/Login.css';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 60;
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState(null);
   const navigate = useNavigate();
+
+  const isLockedOut = lockoutUntil != null && Date.now() < lockoutUntil;
+
+  // Actualizar countdown cada segundo mientras esté bloqueado
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!lockoutUntil || Date.now() >= lockoutUntil) return;
+    const interval = setInterval(() => {
+      if (Date.now() >= lockoutUntil) {
+        setLockoutUntil(null);
+        return;
+      }
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isLockedOut) return;
     setLoading(true);
     setError(null);
 
@@ -23,10 +45,17 @@ const Login = () => {
       });
 
       if (error) throw error;
+      setFailedAttempts(0);
       navigate('/admin');
     } catch (err) {
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
       setError('Credenciales incorrectas. Verifica tu email y contraseña.');
       console.error('Error login:', err.message);
+      if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
+        setLockoutUntil(Date.now() + LOCKOUT_SECONDS * 1000);
+        setError(`Demasiados intentos fallidos. Espera ${LOCKOUT_SECONDS} segundos antes de intentar de nuevo.`);
+      }
     } finally {
       setLoading(false);
     }
@@ -106,13 +135,15 @@ const Login = () => {
             type="submit"
             className="btn btn-primary"
             style={{ width: '100%', marginTop: '10px', justifyContent: 'center' }}
-            disabled={loading}
+            disabled={loading || isLockedOut}
           >
             {loading ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
                 <span>Entrando...</span>
               </>
+            ) : isLockedOut ? (
+              <span>Espera {Math.ceil((lockoutUntil - Date.now()) / 1000)}s</span>
             ) : (
               <span>Iniciar Sesión</span>
             )}

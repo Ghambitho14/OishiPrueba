@@ -11,6 +11,7 @@ import { useBusiness } from '../../../context/useBusiness';
 import { useLocation } from '../../../context/useLocation';
 import { useCash } from '../../../context/useCash';
 import { formatRut, validateRut } from '../../../shared/utils/formatters';
+import { validateImageFile } from '../../../shared/utils/cloudinary';
 
 import '../../../styles/CartModal.css';
 
@@ -137,12 +138,11 @@ const CartModal = React.memo(() => {
     const file = e.target.files[0];
     if (file) {
       if (formData.receiptPreview) URL.revokeObjectURL(formData.receiptPreview);
-      
-      if (file.size > 5 * 1024 * 1024) {
-        setViewState(prev => ({ ...prev, error: "La imagen es muy pesada (Máx 5MB)" }));
+      const { valid, error: validationError } = validateImageFile(file);
+      if (!valid) {
+        setViewState(prev => ({ ...prev, error: validationError || "Archivo no válido." }));
         return;
       }
-
       setFormData(prev => ({
         ...prev,
         receiptFile: file,

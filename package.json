@@ -8,7 +8,8 @@
 	  "build": "vite build",
 	  "lint": "eslint .",
 	  "preview": "vite preview",
-	  "populate-db": "node scripts/populate-database.js"
+	  "populate-db": "node scripts/populate-database.js",
+	  "audit": "npm audit"
 	},
 	"dependencies": {
 	  "@supabase/supabase-js": "^2.95.3",

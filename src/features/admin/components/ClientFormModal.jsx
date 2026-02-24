@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { X, Loader2, User, Phone, Mail, FileText } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { TABLES } from '../../../lib/supabaseTables';
+import { formatRut, validateRut } from '../../../shared/utils/formatters';
+
+const MAX_NAME_LENGTH = 200;
+const MIN_PHONE_DIGITS = 9;
+
+const sanitizeText = (value) => {
+    if (value == null) return '';
+    const raw = String(value).replace(/<[^>]*>?/gm, '').trim();
+    return raw.slice(0, MAX_NAME_LENGTH);
+};
 
 const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
     const [loading, setLoading] = useState(false);
@@ -15,19 +25,44 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
     if (!isOpen) return null;
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        let finalValue = value;
+        if (name === 'rut') finalValue = formatRut(value);
+        if (name === 'name') finalValue = sanitizeText(value);
+        setFormData({ ...formData, [name]: finalValue });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
+        const name = sanitizeText(formData.name);
+        const phone = String(formData.phone ?? '').trim();
+        const rut = String(formData.rut ?? '').trim();
+
+        if (name.length < 2) {
+            showNotify('El nombre debe tener al menos 2 caracteres', 'error');
+            setLoading(false);
+            return;
+        }
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length < MIN_PHONE_DIGITS) {
+            showNotify('El teléfono debe tener al menos 9 dígitos', 'error');
+            setLoading(false);
+            return;
+        }
+        if (rut && !validateRut(rut)) {
+            showNotify('El RUT no es válido', 'error');
+            setLoading(false);
+            return;
+        }
+
         try {
             // Validar teléfono duplicado
             const { data: existing } = await supabase
                 .from(TABLES.clients)
                 .select('id')
-                .eq('phone', formData.phone)
+                .eq('phone', phone)
                 .single();
 
             if (existing) {
@@ -39,9 +74,9 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
             const { data, error } = await supabase
                 .from(TABLES.clients)
                 .insert([{
-                    name: formData.name,
-                    phone: formData.phone,
-                    rut: formData.rut,
+                    name,
+                    phone,
+                    rut: rut || null,
                     total_spent: 0,
                     created_at: new Date().toISOString()
                 }])
@@ -117,7 +152,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify }) => {
                         <button 
                             type="submit" 
                             className="btn btn-primary"
-                            disabled={loading || !formData.name || !formData.phone}
+                            disabled={loading || sanitizeText(formData.name).length < 2 || formData.phone.replace(/\D/g, '').length < MIN_PHONE_DIGITS}
                         >
                             {loading ? <Loader2 className="animate-spin" size={18} /> : 'Guardar Cliente'}
                         </button>
