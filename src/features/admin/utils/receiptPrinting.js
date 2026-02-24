@@ -24,7 +24,6 @@ export const printOrderTicket = (order, branchName = 'OISHI SUSHI', logoUrl = nu
 
 	const printWindow = window.open('', '', 'width=300,height=600');
 	if (!printWindow) {
-		console.warn('Permite las ventanas emergentes para imprimir');
 		return;
 	}
 

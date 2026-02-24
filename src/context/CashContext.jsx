@@ -21,7 +21,6 @@ export const CashProvider = ({ children }) => {
             setActiveShift(shift);
             setBranchesWithOpenCaja((branchIds || []).map(normId).filter(Boolean));
         } catch (error) {
-            console.error('Error refreshing cash state:', error);
             setActiveShift(null);
             setBranchesWithOpenCaja([]);
         } finally {

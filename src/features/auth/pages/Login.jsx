@@ -51,7 +51,6 @@ const Login = () => {
       const nextAttempts = failedAttempts + 1;
       setFailedAttempts(nextAttempts);
       setError('Credenciales incorrectas. Verifica tu email y contraseña.');
-      console.error('Error login:', err.message);
       if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
         setLockoutUntil(Date.now() + LOCKOUT_SECONDS * 1000);
         setError(`Demasiados intentos fallidos. Espera ${LOCKOUT_SECONDS} segundos antes de intentar de nuevo.`);

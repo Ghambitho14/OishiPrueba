@@ -60,6 +60,7 @@ const CartModal = React.memo(() => {
     error: null,
     receiptUploadFailed: false
   });
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
 
   const [paymentType, setPaymentType] = useState(null);
   
@@ -105,7 +106,9 @@ const CartModal = React.memo(() => {
   const validation = useMemo(() => {
     const phoneDigits = formData.phone.replace(/\D/g, '').length;
     const isRutValid = validateRut(formData.rut);
-    const isNameValid = formData.name.trim().length > 2;
+    const nameValue = formData.name.trim();
+    const namePattern = /^[\p{L} .'-]+$/u;
+    const isNameValid = nameValue.length > 2 && namePattern.test(nameValue);
     // Comprobante requerido solo si es online
     const isReceiptValid = paymentType === 'online' ? !!formData.receiptFile : true;
 
@@ -156,6 +159,7 @@ const CartModal = React.memo(() => {
     setViewState({ showPaymentInfo: false, showForm: false, showSuccess: false, isSaving: false, error: null, receiptUploadFailed: false });
     setPaymentType(null);
     setFormData({ name: "", phone: "+56 9 ", rut: "", receiptFile: null, receiptPreview: null });
+    setShowFieldErrors(false);
   }, []);
 
   const handleCloseCart = useCallback(() => {
@@ -182,6 +186,7 @@ const CartModal = React.memo(() => {
     if (viewState.isSaving) return;
 
     if (!validation.isReady) {
+      setShowFieldErrors(true);
       setViewState(prev => ({ ...prev, error: "Por favor completa todos los campos correctamente." }));
       return;
     }
@@ -224,6 +229,7 @@ const CartModal = React.memo(() => {
       const { receiptUploadFailed } = await ordersService.createOrder(orderPayload, formData.receiptFile);
 
       setViewState(v => ({ ...v, showSuccess: true, isSaving: false, receiptUploadFailed: receiptUploadFailed ?? false }));
+      setShowFieldErrors(false);
 
       setTimeout(() => {
         const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote, activeInfo.name);
@@ -239,7 +245,6 @@ const CartModal = React.memo(() => {
       }, 1500);
 
     } catch (error) {
-      console.error('Checkout error:', error);
       const message = error?.message || error?.error_description || "Error al procesar el pedido. Intenta nuevamente.";
       setViewState(v => ({ ...v, isSaving: false, error: message }));
     }
@@ -344,6 +349,7 @@ const CartModal = React.memo(() => {
                     onSubmit={handleSendOrder}
                     isSaving={viewState.isSaving}
                     validation={validation}
+                    showFieldErrors={showFieldErrors}
                     cartTotal={cartTotal}
                     onBack={() => setViewState(v => ({ ...v, showPaymentInfo: false }))}
                     activeInfo={activeInfo}
@@ -364,8 +370,14 @@ const CartModal = React.memo(() => {
 const PaymentFlow = ({
   paymentType, setPaymentType, showForm, setShowForm,
   formData, onInputChange, onFileChange, onSubmit,
-  isSaving, validation, cartTotal, onBack, activeInfo
+  isSaving, validation, showFieldErrors, cartTotal, onBack, activeInfo
 }) => {
+
+  const phoneDigits = (formData.phone || '').replace(/\D/g, '').length;
+  const showNameError = showFieldErrors && !validation.name;
+  const showRutError = showFieldErrors && !validation.rut;
+  const showPhoneError = showFieldErrors && !validation.phone;
+  const showReceiptError = showFieldErrors && paymentType === 'online' && !validation.receipt;
   
   // 1. VISTA DE FORMULARIO DE DATOS
   if (paymentType && showForm) {
@@ -380,7 +392,11 @@ const PaymentFlow = ({
             value={formData.name}
             onChange={e => onInputChange('name', e.target.value)}
             className="form-input" placeholder="Tu nombre"
+            aria-invalid={showNameError}
           />
+          {showNameError && (
+            <p className="field-error">Nombre invalido. Usa solo letras y espacios.</p>
+          )}
         </div>
 
         <div className="form-row">
@@ -393,7 +409,11 @@ const PaymentFlow = ({
               className={`form-input ${!validation.rut && formData.rut.length > 3 ? 'input-error' : ''}`}
               placeholder="12.345.678-9"
               maxLength={12}
+              aria-invalid={showRutError}
             />
+            {showRutError && (
+              <p className="field-error">RUT invalido. Revisa el formato.</p>
+            )}
           </div>
           <div className="form-group">
             <label>Teléfono {validation.phone && <CheckCircle2 size={14} color="#25d366" />}</label>
@@ -402,7 +422,11 @@ const PaymentFlow = ({
               value={formData.phone}
               onChange={e => onInputChange('phone', e.target.value)}
               className="form-input"
+              aria-invalid={showPhoneError}
             />
+            {showPhoneError && (
+              <p className="field-error">Telefono incompleto. Usa el formato +56 9.</p>
+            )}
           </div>
         </div>
 
@@ -426,11 +450,21 @@ const PaymentFlow = ({
                 </div>
               )}
             </div>
+            {showReceiptError && (
+              <p className="field-error">Debes adjuntar el comprobante de transferencia.</p>
+            )}
           </div>
         )}
 
         <div className="form-actions-col mt-20">
-          <button type="submit" disabled={isSaving || !validation.isReady} className="btn btn-primary btn-block">
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              if (!validation.isReady) setShowFieldErrors(true);
+            }}
+          >
             {isSaving ? 'Enviando...' : 'Confirmar Pedido'}
           </button>
           <button type="button" className="btn btn-text btn-block" onClick={() => setShowForm(false)}>

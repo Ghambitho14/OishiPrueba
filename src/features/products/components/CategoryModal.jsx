@@ -3,7 +3,7 @@ import { X, Save, Loader2 } from 'lucide-react';
 import '../../../styles/Modals.css';
 import '../../../styles/CategoryModal.css';
 
-const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, saving = false }) => {
+const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOrder, saving = false }) => {
   const nameInputRef = useRef();
   const [isDirty, setIsDirty] = useState(false);
 
@@ -25,7 +25,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, saving = 
         } else {
           setFormData({
             name: '',
-            order: 0,
+            order: Number.isFinite(defaultOrder) ? defaultOrder : 0,
             is_active: true
           });
         }
@@ -33,7 +33,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, saving = 
         if (nameInputRef.current) nameInputRef.current.focus();
       }, 0);
     }
-  }, [isOpen, category]);
+  }, [isOpen, category, defaultOrder]);
 
   const handleSafeClose = useCallback(() => {
     if (isDirty && !saving) {
@@ -104,6 +104,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, saving = 
                 name="order"
                 value={formData.order}
                 onChange={handleChange}
+                min={1}
                 required
               />
               <small className="category-hint">

@@ -13,7 +13,6 @@ function getInitialBranch() {
     const hasValid = !!(parsed && parsed.id && typeof parsed.id === 'string' && parsed.id.length > 0);
     return { branch: hasValid ? parsed : null, hasValidBranch: hasValid };
   } catch (e) {
-    console.error("Error parsing saved branch:", e);
     return { branch: null, hasValidBranch: false };
   }
 }
@@ -56,7 +55,6 @@ export const LocationProvider = ({ children }) => {
           return prev;
         });
       } catch (err) {
-        console.error("Error loading all branches:", err);
       } finally {
         setLoadingBranches(false);
       }

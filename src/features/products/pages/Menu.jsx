@@ -37,8 +37,8 @@ const Menu = () => {
   
   const searchInputRef = useRef(null);
   const isManualScrolling = useRef(false);
+  const FIRE_ICON = 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif';
 
-  const FIRE_ICON_EMOJI = '🔥';
 
   // 1. Carga de datos optimizada (usa allBranches del contexto para evitar doble fetch)
   useEffect(() => {
@@ -55,7 +55,11 @@ const Menu = () => {
         }
 
         const [catsRes, prodsRes, pricesRes, statusRes] = await Promise.all([
-          supabase.from(TABLES.categories).select('*').eq('is_active', true).order('order', { ascending: true }),
+          supabase
+            .from(TABLES.categories)
+            .select('id, name, category_branch!inner(order, is_active, branch_id)')
+            .eq('category_branch.branch_id', selectedBranch.id)
+            .eq('category_branch.is_active', true),
           supabase.from(TABLES.products).select('*').order('name', { ascending: true }),
           supabase.from(TABLES.product_prices).select('*').eq('branch_id', selectedBranch.id),
           supabase.from(TABLES.product_branch).select('*').eq('branch_id', selectedBranch.id)
@@ -83,6 +87,7 @@ const Menu = () => {
 
           return {
             ...prod,
+            category_id: statusData?.category_id || prod.category_id,
             price: price,
             has_discount: priceData ? priceData.has_discount : false,
             discount_price: priceData ? Number(priceData.discount_price) : null,
@@ -91,7 +96,16 @@ const Menu = () => {
           };
         }).filter(p => p !== null);
 
-        const categoriesData = catsRes.data || [];
+        const categoriesData = (catsRes.data || [])
+          .map(cat => {
+            const branchInfo = Array.isArray(cat.category_branch) ? cat.category_branch[0] : null;
+            return {
+              id: cat.id,
+              name: cat.name,
+              order: branchInfo?.order ?? 0
+            };
+          })
+          .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
         
         setData({ categories: categoriesData, products: processedProducts, branches: branchesData || [] });
 
@@ -100,7 +114,6 @@ const Menu = () => {
         setActiveCategory(hasSpecial ? 'special' : categoriesData[0]?.id || null);
 
       } catch (error) {
-        console.error('Error cargando datos:', error);
       } finally {
         setLoading(false);
       }
@@ -111,12 +124,15 @@ const Menu = () => {
   // 2. Filtrado memoizado para rendimiento
   const { specialProducts, filteredBySearch, query } = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const promoIds = data.categories
+      .filter(cat => String(cat.name || '').trim().toLowerCase() === 'promociones')
+      .map(cat => cat.id);
     return {
-      specialProducts: data.products.filter(p => p.is_special),
+      specialProducts: data.products.filter(p => p.is_special && promoIds.includes(p.category_id)),
       filteredBySearch: q ? data.products.filter(p => p.name?.toLowerCase().includes(q)) : [],
       query: q
     };
-  }, [data.products, searchQuery]);
+  }, [data.products, data.categories, searchQuery]);
 
   // 3. Función de scroll memoizada
   const scrollToCategory = useCallback((id) => {
@@ -252,7 +268,7 @@ const Menu = () => {
                 id: 'special',
                 name: (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span role="img" aria-label="Destacado" style={{ fontSize: '14px' }}>{FIRE_ICON_EMOJI}</span>
+                    <img src={FIRE_ICON} style={{ width: '14px', height: '14px' }} alt="🔥" />
                     Solo por hoy
                   </div>
                 )
@@ -287,7 +303,7 @@ const Menu = () => {
         {!query && specialProducts.length > 0 && (
           <section id="section-special" className="category-section">
             <h2 className="category-title">
-              <span role="img" aria-label="Destacado" className="category-icon">{FIRE_ICON_EMOJI}</span>
+              <img src={FIRE_ICON} className="category-icon" alt="🔥" />
               Solo por hoy
             </h2>
             <div className="product-grid">

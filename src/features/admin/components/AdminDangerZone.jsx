@@ -122,7 +122,6 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
       downloadExcel(dataToExport, `Cierre_${year || '0000'}_${month || '00'}.xls`);
       showNotify('Reporte Excel generado', 'success');
     } catch (err) {
-      console.error(err);
       showNotify('Error al generar reporte: ' + err.message, 'error');
     } finally {
       setLoading(false);

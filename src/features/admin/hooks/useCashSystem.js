@@ -24,7 +24,6 @@ export const useCashSystem = (showNotify, branchId) => {
             if (error) throw error;
             setMovements(data || []);
         } catch (error) {
-            console.error('Error loading movements:', error);
             setMovements([]);
         } finally {
             setLoadingMovements(false);
@@ -68,7 +67,6 @@ export const useCashSystem = (showNotify, branchId) => {
                 setMovements([]);
             }
         } catch (error) {
-            console.error('Error loading active shift:', error);
             if (showNotify) showNotify('Error al cargar datos de caja', 'error');
         } finally {
             setLoading(false);
@@ -125,29 +123,10 @@ export const useCashSystem = (showNotify, branchId) => {
             return false;
         }
         try {
-            // Verificar si ya existe una caja abierta en esta sucursal
-            const { data: existing } = await supabase
-                .from(TABLES.cash_shifts)
-                .select('id')
-                .eq('status', 'open')
-                .eq('branch_id', branchId)
-                .maybeSingle();
-
-            if (existing) throw new Error("Ya existe una caja abierta en esta sucursal.");
-
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            const { data: newShift, error } = await supabase
-                .from(TABLES.cash_shifts)
-                .insert({
-                    opening_balance: amount,
-                    expected_balance: amount,
-                    opened_by: user?.id,
-                    status: 'open',
-                    branch_id: branchId // ASIGNACIÓN DE SUCURSAL
-                })
-                .select()
-                .single();
+            const { data: newShift, error } = await supabase.rpc('cash_open_shift', {
+                p_branch_id: branchId,
+                p_opening_balance: Number(amount) || 0
+            });
 
             if (error) throw error;
 
@@ -156,7 +135,6 @@ export const useCashSystem = (showNotify, branchId) => {
             if (showNotify) showNotify('Caja abierta con éxito');
             return true;
         } catch (error) {
-            console.error('Error opening shift:', error);
             if (showNotify) {
                 let msg = 'Error al abrir caja';
                 if (error.message?.includes('Ya existe')) {
@@ -193,7 +171,6 @@ export const useCashSystem = (showNotify, branchId) => {
             if (showNotify) showNotify('Caja cerrada correctamente');
             return true;
         } catch (error) {
-            console.error('Error closing shift:', error);
             if (showNotify) showNotify('Error al cerrar caja', 'error');
             return false;
         }
@@ -215,7 +192,7 @@ export const useCashSystem = (showNotify, branchId) => {
         // 2. Fallback Manual (Lectura -> Escritura) si no existe la función RPC
         // Si el error es 404 (función no encontrada), usamos el fallback silenciosamente
         if (rpcError.code !== 'PGRST202' && !rpcError.message?.includes('Could not find the function')) {
-            console.warn('RPC falló, usando fallback manual para caja:', rpcError.message);
+            // Sin logging: fallback silencioso
         }
         
         const { data: current, error: fetchError } = await supabase
@@ -274,35 +251,20 @@ export const useCashSystem = (showNotify, branchId) => {
                 throw new Error("Es obligatorio indicar el motivo del egreso (mínimo 3 letras).");
             }
 
-            const movement = {
-                shift_id: activeShift.id,
-                type,
-                amount: numericAmount,
-                description,
-                payment_method: paymentMethod
-            };
-            
-            const { error } = await supabase.from(TABLES.cash_movements).insert(movement);
+            const { error } = await supabase.rpc('cash_add_movement', {
+                p_shift_id: activeShift.id,
+                p_type: type,
+                p_amount: numericAmount,
+                p_description: description,
+                p_payment_method: paymentMethod,
+                p_order_id: null
+            });
             if (error) throw error;
-
-            // Actualizar expected_balance si es efectivo
-            if (paymentMethod === 'cash') {
-                const adjustment = type === 'expense' ? -numericAmount : numericAmount;
-                
-                // [MEJORA UX] Actualización optimista: Cambiar el número en pantalla inmediatamente
-                setActiveShift(prev => ({
-                    ...prev,
-                    expected_balance: (Number(prev.expected_balance) || 0) + adjustment
-                }));
-
-                await updateShiftBalance(activeShift.id, adjustment);
-            }
             
             await loadActiveShift();
             if (showNotify) showNotify(type === 'income' ? 'Ingreso registrado' : 'Egreso registrado');
             return true;
         } catch (error) {
-            console.error('Error adding movement:', error);
             if (showNotify) {
                 if (error.code === '42501') {
                     showNotify('Error de permisos (RLS) al registrar movimiento.', 'error');
@@ -320,7 +282,10 @@ export const useCashSystem = (showNotify, branchId) => {
     const registerSale = useCallback(async (order) => {
         // [ROBUSTEZ] Usar getTargetShift en lugar de depender solo de activeShift
         const targetShift = await getTargetShift(order.branch_id);
-        if (!targetShift) return; // Si no hay caja abierta en esa sucursal, no hacemos nada (o podríamos loguear error)
+        if (!targetShift) {
+            if (showNotify) showNotify('No hay caja abierta para esta sucursal', 'error');
+            return false;
+        }
 
         try {
             // [MEJORA ROBUSTEZ] Verificar balance neto de la orden en este turno
@@ -332,12 +297,12 @@ export const useCashSystem = (showNotify, branchId) => {
                 .eq('order_id', order.id);
 
             const saleAmount = Math.round(Number(order.total) || 0);
-            if (saleAmount <= 0) return; // No registrar ventas de valor 0 o inválidas
+            if (saleAmount <= 0) return false; // No registrar ventas de valor 0 o inválidas
 
             const currentNet = (movements || []).reduce((acc, m) => acc + (m.type === 'sale' ? m.amount : -m.amount), 0);
 
             // Si el balance neto ya es igual al total (o muy cercano), ya está registrada.
-            if (Math.abs(currentNet - saleAmount) < 5) return;
+            if (Math.abs(currentNet - saleAmount) < 5) return true;
 
             const movement = {
                 shift_id: targetShift.id,
@@ -347,21 +312,25 @@ export const useCashSystem = (showNotify, branchId) => {
                 payment_method: order.payment_type === 'online' ? 'online' : (order.payment_type === 'tarjeta' ? 'card' : 'cash'),
                 order_id: order.id
             };
-            
-            const { error } = await supabase.from(TABLES.cash_movements).insert(movement);
-            if (error) throw error;
 
-            // Actualizar balance si es efectivo
-            if (movement.payment_method === 'cash') {
-                 await updateShiftBalance(targetShift.id, saleAmount);
-            }
+            const { error } = await supabase.rpc('cash_add_movement', {
+                p_shift_id: movement.shift_id,
+                p_type: movement.type,
+                p_amount: movement.amount,
+                p_description: movement.description,
+                p_payment_method: movement.payment_method,
+                p_order_id: movement.order_id
+            });
+            if (error) throw error;
 
             // Solo recargar si el turno afectado es el que estamos viendo
             if (activeShift && activeShift.id === targetShift.id) {
                 await loadActiveShift();
             }
+            return true;
         } catch (error) {
-            console.error('Error registering sale in cash system:', error);
+            if (showNotify) showNotify('Error registrando venta en caja', 'error');
+            return false;
         }
     }, [activeShift, loadActiveShift, updateShiftBalance, getTargetShift]);
 
@@ -371,7 +340,10 @@ export const useCashSystem = (showNotify, branchId) => {
     const registerRefund = useCallback(async (order) => {
         // [ROBUSTEZ] Usar getTargetShift para devoluciones también
         const targetShift = await getTargetShift(order.branch_id);
-        if (!targetShift) return;
+        if (!targetShift) {
+            if (showNotify) showNotify('No hay caja abierta para esta sucursal', 'error');
+            return false;
+        }
 
         try {
             // [MEJORA ROBUSTEZ] Verificar si ya está reembolsada (Neto ~ 0)
@@ -382,12 +354,12 @@ export const useCashSystem = (showNotify, branchId) => {
                 .eq('order_id', order.id);
 
             const refundAmount = Math.round(Number(order.total) || 0);
-            if (refundAmount <= 0) return;
+            if (refundAmount <= 0) return false;
 
             const currentNet = (movements || []).reduce((acc, m) => acc + (m.type === 'sale' ? m.amount : -m.amount), 0);
             
             // Si el balance neto es 0 (o negativo), ya está reembolsada o nunca se cobró.
-            if (currentNet <= 5) return;
+            if (currentNet <= 5) return true;
 
             const movement = {
                 shift_id: targetShift.id,
@@ -398,20 +370,24 @@ export const useCashSystem = (showNotify, branchId) => {
                 order_id: order.id
             };
 
-            const { error } = await supabase.from(TABLES.cash_movements).insert(movement);
+            const { error } = await supabase.rpc('cash_add_movement', {
+                p_shift_id: movement.shift_id,
+                p_type: movement.type,
+                p_amount: movement.amount,
+                p_description: movement.description,
+                p_payment_method: movement.payment_method,
+                p_order_id: movement.order_id
+            });
             if (error) throw error;
-
-            if (movement.payment_method === 'cash') {
-                 await updateShiftBalance(targetShift.id, -refundAmount);
-            }
 
             if (activeShift && activeShift.id === targetShift.id) {
                 await loadActiveShift();
             }
             if (showNotify) showNotify('Devolución registrada en caja', 'success');
+            return true;
         } catch (error) {
-            console.error('Error registrando devolución en caja:', error);
             if (showNotify) showNotify('Error registrando devolución', 'error');
+            return false;
         }
     }, [activeShift, showNotify, loadActiveShift, updateShiftBalance, getTargetShift]);
 

@@ -234,7 +234,6 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
             if (onClose) onClose();
 
         } catch (error) {
-            console.error(error);
             showNotify(error.message || 'Error al crear pedido', 'error');
         } finally {
             setLoading(false);

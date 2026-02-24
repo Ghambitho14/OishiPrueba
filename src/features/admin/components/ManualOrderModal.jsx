@@ -108,7 +108,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 
         const handleAddClick = (e) => {
             e.stopPropagation();
-            try { addItem(p); } catch (error) { console.error('Error calling addItem:', error); }
+            try { addItem(p); } catch {}
         };
 
         return (

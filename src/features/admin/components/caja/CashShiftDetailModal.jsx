@@ -13,7 +13,6 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
             const data = await cashService.getShiftMovements(shift.id);
             setMovements(data || []);
         } catch (error) {
-            console.error('Error cargando movimientos históricos:', error);
             setMovements([]);
         } finally {
             setLoading(false);

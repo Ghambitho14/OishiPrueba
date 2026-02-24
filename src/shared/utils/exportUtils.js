@@ -5,7 +5,6 @@
  */
 export const downloadCSV = (data, filename = 'reporte.csv') => {
 	if (!data || !data.length) {
-		console.warn('No hay datos para exportar');
 		return;
 	}
 
@@ -49,7 +48,6 @@ export const downloadCSV = (data, filename = 'reporte.csv') => {
  */
 export const downloadExcel = (data, filename = 'reporte.xls') => {
 	if (!data || !data.length) {
-		console.warn('No hay datos para exportar');
 		return;
 	}
 

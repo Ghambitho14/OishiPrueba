@@ -29,7 +29,8 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
             // Por ahora, para simplificar y ver el requerimiento del usuario (crear), 
             // marcamos la actual o todas.
             if (branchId === 'all') {
-                setSelectedBranchIds(branches.filter(b => b.id !== 'all').map(b => b.id));
+                const existing = Array.isArray(itemToEdit.branch_ids) ? itemToEdit.branch_ids : [];
+                setSelectedBranchIds(existing.length > 0 ? existing : branches.filter(b => b.id !== 'all').map(b => b.id));
             } else {
                 setSelectedBranchIds([branchId]);
             }
@@ -70,7 +71,15 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
                 cost_per_unit: formData.cost_per_unit
             };
 
-            const relevantBranches = branches.filter(b => b.id !== 'all' && selectedBranchIds.includes(b.id));
+            const relevantBranches = branchId === 'all'
+                ? branches.filter(b => b.id !== 'all' && selectedBranchIds.includes(b.id))
+                : branches.filter(b => b.id !== 'all' && b.id === branchId);
+
+            if (branchId === 'all' && relevantBranches.length === 0) {
+                showNotify('Selecciona al menos una sucursal.', 'error');
+                setLoading(false);
+                return;
+            }
             
             if (relevantBranches.length > 0) {
                 itemData.company_id = relevantBranches[0].company_id;
@@ -103,7 +112,6 @@ const InventoryItemModal = ({ isOpen, onClose, onItemSaved, itemToEdit = null, s
             onItemSaved();
             onClose();
         } catch (error) {
-            console.error('Error saving inventory item:', error);
             showNotify('Error al guardar insumo', 'error');
         } finally {
             setLoading(false);

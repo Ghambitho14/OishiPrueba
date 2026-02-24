@@ -24,7 +24,6 @@ const ProtectedRoute = ({ children }) => {
 
 			if (cancelled) return;
 			if (error) {
-				console.warn('Error verificando rol admin:', error.message);
 				setIsAdmin(false);
 			} else {
 				setIsAdmin(!!isAdmin);

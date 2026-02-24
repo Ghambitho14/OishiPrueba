@@ -56,11 +56,17 @@ const AdminInventory = ({ showNotify, branchId, branches }) => {
                     ? itemStocks.reduce((sum, s) => sum + (parseFloat(s.current_stock) || 0), 0)
                     : (parseFloat(stockEntry?.current_stock) || 0);
 
+                const totalMinStock = branchId === 'all'
+                    ? itemStocks.reduce((sum, s) => sum + (parseFloat(s.min_stock) || 0), 0)
+                    : (parseFloat(stockEntry?.min_stock) || parseFloat(item.min_stock) || 0);
+
                 return { 
                     ...item, 
                     stock: totalStock, 
+                    min_stock: totalMinStock,
                     branch_relation_id: stockEntry?.id,
-                    existsInBranch: !!stockEntry || branchId === 'all'
+                    existsInBranch: !!stockEntry || branchId === 'all',
+                    branch_ids: itemStocks.map(s => s.branch_id)
                 };
             });
 

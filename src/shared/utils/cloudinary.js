@@ -72,7 +72,6 @@ export const uploadImage = async (file, folder = "oishi") => {
     const data = await response.json();
     return data.secure_url;
   } catch (error) {
-    console.error("Cloudinary Upload Error:", error);
     throw error;
   }
 };

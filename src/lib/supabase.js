@@ -5,9 +5,6 @@ const supabaseAnonKey = import.meta.env.VITE_PRUEBA_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   const msg = '[Supabase] Faltan VITE_PRUEBA_SUPABASE_URL o VITE_PRUEBA_SUPABASE_ANON_KEY en .env.local';
-  if (import.meta.env.DEV) {
-    console.error(msg);
-  }
   throw new Error(msg);
 }
 

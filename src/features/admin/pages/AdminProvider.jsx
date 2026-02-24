@@ -88,15 +88,11 @@ export const AdminProvider = ({ children }) => {
 					supabase.rpc('get_user_role')
 				]);
 				if (adminError || !isAdmin) {
-					console.warn('⚠️ ALERTA: Tu usuario no tiene permisos de administrador. Acceso denegado.');
 				setUserRole(null);
 				await supabase.auth.signOut();
 				navigate('/login');
 				showNotify('No tienes permisos de administrador', 'error');
 			} else {
-					if (roleError) {
-						console.warn('Error obteniendo rol de usuario:', roleError.message);
-					}
 					setUserRole(role || null);
 			}
 		};
@@ -130,8 +126,14 @@ export const AdminProvider = ({ children }) => {
 		else setLoading(true);
 		try {
 			const isAllBranches = selectedBranch.id === 'all';
+			const categoriesQuery = isAllBranches
+				? supabase.from(TABLES.categories).select('*').order('order')
+				: supabase
+					.from(TABLES.categories)
+					.select('id, name, company_id, category_branch!inner(order, is_active, branch_id)')
+					.eq('category_branch.branch_id', selectedBranch.id);
 			const promises = [
-				supabase.from(TABLES.categories).select('*').order('order'),
+				categoriesQuery,
 				supabase.from(TABLES.products).select('*').order('name'),
 				isAllBranches
 					? supabase.from(TABLES.orders).select('*').order('created_at', { ascending: false }).limit(100)
@@ -167,6 +169,7 @@ export const AdminProvider = ({ children }) => {
 					discount_price: priceData ? priceData.discount_price : 0,
 					is_active: statusData ? statusData.is_active : false,
 					is_special: statusData ? statusData.is_special : false,
+					category_id: statusData?.category_id || prod.category_id,
 					price_id: priceData?.id,
 					branch_relation_id: statusData?.id
 				};
@@ -174,12 +177,22 @@ export const AdminProvider = ({ children }) => {
 			const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
 			const clientIdsInOrders = new Set(cleanOrders.map(o => o.client_id).filter(Boolean));
 			const filteredClients = (cltsRes.data || []).filter(c => clientIdsInOrders.has(c.id));
-			setCategories(catsRes.data || []);
+			const categoriesData = (catsRes.data || []).map(cat => {
+				if (isAllBranches) return cat;
+				const branchInfo = Array.isArray(cat.category_branch) ? cat.category_branch[0] : null;
+				return {
+					id: cat.id,
+					name: cat.name,
+					company_id: cat.company_id,
+					order: branchInfo?.order ?? 0,
+					is_active: branchInfo?.is_active ?? false
+				};
+			}).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+			setCategories(categoriesData);
 			setProducts(mergedProducts);
 			setOrders(cleanOrders);
 			setClients(filteredClients);
 		} catch (error) {
-			console.error("Error cargando datos:", error);
 			showNotify("Error de conexión", 'error');
 		} finally {
 			setLoading(false);
@@ -255,14 +268,22 @@ export const AdminProvider = ({ children }) => {
 		try {
 			const { error } = await supabase.from(TABLES.orders).update({ status: nextStatus }).eq('id', orderId);
 			if (error) throw error;
-			if ((nextStatus === 'completed' || nextStatus === 'picked_up') && activeTab === 'orders') {
+			if (nextStatus === 'completed' || nextStatus === 'picked_up') {
 				const targetOrder = previousOrders.find(o => o.id === orderId);
-				if (targetOrder) cashSystem.registerSale(targetOrder);
+				if (targetOrder) {
+					const ok = await cashSystem.registerSale(targetOrder);
+					if (!ok) {
+						showNotify('No se pudo registrar la venta en caja', 'error');
+					}
+				}
 			}
 			if (nextStatus === 'cancelled') {
 				const targetOrder = previousOrders.find(o => o.id === orderId);
 				if (targetOrder && (targetOrder.status === 'completed' || targetOrder.status === 'picked_up')) {
-					cashSystem.registerRefund(targetOrder);
+					const ok = await cashSystem.registerRefund(targetOrder);
+					if (!ok) {
+						showNotify('No se pudo registrar la devolucion en caja', 'error');
+					}
 				}
 			}
 			showNotify('Pedido actualizado');
@@ -311,47 +332,29 @@ export const AdminProvider = ({ children }) => {
 
 	const handleSaveProduct = useCallback(async (formData, localFile) => {
 		if (!selectedBranch) return;
+		if (selectedBranch.id === 'all') {
+			showNotify('Selecciona una sucursal para crear o editar productos', 'error');
+			return;
+		}
 		setRefreshing(true);
 		try {
 			let finalImageUrl = formData.image_url;
 			if (localFile) finalImageUrl = await uploadImage(localFile, 'menu');
-			const isAllBranches = selectedBranch.id === 'all';
-			const productPayload = {
-				name: formData.name,
-				description: formData.description,
-				category_id: formData.category_id,
-				image_url: finalImageUrl,
-				is_special: formData.is_special || false,
-				is_active: editingProduct ? editingProduct.is_active : true
-			};
-			if (!isAllBranches) productPayload.company_id = selectedBranch.company_id;
-			else if (branches.length > 0) productPayload.company_id = branches[0].company_id;
-			let productId = editingProduct?.id;
-			if (editingProduct) {
-				await supabase.from(TABLES.products).update(productPayload).eq('id', productId);
-			} else {
-				const { data: newProd, error } = await supabase.from(TABLES.products).insert(productPayload).select().single();
-				if (error) throw error;
-				productId = newProd.id;
-			}
-			const branchesToUpdate = isAllBranches ? branches : [selectedBranch];
-			for (const branch of branchesToUpdate) {
-				await supabase.from(TABLES.product_prices).upsert({
-					product_id: productId,
-					branch_id: branch.id,
-					company_id: branch.company_id,
-					price: Number(formData.price) || 0,
-					has_discount: formData.has_discount || false,
-					discount_price: formData.has_discount ? (Number(formData.discount_price) || 0) : null,
-					is_active: true
-				}, { onConflict: 'product_id, branch_id' });
-				await supabase.from(TABLES.product_branch).upsert({
-					product_id: productId,
-					branch_id: branch.id,
-					is_active: editingProduct ? editingProduct.is_active : true,
-					is_special: formData.is_special || false
-				}, { onConflict: 'product_id, branch_id' });
-			}
+			const { data: productId, error } = await supabase.rpc('admin_upsert_product_with_branch', {
+				p_product_id: editingProduct?.id || null,
+				p_name: formData.name,
+				p_description: formData.description,
+				p_image_url: finalImageUrl,
+				p_category_id: formData.category_id || null,
+				p_branch_id: selectedBranch.id,
+				p_price: Number(formData.price) || 0,
+				p_has_discount: formData.has_discount || false,
+				p_discount_price: formData.has_discount ? (Number(formData.discount_price) || 0) : null,
+				p_is_active: editingProduct ? Boolean(editingProduct.is_active) : true,
+				p_is_special: formData.is_special || false
+			});
+			if (error) throw error;
+			if (!productId) throw new Error('No se pudo guardar el producto');
 			showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
 			setIsModalOpen(false);
 			loadData(true);
@@ -360,7 +363,7 @@ export const AdminProvider = ({ children }) => {
 		} finally {
 			setRefreshing(false);
 		}
-	}, [selectedBranch, branches, editingProduct, showNotify, loadData]);
+	}, [selectedBranch, editingProduct, showNotify, loadData]);
 
 	const deleteProduct = useCallback((id) => setProductToDelete(id), []);
 
@@ -369,9 +372,9 @@ export const AdminProvider = ({ children }) => {
 		const id = productToDelete;
 		setProductToDelete(null);
 		try {
-			await supabase.from(TABLES.product_prices).delete().eq('product_id', id);
-			await supabase.from(TABLES.product_branch).delete().eq('product_id', id);
-			const { error } = await supabase.from(TABLES.products).delete().eq('id', id);
+			const { error } = await supabase.rpc('admin_delete_product_with_branch', {
+				p_product_id: id
+			});
 			if (error) throw error;
 			showNotify("Producto eliminado correctamente");
 			loadData(true);
@@ -413,18 +416,45 @@ export const AdminProvider = ({ children }) => {
 	}, [scopeModal, selectedBranch, showNotify, loadData]);
 
 	const handleSaveCategory = useCallback(async (formData) => {
+		if (!selectedBranch || selectedBranch.id === 'all') {
+			showNotify('Selecciona una sucursal para gestionar categorías', 'error');
+			return;
+		}
 		try {
-			const payload = {
-				name: formData.name,
-				order: Number(formData.order) || 0,
-				is_active: formData.is_active
-			};
-			if (selectedBranch && selectedBranch.id !== 'all') payload.company_id = selectedBranch.company_id;
-			else if (branches.length > 0) payload.company_id = branches[0].company_id;
+			const orderValue = Number(formData.order);
+			const normalizedOrder = Number.isFinite(orderValue) && orderValue > 0 ? orderValue : null;
 			if (editingCategory) {
-				await supabase.from(TABLES.categories).update(payload).eq('id', editingCategory.id);
+				const { error } = await supabase
+					.from(TABLES.categories)
+					.update({ name: formData.name })
+					.eq('id', editingCategory.id);
+				if (error) throw error;
+
+				const { error: statusError } = await supabase
+					.from(TABLES.category_branch)
+					.upsert({
+						category_id: editingCategory.id,
+						branch_id: selectedBranch.id,
+						is_active: formData.is_active
+					}, { onConflict: 'category_id, branch_id' });
+				if (statusError) throw statusError;
+
+				if (normalizedOrder && normalizedOrder !== editingCategory.order) {
+					const { error: reorderError } = await supabase.rpc('admin_set_category_order', {
+						p_branch_id: selectedBranch.id,
+						p_category_id: editingCategory.id,
+						p_new_order: normalizedOrder
+					});
+					if (reorderError) throw reorderError;
+				}
 			} else {
-				await supabase.from(TABLES.categories).insert(payload);
+				const { error } = await supabase.rpc('admin_create_category_with_overrides', {
+					p_name: formData.name,
+					p_branch_id: selectedBranch.id,
+					p_order: normalizedOrder,
+					p_is_active: formData.is_active
+				});
+				if (error) throw error;
 			}
 			setIsCategoryModalOpen(false);
 			loadData(true);
@@ -432,7 +462,40 @@ export const AdminProvider = ({ children }) => {
 		} catch (error) {
 			showNotify('Error al guardar: ' + error.message, 'error');
 		}
-	}, [selectedBranch, branches, editingCategory, showNotify, loadData]);
+	}, [selectedBranch, editingCategory, showNotify, loadData]);
+
+	const reorderCategories = useCallback(async (orderedIds) => {
+		if (!selectedBranch || selectedBranch.id === 'all') return;
+		if (!Array.isArray(orderedIds) || orderedIds.length === 0) return;
+		setCategories(prev => {
+			const orderMap = new Map(orderedIds.map((id, index) => [id, index + 1]));
+			return prev.map(cat => orderMap.has(cat.id) ? { ...cat, order: orderMap.get(cat.id) } : cat);
+		});
+		const { error } = await supabase.rpc('admin_reorder_categories', {
+			p_branch_id: selectedBranch.id,
+			p_category_ids: orderedIds
+		});
+		if (error) {
+			showNotify('No se pudo reordenar categorías', 'error');
+			loadData(true);
+		}
+	}, [selectedBranch, showNotify, loadData]);
+
+	const toggleCategoryActive = useCallback(async (categoryId, nextValue) => {
+		if (!selectedBranch || selectedBranch.id === 'all') return;
+		setCategories(prev => prev.map(cat => cat.id === categoryId ? { ...cat, is_active: nextValue } : cat));
+		const { error } = await supabase
+			.from(TABLES.category_branch)
+			.upsert({
+				category_id: categoryId,
+				branch_id: selectedBranch.id,
+				is_active: nextValue
+			}, { onConflict: 'category_id, branch_id' });
+		if (error) {
+			showNotify('No se pudo actualizar la categoría', 'error');
+			loadData(true);
+		}
+	}, [selectedBranch, showNotify, loadData]);
 
 	const deleteCategory = useCallback((cat) => {
 		setCategoryToDelete(cat);
@@ -533,6 +596,8 @@ export const AdminProvider = ({ children }) => {
 		categoryToDelete,
 		setCategoryToDelete,
 		confirmDeleteCategory,
+		toggleCategoryActive,
+		reorderCategories,
 		kanbanColumns,
 		processedProducts,
 		productStats,
@@ -548,7 +613,7 @@ export const AdminProvider = ({ children }) => {
 		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, cashSystem,
 		loadData, refreshBranches, handleSelectClient, moveOrder, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
-		deleteCategory, categoryToDelete, confirmDeleteCategory,
+		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,
 		kanbanColumns, processedProducts, productStats, userEmail, productToDelete, confirmDeleteProduct,
 	]);
 

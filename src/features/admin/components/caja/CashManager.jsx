@@ -56,7 +56,6 @@ const CashManager = ({ showNotify, selectedBranchId }) => {
             const data = await getPastShifts();
             setPastShifts(data || []);
         } catch (err) {
-            console.error('loadHistory error:', err);
             showNotify('Error al cargar historial', 'error');
         } finally {
             setLoadingHistory(false);

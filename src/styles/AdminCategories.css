@@ -164,6 +164,18 @@
     animation: slideUpFadeIn 0.5s ease-out forwards;
 }
 
+.admin-layout .cat-card.is-dragging {
+    opacity: 0.6;
+    border-style: dashed;
+    cursor: grabbing;
+    transform: scale(0.99);
+}
+
+.admin-layout .cat-card.is-drop-target {
+    outline: 2px dashed var(--cat-accent-color);
+    outline-offset: 3px;
+}
+
 .admin-layout .cat-card::before {
     content: '';
     position: absolute;
@@ -265,12 +277,31 @@
     flex: 1;
 }
 
+.admin-layout .cat-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .admin-layout .cat-name {
     font-size: 1.2rem;
     font-weight: 800;
     color: #fff;
     margin: 0;
     line-height: 1.2;
+}
+
+.admin-layout .cat-order-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--cat-accent-color);
+    background: rgba(var(--cat-accent-color-rgb), 0.15);
+    border: 1px solid rgba(var(--cat-accent-color-rgb), 0.35);
+    padding: 4px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
 }
 
 /* --- STATS --- */

@@ -85,7 +85,69 @@ const AdminPage = () => {
     productToDelete,
     setProductToDelete,
     confirmDeleteProduct,
+    reorderCategories,
+    toggleCategoryActive,
   } = useAdmin();
+
+  const nextCategoryOrder = React.useMemo(() => {
+    const maxOrder = categories.reduce((maxValue, cat) => {
+      const value = Number(cat.order);
+      if (!Number.isFinite(value)) return maxValue;
+      return Math.max(maxValue, value);
+    }, 0);
+    return maxOrder + 1;
+  }, [categories]);
+
+  const sortedCategories = React.useMemo(() => (
+    [...categories].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+  ), [categories]);
+
+  const [dragCategoryId, setDragCategoryId] = React.useState(null);
+  const [dragOverCategoryId, setDragOverCategoryId] = React.useState(null);
+  const dragEnabled = !isMobile;
+
+  const handleDragStart = (categoryId) => {
+    setDragCategoryId(categoryId);
+  };
+
+  const handleDragOver = (event, categoryId) => {
+    event.preventDefault();
+    if (categoryId !== dragOverCategoryId) {
+      setDragOverCategoryId(categoryId);
+    }
+  };
+
+  const handleDragLeave = (categoryId) => {
+    if (dragOverCategoryId === categoryId) {
+      setDragOverCategoryId(null);
+    }
+  };
+
+  const handleDrop = async (event, categoryId) => {
+    event.preventDefault();
+    if (!dragCategoryId || dragCategoryId === categoryId) {
+      setDragCategoryId(null);
+      setDragOverCategoryId(null);
+      return;
+    }
+
+    const ids = sortedCategories.map(cat => cat.id);
+    const fromIndex = ids.indexOf(dragCategoryId);
+    const toIndex = ids.indexOf(categoryId);
+    if (fromIndex === -1 || toIndex === -1) {
+      setDragCategoryId(null);
+      setDragOverCategoryId(null);
+      return;
+    }
+
+    const nextIds = [...ids];
+    const [moved] = nextIds.splice(fromIndex, 1);
+    nextIds.splice(toIndex, 0, moved);
+
+    await reorderCategories(nextIds);
+    setDragCategoryId(null);
+    setDragOverCategoryId(null);
+  };
 
   if (loading && !refreshing && products.length === 0 && orders.length === 0) return (
     <div className="admin-layout flex-center" style={{ height: '100vh', background: '#0a0a0a', flexDirection: 'column', gap: 20 }}>
@@ -201,10 +263,24 @@ const AdminPage = () => {
               </>
             )}
             {activeTab === 'products' && (
-              <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="btn btn-primary"><Plus size={18} /> Nuevo Plato</button>
+              <button
+                onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+                className="btn btn-primary"
+                disabled={!selectedBranch || selectedBranch.id === 'all'}
+                title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
+              >
+                <Plus size={18} /> Nuevo Plato
+              </button>
             )}
             {activeTab === 'categories' && (
-              <button onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }} className="btn btn-primary"><Plus size={18} /> Nueva Categ.</button>
+              <button
+                onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
+                className="btn btn-primary"
+                disabled={!selectedBranch || selectedBranch.id === 'all'}
+                title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
+              >
+                <Plus size={18} /> Nueva Categ.
+              </button>
             )}
           </div>
         </header>
@@ -350,15 +426,29 @@ const AdminPage = () => {
               </div>
               <div className="cat-header-actions">
                 {categories.length > 0 && (
-                  <button onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true) }} className="btn btn-primary">
+                  <button
+                    onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true) }}
+                    className="btn btn-primary"
+                    disabled={!selectedBranch || selectedBranch.id === 'all'}
+                    title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
+                  >
                     <Plus size={18} /> Nueva Categoría
                   </button>
                 )}
               </div>
             </div>
             
+            {(!selectedBranch || selectedBranch.id === 'all') ? (
+              <div className="cat-empty-state">
+                <div className="cat-empty-icon">
+                  <List size={48} />
+                </div>
+                <h3 className="cat-empty-title">Selecciona una sucursal</h3>
+                <p className="cat-empty-text">El orden y activación de categorías es por local.</p>
+              </div>
+            ) : (
             <div className="cat-grid">
-              {categories.map(c => {
+              {sortedCategories.map(c => {
                 const categoryProducts = products.filter(p => p.category_id === c.id);
                 const activeProducts = categoryProducts.filter(p => p.is_active);
                 const totalRevenue = orders
@@ -375,19 +465,39 @@ const AdminPage = () => {
                   }, 0);
                 
                 return (
-                  <div key={c.id} className="cat-card glass">
+                  <div
+                    key={c.id}
+                    className={`cat-card glass${dragCategoryId === c.id ? ' is-dragging' : ''}${dragOverCategoryId === c.id ? ' is-drop-target' : ''}`}
+                    draggable={dragEnabled}
+                    onDragStart={dragEnabled ? () => handleDragStart(c.id) : undefined}
+                    onDragEnd={dragEnabled ? () => { setDragCategoryId(null); setDragOverCategoryId(null); } : undefined}
+                    onDragOver={dragEnabled ? (event) => handleDragOver(event, c.id) : undefined}
+                    onDragLeave={dragEnabled ? () => handleDragLeave(c.id) : undefined}
+                    onDrop={dragEnabled ? (event) => handleDrop(event, c.id) : undefined}
+                  >
                     <div className="cat-card-header">
                       <div className="cat-icon-wrapper">
                         <Tag size={24} />
                       </div>
-                      <div className="cat-status-badge">
+                      <button
+                        type="button"
+                        className="cat-status-badge cat-status-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleCategoryActive(c.id, !c.is_active);
+                        }}
+                        title={c.is_active ? 'Desactivar categoría' : 'Activar categoría'}
+                      >
                         <span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`}></span>
                         <span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
-                      </div>
+                      </button>
                     </div>
                     
                     <div className="cat-card-body">
-                      <h3 className="cat-name">{c.name}</h3>
+                      <div className="cat-name-row">
+                        <h3 className="cat-name">{c.name}</h3>
+                        <span className="cat-order-badge">#{Number(c.order) || 0}</span>
+                      </div>
                       
                       <div className="cat-stats">
                         <div className="cat-stat">
@@ -427,7 +537,10 @@ const AdminPage = () => {
                         Editar
                       </button>
                       <button 
-                        onClick={() => setActiveTab('products')}
+                        onClick={() => {
+                          setFilterCategory(c.id);
+                          setActiveTab('products');
+                        }}
                         className="cat-btn-view"
                       >
                         <ShoppingBag size={16} />
@@ -463,6 +576,7 @@ const AdminPage = () => {
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
 
@@ -604,7 +718,13 @@ const AdminPage = () => {
         actionType={scopeModal.item?.is_active ? 'deactivate' : 'activate'}
       />
 
-      <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} onSave={handleSaveCategory} category={editingCategory} />
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSave={handleSaveCategory}
+        category={editingCategory}
+        defaultOrder={editingCategory ? editingCategory.order : nextCategoryOrder}
+      />
     </div>
   );
 };

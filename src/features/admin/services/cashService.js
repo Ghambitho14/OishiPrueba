@@ -62,32 +62,13 @@ export const cashService = {
 	 * @param {string} [branchId] - Si se pasa, la validación y el insert son por sucursal.
 	 */
 	openShift: async (openingBalance, userId, branchId = null) => {
-		const table = supabase.from(TABLES.cash_shifts);
-		let checkQuery = table.select('id').eq('status', 'open');
-		if (branchId) checkQuery = checkQuery.eq('branch_id', branchId);
-		const { data: existingShift, error: checkError } = await checkQuery.maybeSingle();
-
-		if (checkError) throw new Error('Error al verificar estado de caja: ' + checkError.message);
-		if (existingShift) {
-			throw new Error(branchId
-				? 'Ya existe una caja abierta en esta sucursal.'
-				: 'Ya existe un turno de caja abierto en el sistema.');
+		if (!branchId) {
+			throw new Error('Sucursal requerida para abrir caja.');
 		}
-
-		const insertPayload = {
-			opening_balance: openingBalance,
-			expected_balance: openingBalance,
-			opened_by: userId,
-			status: 'open'
-		};
-		if (branchId) insertPayload.branch_id = branchId;
-
-		const { data, error } = await supabase
-			.from(TABLES.cash_shifts)
-			.insert(insertPayload)
-			.select()
-			.single();
-
+		const { data, error } = await supabase.rpc('cash_open_shift', {
+			p_branch_id: branchId,
+			p_opening_balance: Number(openingBalance) || 0
+		});
 		if (error) throw error;
 		return data;
 	},
@@ -119,47 +100,20 @@ export const cashService = {
 	 * Intenta actualizar saldo vía RPC (atómico); si no existe, usa fallback lectura+escritura.
 	 */
 	addMovement: async (movement) => {
-		const { data: newMovement, error: moveError } = await supabase
-			.from(TABLES.cash_movements)
-			.insert(movement)
-			.select()
-			.single();
-
-		if (moveError) throw moveError;
-
-		if (movement.payment_method === 'cash') {
-			const numericAmount = Number(movement.amount);
-			if (isNaN(numericAmount)) return newMovement;
-
-			const amountChange = movement.type === 'expense' ? -numericAmount : numericAmount;
-
-			const { error: rpcError } = await supabase.rpc('increment_expected_balance', {
-				shift_id: movement.shift_id,
-				amount: amountChange
-			});
-
-			if (rpcError) {
-				try {
-					const { data: shiftData } = await supabase
-						.from(TABLES.cash_shifts)
-						.select('expected_balance')
-						.eq('id', movement.shift_id)
-						.single();
-
-					if (shiftData) {
-						const currentBalance = Number(shiftData.expected_balance) || 0;
-						await supabase
-							.from(TABLES.cash_shifts)
-							.update({ expected_balance: currentBalance + amountChange })
-							.eq('id', movement.shift_id);
-					}
-				} catch (err) {
-					console.error('Error al actualizar saldo esperado:', err);
-				}
-			}
+		const numericAmount = Number(movement.amount);
+		if (isNaN(numericAmount) || numericAmount <= 0) {
+			throw new Error('Monto invalido para movimiento de caja.');
 		}
-
-		return newMovement;
+		const { data, error } = await supabase.rpc('cash_add_movement', {
+			p_shift_id: movement.shift_id,
+			p_type: movement.type,
+			p_amount: numericAmount,
+			p_description: movement.description,
+			p_payment_method: movement.payment_method,
+			p_order_id: movement.order_id || null
+		});
+		if (error) throw error;
+		return data;
 	},
 
 	getShiftMovements: async (shiftId) => {

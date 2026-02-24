@@ -47,9 +47,6 @@ export const ordersService = {
             const totalToUse = Math.abs(calculatedTotal - orderData.total) > 50
                 ? calculatedTotal
                 : orderData.total;
-            if (Math.abs(calculatedTotal - orderData.total) > 50) {
-                console.warn(`⚠️ Discrepancia de precio detectada. Recibido: ${orderData.total}, Calculado: ${calculatedTotal}. Se aplicará el calculado.`);
-            }
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
@@ -58,7 +55,6 @@ export const ordersService = {
                 try {
                     receiptUrl = await uploadImage(receiptFile, 'receipts');
                 } catch (uploadErr) {
-                    console.warn('No se pudo subir comprobante, se guarda el pedido sin URL:', uploadErr);
                     receiptUploadFailed = true;
                 }
             }
@@ -94,7 +90,6 @@ export const ordersService = {
 
             return { order: newOrder, receiptUploadFailed };
         } catch (error) {
-            console.error('Error in ordersService.createOrder:', error);
             throw error;
         }
     }
