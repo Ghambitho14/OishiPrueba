@@ -62,6 +62,7 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
   }, [isDangerModalOpen]);
 
   const handleExportMonthlyCsv = async () => {
+    if (loading) return;
     // 1. Calcular rango de fechas
     const range = getMonthRangeUtc(analyticsDate);
     if (!range) {
@@ -129,7 +130,13 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
   };
 
   const executeDangerAction = async () => {
+    if (loading) return;
     const trimmedEmail = dangerUserName.trim();
+    if (!dangerAction) {
+      setDangerError('Selecciona una acción válida');
+      return;
+    }
+
     if (!trimmedEmail || !dangerPassword) {
       setDangerError('Ingresa credenciales de administrador');
       return;
@@ -154,6 +161,19 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
         return;
       }
 
+      const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
+      if (adminError || !isAdmin) {
+        setDangerError('Solo administradores pueden ejecutar esta acción');
+        if (currentSession && currentSession.user?.email !== trimmedEmail) {
+          await supabase.auth.setSession({
+            access_token: currentSession.access_token,
+            refresh_token: currentSession.refresh_token
+          });
+        }
+        setLoading(false);
+        return;
+      }
+
       if (dangerAction === 'monthlyOrders') {
         const range = getMonthRangeUtc(analyticsDate);
         if (!range) {
@@ -162,36 +182,14 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
 
         const isSingleBranch = selectedBranch && selectedBranch.id && selectedBranch.id !== 'all';
 
-        // 1. Borrar movimientos de caja del mes (por sucursal si hay una seleccionada)
-        if (isSingleBranch) {
-          const { data: branchShifts } = await supabase
-            .from(TABLES.cash_shifts)
-            .select('id')
-            .eq('branch_id', selectedBranch.id);
-          const shiftIds = (branchShifts || []).map(s => s.id);
-          if (shiftIds.length > 0) {
-            const { error: cashError } = await supabase.from(TABLES.cash_movements).delete()
-              .in('shift_id', shiftIds)
-              .gte('created_at', range.startIso)
-              .lt('created_at', range.endIso);
-            if (cashError) throw cashError;
-          }
-        } else {
-          const { error: cashError } = await supabase.from(TABLES.cash_movements).delete()
-            .gte('created_at', range.startIso).lt('created_at', range.endIso);
-          if (cashError) throw cashError;
-        }
-
-        // 2. Borrar las órdenes (por sucursal si hay una seleccionada)
-        let orderQuery = supabase.from(TABLES.orders).delete()
-          .gte('created_at', range.startIso).lt('created_at', range.endIso);
-        if (isSingleBranch) {
-          orderQuery = orderQuery.eq('branch_id', selectedBranch.id);
-        }
-        const { error, data: deletedOrders } = await orderQuery.select();
-
+        const { data, error } = await supabase.rpc('admin_delete_monthly_data', {
+          p_start: range.startIso,
+          p_end: range.endIso,
+          p_branch_id: isSingleBranch ? selectedBranch.id : null
+        });
         if (error) throw error;
-        const count = deletedOrders?.length ?? 0;
+        const result = Array.isArray(data) ? data[0] : data;
+        const count = result?.deleted_orders ?? 0;
         showNotify(isSingleBranch
           ? `${count} registros del mes eliminados (sucursal ${selectedBranch.name})`
           : `${count} registros del mes eliminados (todas las sucursales)`,
@@ -199,12 +197,13 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
 
       } else if (dangerAction === 'allClients') {
         // [MEJORA] Manejo de error de llave foránea (FK)
-        const { count, error } = await supabase.from(TABLES.clients).delete().neq('phone', '0000').select('*', { count: 'exact' });
+        const { data, error } = await supabase.rpc('admin_purge_clients');
         if (error) {
-            if (error.code === '23503') throw new Error('No se pueden borrar clientes con pedidos asociados.');
-            throw error;
+          if (error.code === '23503') throw new Error('No se pueden borrar clientes con pedidos asociados.');
+          throw error;
         }
-        showNotify(`Base de clientes purgada (${count || 0} registros)`, 'success');
+        const result = Array.isArray(data) ? data[0] : data;
+        showNotify(`Base de clientes purgada (${result?.deleted_clients || 0} registros)`, 'success');
       }
 
       // Cerrar modal solo después de éxito
@@ -401,7 +400,7 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
                   placeholder="admin@ejemplo.com" 
                   value={dangerUserName} 
                   onChange={e => setDangerUserName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && executeDangerAction()}
+                  onKeyDown={e => e.key === 'Enter' && !loading && executeDangerAction()}
                 />
               </div>
               <div className="form-group">
@@ -411,7 +410,7 @@ const AdminDangerZone = ({ orders, showNotify, loadData, isMobile, selectedBranc
                   className="form-input" 
                   value={dangerPassword} 
                   onChange={e => setDangerPassword(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && executeDangerAction()}
+                  onKeyDown={e => e.key === 'Enter' && !loading && executeDangerAction()}
                 />
               </div>
               {dangerError && <div style={{ color: '#ff4444', fontSize: '0.85rem', marginTop: 10 }}>{dangerError}</div>}

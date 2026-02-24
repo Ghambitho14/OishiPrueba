@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
-import { TABLES } from '../../../lib/supabaseTables';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute = ({ children }) => {
@@ -21,18 +20,14 @@ const ProtectedRoute = ({ children }) => {
 				return;
 			}
 
-			const { data: adminUser, error } = await supabase
-				.from(TABLES.admin_users)
-				.select('role')
-				.eq('email', nextSession.user.email)
-				.maybeSingle();
+			const { data: isAdmin, error } = await supabase.rpc('is_admin');
 
 			if (cancelled) return;
 			if (error) {
 				console.warn('Error verificando rol admin:', error.message);
 				setIsAdmin(false);
 			} else {
-				setIsAdmin(!!adminUser);
+				setIsAdmin(!!isAdmin);
 			}
 			setSession(nextSession);
 			setLoading(false);

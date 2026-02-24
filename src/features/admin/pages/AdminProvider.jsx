@@ -83,19 +83,21 @@ export const AdminProvider = ({ children }) => {
 				return;
 			}
 			setUserEmail(user.email);
-			const { data: adminUser } = await supabase
-				.from(TABLES.admin_users)
-				.select('role')
-				.eq('email', user.email)
-				.maybeSingle();
-			if (!adminUser) {
-				console.warn("⚠️ ALERTA: Tu usuario no está en la tabla 'admin_users'. Acceso denegado.");
+				const [{ data: isAdmin, error: adminError }, { data: role, error: roleError }] = await Promise.all([
+					supabase.rpc('is_admin'),
+					supabase.rpc('get_user_role')
+				]);
+				if (adminError || !isAdmin) {
+					console.warn('⚠️ ALERTA: Tu usuario no tiene permisos de administrador. Acceso denegado.');
 				setUserRole(null);
 				await supabase.auth.signOut();
 				navigate('/login');
 				showNotify('No tienes permisos de administrador', 'error');
 			} else {
-				setUserRole(adminUser.role || null);
+					if (roleError) {
+						console.warn('Error obteniendo rol de usuario:', roleError.message);
+					}
+					setUserRole(role || null);
 			}
 		};
 		verifyAdminAccess();
