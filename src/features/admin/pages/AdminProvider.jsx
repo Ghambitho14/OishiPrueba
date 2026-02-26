@@ -405,7 +405,8 @@ export const AdminProvider = ({ children }) => {
 				await supabase.from(TABLES.product_branch).upsert({
 					product_id: item.id,
 					branch_id: selectedBranch.id,
-					is_active: newActive
+					is_active: newActive,
+					company_id: selectedBranch.company_id || null
 				}, { onConflict: 'product_id, branch_id' });
 				showNotify(newActive ? 'Activado en este local' : 'Desactivado en este local');
 			}
@@ -435,7 +436,8 @@ export const AdminProvider = ({ children }) => {
 					.upsert({
 						category_id: editingCategory.id,
 						branch_id: selectedBranch.id,
-						is_active: formData.is_active
+						is_active: formData.is_active,
+						company_id: selectedBranch.company_id || null
 					}, { onConflict: 'category_id, branch_id' });
 				if (statusError) throw statusError;
 
@@ -489,7 +491,8 @@ export const AdminProvider = ({ children }) => {
 			.upsert({
 				category_id: categoryId,
 				branch_id: selectedBranch.id,
-				is_active: nextValue
+				is_active: nextValue,
+				company_id: selectedBranch.company_id || null
 			}, { onConflict: 'category_id, branch_id' });
 		if (error) {
 			showNotify('No se pudo actualizar la categoría', 'error');

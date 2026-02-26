@@ -223,7 +223,8 @@ const CartModal = React.memo(() => {
         status: 'pending',
         receiptFile: formData.receiptFile,
         branch_id: currentBranch.id,
-        branch_name: currentBranch?.name || 'Desconocido'
+        branch_name: currentBranch?.name || 'Desconocido',
+        company_id: currentBranch?.company_id || null
       };
 
       const { receiptUploadFailed } = await ordersService.createOrder(orderPayload, formData.receiptFile);
